@@ -9,6 +9,7 @@ from .state import State, GaussianState, ParticleState, EnsembleState, \
     SqrtGaussianState, InformationState, CategoricalState, ASDGaussianState, \
     WeightedGaussianState, TaggedWeightedGaussianState, ASDTaggedWeightedGaussianState, \
     MultiModelParticleState, RaoBlackwellisedParticleState, BernoulliParticleState
+from .voxel import VoxelState
 from ..base import Property
 
 
@@ -149,3 +150,11 @@ class CompositeUpdate(Update, CompositeState):
         doc="Sequence of sub-updates comprising the composite update. All sub-updates must have "
             "matching timestamp. Must not be empty.")
     hypothesis: CompositeHypothesis = Property(doc="Hypothesis used for updating")
+
+
+class VoxelUpdate(Update, VoxelState):
+    """VoxelUpdate type
+
+    This is a voxel state update object representing updated occupancy
+    probabilities across a 3D voxel grid after incorporating measurements.
+    """

@@ -9,6 +9,7 @@ from .state import (State, GaussianState, EnsembleState,
                     SqrtGaussianState, InformationState, TaggedWeightedGaussianState,
                     WeightedGaussianState, CategoricalState, ASDGaussianState,
                     BernoulliParticleState, KernelParticleState, ASDTaggedWeightedGaussianState)
+from .voxel import VoxelState
 from ..base import Property
 from ..models.transition.base import TransitionModel
 from ..types.state import CreatableFromState, CompositeState, PointMassState
@@ -271,3 +272,11 @@ class CompositeMeasurementPrediction(MeasurementPrediction, CompositeState):
 
 
 MeasurementPrediction.register(CompositeState)  # noqa: E305
+
+
+class VoxelPrediction(Prediction, VoxelState):
+    """VoxelPrediction type
+
+    This is a voxel state prediction object representing predicted occupancy
+    probabilities across a 3D voxel grid.
+    """
