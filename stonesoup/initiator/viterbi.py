@@ -209,7 +209,7 @@ class ViterbiTrackInitiator(Initiator):
                 ndim = len(diff)
                 log_det = np.linalg.slogdet(covar)[1]
                 inv_covar = np.linalg.inv(covar)
-                mahalanobis = float(diff.T @ inv_covar @ diff)
+                mahalanobis = float((diff.T @ inv_covar @ diff).item())
                 score = -0.5 * (ndim * np.log(2 * np.pi) + log_det + mahalanobis)
             except np.linalg.LinAlgError:
                 score = -np.inf
