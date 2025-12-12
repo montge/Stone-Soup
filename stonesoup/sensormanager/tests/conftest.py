@@ -2,7 +2,11 @@ import pytest
 
 import numpy as np
 from datetime import datetime, timedelta
-from ordered_set import OrderedSet
+try:
+    from ordered_set import OrderedSet
+except ImportError:
+    # Fallback to set if ordered_set is not available
+    OrderedSet = set
 
 from ...types.array import StateVector
 from ...types.state import GaussianState

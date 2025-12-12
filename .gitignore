@@ -18,3 +18,4 @@ htmlcov/
 
 #Animation plotting example
 docs/examples/plotting/example_animation.gif
+venv/
