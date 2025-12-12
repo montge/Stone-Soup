@@ -6,12 +6,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.stonesoup</groupId>
-    <artifactId>stonesoup</artifactId>
+    <artifactId>stonesoup-core</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>Stone Soup Java Bindings</name>
-    <description>Java bindings for the Stone Soup tracking framework using Project Panama FFI</description>
+    <description>Java bindings for the Stone Soup tracking framework using Project Panama FFM API</description>
     <url>https://github.com/dstl/Stone-Soup</url>
 
     <licenses>
@@ -21,12 +21,19 @@
         </license>
     </licenses>
 
+    <developers>
+        <developer>
+            <name>Stone Soup Contributors</name>
+            <organization>DSTL</organization>
+        </developer>
+    </developers>
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
-        <maven.compiler.release>21</maven.compiler.release>
-        <junit.version>5.10.0</junit.version>
+        <maven.compiler.source>22</maven.compiler.source>
+        <maven.compiler.target>22</maven.compiler.target>
+        <maven.compiler.release>22</maven.compiler.release>
+        <junit.version>5.10.2</junit.version>
     </properties>
 
     <dependencies>
@@ -43,6 +50,12 @@
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -54,15 +67,13 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
+                <version>3.12.1</version>
                 <configuration>
-                    <source>21</source>
-                    <target>21</target>
-                    <release>21</release>
+                    <source>22</source>
+                    <target>22</target>
+                    <release>22</release>
                     <compilerArgs>
-                        <arg>--enable-preview</arg>
-                        <arg>--add-modules</arg>
-                        <arg>jdk.incubator.foreign</arg>
+                        <arg>--enable-native-access=ALL-UNNAMED</arg>
                     </compilerArgs>
                 </configuration>
             </plugin>
@@ -71,11 +82,9 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.1.2</version>
+                <version>3.2.5</version>
                 <configuration>
                     <argLine>
-                        --enable-preview
-                        --add-modules jdk.incubator.foreign
                         --enable-native-access=ALL-UNNAMED
                     </argLine>
                 </configuration>
@@ -91,6 +100,9 @@
                         <manifest>
                             <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
                         </manifest>
+                        <manifestEntries>
+                            <Automatic-Module-Name>org.stonesoup.core</Automatic-Module-Name>
+                        </manifestEntries>
                     </archive>
                 </configuration>
             </plugin>
@@ -104,7 +116,7 @@
                     <execution>
                         <id>attach-sources</id>
                         <goals>
-                            <goal>jar</goal>
+                            <goal>jar-source</goal>
                         </goals>
                     </execution>
                 </executions>
@@ -114,10 +126,11 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.6.0</version>
+                <version>3.6.3</version>
                 <configuration>
-                    <source>21</source>
-                    <additionalOptions>--enable-preview</additionalOptions>
+                    <source>22</source>
+                    <additionalOptions>-Xdoclint:none</additionalOptions>
+                    <failOnError>false</failOnError>
                 </configuration>
                 <executions>
                     <execution>
@@ -130,4 +143,43 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- Profile for Java 21 with preview features -->
+        <profile>
+            <id>java21-preview</id>
+            <activation>
+                <jdk>21</jdk>
+            </activation>
+            <properties>
+                <maven.compiler.source>21</maven.compiler.source>
+                <maven.compiler.target>21</maven.compiler.target>
+                <maven.compiler.release>21</maven.compiler.release>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <compilerArgs>
+                                <arg>--enable-preview</arg>
+                                <arg>--enable-native-access=ALL-UNNAMED</arg>
+                            </compilerArgs>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <argLine>
+                                --enable-preview
+                                --enable-native-access=ALL-UNNAMED
+                            </argLine>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

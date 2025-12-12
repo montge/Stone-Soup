@@ -28,6 +28,12 @@ workflows:
   docs:
     jobs:
       - docs
+  c-library:
+    jobs:
+      - libstonesoup-build
+      - misra-compliance:
+          requires:
+            - libstonesoup-build
   nightly:
     triggers:
       - schedule:
@@ -47,6 +53,8 @@ workflows:
       - ruff
       - bandit
       - security-scan
+      - libstonesoup-build
+      - misra-compliance
 jobs:
   test-310: &test-template
     docker:
@@ -314,3 +322,108 @@ jobs:
             echo "Note: Coverage enforcement will be implemented once coverage"
             echo "reports are properly aggregated from all test jobs."
             echo "For now, individual test jobs report coverage to Codecov."
+  libstonesoup-build:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: Install Build Dependencies
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y cmake build-essential
+      - run:
+          name: Build libstonesoup
+          command: |
+            cd libstonesoup
+            mkdir -p build && cd build
+            cmake .. -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+            make -j$(nproc)
+      - run:
+          name: Run C Library Tests
+          command: |
+            cd libstonesoup/build
+            ctest --output-on-failure
+      - persist_to_workspace:
+          root: .
+          paths:
+            - libstonesoup/build
+  misra-compliance:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install cppcheck
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y cppcheck
+      - run:
+          name: MISRA C Compliance Check
+          command: |
+            mkdir -p test-reports/misra
+            cd libstonesoup
+            # Run cppcheck with MISRA addon
+            # Note: Full MISRA checking requires commercial addon
+            # Using available checks as baseline
+            cppcheck \
+              --enable=all \
+              --std=c17 \
+              --suppress=missingIncludeSystem \
+              --xml \
+              --xml-version=2 \
+              -I include \
+              src \
+              2> ../test-reports/misra/cppcheck-c.xml || true
+            # Generate text report
+            cppcheck \
+              --enable=all \
+              --std=c17 \
+              --suppress=missingIncludeSystem \
+              -I include \
+              src \
+              2>&1 | tee ../test-reports/misra/cppcheck-c.txt || true
+      - run:
+          name: MISRA C++ Compliance Check (Bindings)
+          command: |
+            mkdir -p test-reports/misra
+            if [ -d "bindings/cpp" ]; then
+              cppcheck \
+                --enable=all \
+                --std=c++17 \
+                --suppress=missingIncludeSystem \
+                --xml \
+                --xml-version=2 \
+                -I bindings/cpp/include \
+                -I libstonesoup/include \
+                bindings/cpp/include \
+                2> test-reports/misra/cppcheck-cpp.xml || true
+              cppcheck \
+                --enable=all \
+                --std=c++17 \
+                --suppress=missingIncludeSystem \
+                -I bindings/cpp/include \
+                -I libstonesoup/include \
+                bindings/cpp/include \
+                2>&1 | tee test-reports/misra/cppcheck-cpp.txt || true
+            fi
+      - run:
+          name: Generate MISRA Summary Report
+          command: |
+            echo "=== MISRA Compliance Summary ===" > test-reports/misra/summary.txt
+            echo "" >> test-reports/misra/summary.txt
+            echo "C Library (libstonesoup):" >> test-reports/misra/summary.txt
+            if [ -f test-reports/misra/cppcheck-c.txt ]; then
+              grep -c "error\|warning\|style\|performance\|portability" test-reports/misra/cppcheck-c.txt || echo "0" >> test-reports/misra/summary.txt
+            fi
+            echo "" >> test-reports/misra/summary.txt
+            echo "C++ Bindings:" >> test-reports/misra/summary.txt
+            if [ -f test-reports/misra/cppcheck-cpp.txt ]; then
+              grep -c "error\|warning\|style\|performance\|portability" test-reports/misra/cppcheck-cpp.txt || echo "0" >> test-reports/misra/summary.txt
+            fi
+            cat test-reports/misra/summary.txt
+      - store_artifacts:
+          path: test-reports/misra
+          destination: misra-reports

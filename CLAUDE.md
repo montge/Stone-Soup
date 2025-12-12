@@ -133,3 +133,74 @@ Each subpackage follows the pattern:
 ## Python Version
 
 Requires Python 3.10+. Tested on 3.10-3.14.
+
+## Multi-Language SDK Development
+
+Stone Soup includes a C library (`libstonesoup`) and bindings for multiple languages.
+
+### C Library (libstonesoup)
+
+```bash
+# Build the C library
+cd libstonesoup
+mkdir -p build && cd build
+cmake .. -DBUILD_TESTS=ON
+make -j$(nproc)
+
+# Run C tests
+ctest --output-on-failure
+
+# Static analysis (requires cppcheck)
+cmake .. -DENABLE_CPPCHECK=ON
+make cppcheck
+```
+
+### Rust Bindings
+
+```bash
+cd bindings/rust
+cargo build
+cargo test
+cargo clippy  # Linting
+```
+
+### Python PyO3 Bindings
+
+```bash
+cd bindings/python
+pip install maturin
+maturin develop  # Build and install locally
+pytest tests/
+```
+
+### Java Bindings
+
+```bash
+cd bindings/java
+mvn compile
+mvn test
+```
+
+### Ada Bindings
+
+```bash
+cd bindings/ada
+gprbuild -P stonesoup.gpr
+```
+
+### Go Bindings
+
+```bash
+cd bindings/go
+go build ./...
+go test ./...
+```
+
+### Node.js Bindings
+
+```bash
+cd bindings/nodejs
+npm install
+npm run build
+npm test
+```

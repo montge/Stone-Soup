@@ -25,6 +25,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 # Source files
 set(STONESOUP_SOURCES
     src/types.c
+    src/matrix.c
     src/kalman.c
     src/particle.c
     src/coordinates.c
@@ -34,6 +35,7 @@ set(STONESOUP_SOURCES
 set(STONESOUP_HEADERS
     include/stonesoup/stonesoup.h
     include/stonesoup/types.h
+    include/stonesoup/matrix.h
     include/stonesoup/kalman.h
     include/stonesoup/particle.h
     include/stonesoup/coordinates.h
@@ -85,6 +87,46 @@ endif()
 if(BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+# Static Analysis with cppcheck (MISRA C:2012 compliance)
+option(ENABLE_CPPCHECK "Enable cppcheck static analysis" OFF)
+if(ENABLE_CPPCHECK)
+    find_program(CPPCHECK_EXECUTABLE cppcheck)
+    if(CPPCHECK_EXECUTABLE)
+        message(STATUS "Found cppcheck: ${CPPCHECK_EXECUTABLE}")
+
+        # Create custom target for MISRA analysis
+        add_custom_target(cppcheck
+            COMMAND ${CPPCHECK_EXECUTABLE}
+                --enable=all
+                --std=c17
+                --suppress=missingIncludeSystem
+                --suppress=unusedFunction
+                --error-exitcode=1
+                --inline-suppr
+                -I ${CMAKE_CURRENT_SOURCE_DIR}/include
+                ${CMAKE_CURRENT_SOURCE_DIR}/src
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMENT "Running cppcheck static analysis"
+        )
+
+        # MISRA C:2012 specific target (requires cppcheck premium or addon)
+        add_custom_target(misra
+            COMMAND ${CPPCHECK_EXECUTABLE}
+                --enable=all
+                --std=c17
+                --addon=misra
+                --suppress=missingIncludeSystem
+                --error-exitcode=1
+                -I ${CMAKE_CURRENT_SOURCE_DIR}/include
+                ${CMAKE_CURRENT_SOURCE_DIR}/src
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMENT "Running MISRA C:2012 compliance check"
+        )
+    else()
+        message(WARNING "cppcheck not found, static analysis targets disabled")
+    endif()
 endif()
 
 # Installation

@@ -71,6 +71,7 @@ Contents
 
     design
     stonesoup
+    requirements/index
     auto_tutorials/index
     auto_examples/index
     auto_demos/index

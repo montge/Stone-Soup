@@ -95,3 +95,9 @@ Probabilistic
 
 .. automodule:: stonesoup.updater.probability
     :show-inheritance:
+
+Voxel
+-----
+
+.. automodule:: stonesoup.updater.voxel
+    :show-inheritance:

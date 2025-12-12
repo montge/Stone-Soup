@@ -3,144 +3,249 @@ package org.stonesoup;
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 import java.nio.file.Path;
+import java.util.Optional;
 
 /**
- * Main interface class for Stone Soup Java bindings.
+ * Main entry point for Stone Soup Java bindings.
  *
- * This class provides Java access to the Stone Soup tracking framework
- * using Project Panama's Foreign Function & Memory API (JEP 424).
+ * <p>This class provides Java access to the Stone Soup tracking framework.
+ * It supports both native C library bindings via Project Panama FFM API
+ * (Java 22+) and pure Java fallback implementations.</p>
  *
- * <p>Requires Java 21+ with preview features enabled:</p>
- * <pre>
- * java --enable-preview --add-modules jdk.incubator.foreign ...
- * </pre>
+ * <h2>Usage Modes</h2>
+ * <ul>
+ *   <li><b>Native Mode</b>: Uses FFM API to call the native C library for
+ *       maximum performance. Requires Java 22+ and the native library.</li>
+ *   <li><b>Pure Java Mode</b>: Uses pure Java implementations. Works on any
+ *       Java 21+ runtime without native dependencies.</li>
+ * </ul>
+ *
+ * <h2>Example Usage</h2>
+ * <pre>{@code
+ * // Initialize (auto-detects mode)
+ * StoneSoup.initialize();
+ *
+ * // Create a state
+ * GaussianState state = GaussianState.of(
+ *     new double[]{0, 1, 0, 1},  // [x, vx, y, vy]
+ *     CovarianceMatrix.identity(4).toArray()
+ * );
+ *
+ * // Use Kalman filter
+ * CovarianceMatrix F = KalmanFilter.constantVelocityTransition(2, 1.0);
+ * CovarianceMatrix Q = CovarianceMatrix.identity(4).scale(0.1);
+ * GaussianState predicted = KalmanFilter.predict(state, F, Q);
+ *
+ * // Clean up
+ * StoneSoup.cleanup();
+ * }</pre>
  *
  * @author Stone Soup Contributors
  * @version 0.1.0
+ * @since 0.1.0
+ * @see GaussianState
+ * @see KalmanFilter
+ * @see StateVector
+ * @see CovarianceMatrix
  */
-public class StoneSoup {
+public final class StoneSoup {
 
-    private static final SymbolLookup SYMBOL_LOOKUP;
-    private static final Linker LINKER = Linker.nativeLinker();
+    /** Version string */
+    public static final String VERSION = "0.1.0";
 
-    // Function descriptors for C API
-    private static final FunctionDescriptor INIT_DESC =
-        FunctionDescriptor.of(ValueLayout.JAVA_INT);
-    private static final FunctionDescriptor CLEANUP_DESC =
-        FunctionDescriptor.of(ValueLayout.JAVA_INT);
+    /** Whether native library is available */
+    private static boolean nativeAvailable = false;
 
-    // Method handles for native functions
-    private static MethodHandle stonesoup_init;
-    private static MethodHandle stonesoup_cleanup;
+    /** Whether the library has been initialized */
+    private static boolean initialized = false;
 
+    /** Native symbol lookup (if available) */
+    private static SymbolLookup symbolLookup;
+
+    /** Native linker (if available) */
+    private static Linker linker;
+
+    /** Arena for native memory (if needed) */
+    private static Arena arena;
+
+    // Native function handles
+    private static MethodHandle stonesoup_init_handle;
+    private static MethodHandle stonesoup_cleanup_handle;
+
+    // Static initialization
     static {
-        // Load the native library
-        // This will need to be updated with the actual library path
-        String libName = getLibraryName();
+        tryLoadNativeLibrary();
+    }
+
+    /**
+     * Attempts to load the native library.
+     */
+    private static void tryLoadNativeLibrary() {
         try {
+            String libName = getLibraryName();
             System.loadLibrary(libName);
-            SYMBOL_LOOKUP = SymbolLookup.loaderLookup();
-            initializeMethodHandles();
-        } catch (UnsatisfiedLinkError e) {
-            throw new RuntimeException(
-                "Failed to load Stone Soup native library: " + libName, e);
+            linker = Linker.nativeLinker();
+            symbolLookup = SymbolLookup.loaderLookup();
+            initializeNativeHandles();
+            nativeAvailable = true;
+        } catch (UnsatisfiedLinkError | NoClassDefFoundError e) {
+            // Native library not available, use pure Java fallback
+            nativeAvailable = false;
         }
     }
 
     /**
-     * Get platform-specific library name.
+     * Gets the platform-specific library name.
      */
     private static String getLibraryName() {
-        String os = System.getProperty("os.name").toLowerCase();
-        if (os.contains("win")) {
-            return "stonesoup";
-        } else if (os.contains("mac")) {
-            return "stonesoup";
-        } else {
-            return "stonesoup";
-        }
+        return "stonesoup";
     }
 
     /**
-     * Initialize method handles for native functions.
+     * Initializes native function handles.
      */
-    private static void initializeMethodHandles() {
+    private static void initializeNativeHandles() {
         try {
-            // These will be uncommented once the C API is available
-            // stonesoup_init = lookupFunction("stonesoup_init", INIT_DESC);
-            // stonesoup_cleanup = lookupFunction("stonesoup_cleanup", CLEANUP_DESC);
+            FunctionDescriptor initDesc = FunctionDescriptor.of(ValueLayout.JAVA_INT);
+            FunctionDescriptor cleanupDesc = FunctionDescriptor.ofVoid();
+
+            Optional<MemorySegment> initSymbol = symbolLookup.find("stonesoup_init");
+            Optional<MemorySegment> cleanupSymbol = symbolLookup.find("stonesoup_cleanup");
+
+            if (initSymbol.isPresent()) {
+                stonesoup_init_handle = linker.downcallHandle(initSymbol.get(), initDesc);
+            }
+            if (cleanupSymbol.isPresent()) {
+                stonesoup_cleanup_handle = linker.downcallHandle(cleanupSymbol.get(), cleanupDesc);
+            }
         } catch (Exception e) {
-            throw new RuntimeException("Failed to initialize method handles", e);
+            nativeAvailable = false;
         }
     }
 
     /**
-     * Lookup a native function.
-     */
-    private static MethodHandle lookupFunction(String name, FunctionDescriptor descriptor) {
-        MemorySegment symbol = SYMBOL_LOOKUP.find(name)
-            .orElseThrow(() -> new RuntimeException("Symbol not found: " + name));
-        return LINKER.downcallHandle(symbol, descriptor);
-    }
-
-    /**
-     * Initialize the Stone Soup library.
+     * Initializes the Stone Soup library.
+     *
+     * <p>This method should be called once before using any other library
+     * functionality. It will automatically detect whether to use native
+     * or pure Java implementations.</p>
      *
      * @throws StoneSoupException if initialization fails
      */
     public static void initialize() throws StoneSoupException {
-        // Placeholder - will be implemented when C API is ready
-        // try {
-        //     int result = (int) stonesoup_init.invokeExact();
-        //     if (result != 0) {
-        //         throw new StoneSoupException("Initialization failed with code: " + result);
-        //     }
-        // } catch (Throwable t) {
-        //     throw new StoneSoupException("Initialization failed", t);
-        // }
+        if (initialized) {
+            return;
+        }
+
+        if (nativeAvailable && stonesoup_init_handle != null) {
+            try {
+                int result = (int) stonesoup_init_handle.invokeExact();
+                if (result != 0) {
+                    throw new StoneSoupException(result, "Native initialization failed");
+                }
+            } catch (StoneSoupException e) {
+                throw e;
+            } catch (Throwable t) {
+                throw new StoneSoupException("Native initialization failed", t);
+            }
+        }
+
+        arena = Arena.ofShared();
+        initialized = true;
     }
 
     /**
-     * Clean up Stone Soup resources.
+     * Cleans up Stone Soup resources.
      *
-     * @throws StoneSoupException if cleanup fails
+     * <p>This method should be called when done using the library to
+     * free any native resources.</p>
      */
-    public static void cleanup() throws StoneSoupException {
-        // Placeholder - will be implemented when C API is ready
-        // try {
-        //     int result = (int) stonesoup_cleanup.invokeExact();
-        //     if (result != 0) {
-        //         throw new StoneSoupException("Cleanup failed with code: " + result);
-        //     }
-        // } catch (Throwable t) {
-        //     throw new StoneSoupException("Cleanup failed", t);
-        // }
+    public static void cleanup() {
+        if (!initialized) {
+            return;
+        }
+
+        if (nativeAvailable && stonesoup_cleanup_handle != null) {
+            try {
+                stonesoup_cleanup_handle.invokeExact();
+            } catch (Throwable t) {
+                // Ignore cleanup errors
+            }
+        }
+
+        if (arena != null) {
+            arena.close();
+            arena = null;
+        }
+
+        initialized = false;
     }
 
     /**
-     * Get version information.
+     * Gets the version string.
      *
-     * @return version string
+     * @return the version string (e.g., "0.1.0")
      */
     public static String getVersion() {
-        return "0.1.0";
+        return VERSION;
+    }
+
+    /**
+     * Checks if native library is available.
+     *
+     * @return true if native library is loaded and available
+     */
+    public static boolean isNativeAvailable() {
+        return nativeAvailable;
+    }
+
+    /**
+     * Checks if the library has been initialized.
+     *
+     * @return true if initialize() has been called
+     */
+    public static boolean isInitialized() {
+        return initialized;
+    }
+
+    /**
+     * Gets the execution mode.
+     *
+     * @return "native" if using native library, "java" if using pure Java
+     */
+    public static String getMode() {
+        return nativeAvailable ? "native" : "java";
+    }
+
+    /**
+     * Gets the shared memory arena (for advanced usage).
+     *
+     * @return the arena, or null if not initialized
+     */
+    static Arena getArena() {
+        return arena;
+    }
+
+    /**
+     * Gets the native linker (for advanced usage).
+     *
+     * @return the linker, or null if native not available
+     */
+    static Linker getLinker() {
+        return linker;
+    }
+
+    /**
+     * Gets the symbol lookup (for advanced usage).
+     *
+     * @return the symbol lookup, or null if native not available
+     */
+    static SymbolLookup getSymbolLookup() {
+        return symbolLookup;
     }
 
     // Prevent instantiation
     private StoneSoup() {
         throw new AssertionError("Cannot instantiate utility class");
-    }
-
-    /**
-     * Custom exception for Stone Soup errors.
-     */
-    public static class StoneSoupException extends Exception {
-        public StoneSoupException(String message) {
-            super(message);
-        }
-
-        public StoneSoupException(String message, Throwable cause) {
-            super(message, cause);
-        }
     }
 }

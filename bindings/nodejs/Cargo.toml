@@ -1,0 +1,21 @@
+[package]
+name = "stonesoup-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Stone Soup Contributors"]
+description = "Node.js bindings for the Stone Soup tracking framework"
+license = "MIT"
+repository = "https://github.com/dstl/Stone-Soup"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { version = "2", features = ["napi9"] }
+napi-derive = "2"
+
+[build-dependencies]
+napi-build = "2"
+
+[profile.release]
+lto = true

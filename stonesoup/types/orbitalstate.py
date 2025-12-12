@@ -1,6 +1,7 @@
 from collections.abc import Mapping
+from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 
@@ -11,6 +12,10 @@ from . import Type
 from .array import StateVector, StateVectors, Matrix
 from .state import State, GaussianState, ParticleState
 from .angle import Inclination, EclipticLongitude
+from .coordinates import (
+    ReferenceFrame, GCRS, J2000, ICRS,
+    TimeVaryingTransform, RotationRateTransform
+)
 from ..reader.astronomical import TLEDictReader
 
 
@@ -732,6 +737,39 @@ class Orbital(Type):
         return {'line_1': line1, 'line_2': line2}
 
 
+class ReferenceFrameType(Enum):
+    """Enumerates the allowable reference frames for orbital states.
+
+    The default frame is J2000 (mean equator and equinox at J2000.0 epoch),
+    which is the classical inertial frame used in astrodynamics.
+    """
+    J2000 = "J2000"        # Mean equator and equinox at J2000.0
+    GCRS = "GCRS"          # Geocentric Celestial Reference System
+    ICRS = "ICRS"          # International Celestial Reference System
+    ECEF = "ECEF"          # Earth-Centered Earth-Fixed
+    ECI = "ECI"            # Generic Earth-Centered Inertial (alias for J2000)
+
+    @classmethod
+    def _missing_(cls, value):
+        """Allow case-insensitive matching."""
+        if isinstance(value, str):
+            for element in cls:
+                if element.value.lower() == value.lower():
+                    return element
+        raise ValueError(f"{value!r} is not a valid {cls.__name__}")
+
+    def get_frame_instance(self) -> ReferenceFrame:
+        """Get the corresponding ReferenceFrame instance."""
+        if self in (ReferenceFrameType.J2000, ReferenceFrameType.ECI):
+            return J2000()
+        elif self == ReferenceFrameType.GCRS:
+            return GCRS()
+        elif self == ReferenceFrameType.ICRS:
+            return ICRS()
+        else:
+            raise ValueError(f"Cannot create frame instance for {self}")
+
+
 class OrbitalState(Orbital, State):
     r"""The orbital state class which inherits from :class:`~.Orbital` and :class:`~.State`.
     The :attr:`state_vector` is held as :math:`[\mathbf{r}, \dot{\mathbf{r}}]`, the "Orbital State
@@ -740,11 +778,154 @@ class OrbitalState(Orbital, State):
     is the corresponding velocity vector. All methods provided by :class:`~.Orbital` are available.
     Formulae for conversions are generally found in, or derived from [4]_.
 
+    The orbital state can be expressed in different reference frames. The default is J2000
+    (mean equator and equinox at J2000.0), but GCRS, ICRS, or ECEF can be specified via
+    the ``reference_frame`` property.
+
     References
     ----------
     .. [4] Curtis, H.D. 2010, Orbital Mechanics for Engineering Students (3rd Ed), Elsevier
            Aerospace Engineering Series
     """
+
+    reference_frame: ReferenceFrameType = Property(
+        default=ReferenceFrameType.J2000,
+        doc="Reference frame for the orbital state. Default is J2000. "
+            "Acceptable values are 'J2000', 'GCRS', 'ICRS', 'ECI', or 'ECEF'."
+    )
+
+    def transform_to_frame(self, target_frame: ReferenceFrameType,
+                           timestamp: Optional[datetime] = None) -> 'OrbitalState':
+        """Transform the orbital state to a different reference frame.
+
+        Parameters
+        ----------
+        target_frame : ReferenceFrameType or str
+            The target reference frame. Can be a ReferenceFrameType enum or
+            a string like 'J2000', 'GCRS', 'ICRS'.
+        timestamp : datetime, optional
+            Time at which to perform the transformation. If None, uses the
+            state's timestamp. Required for time-dependent transformations.
+
+        Returns
+        -------
+        OrbitalState
+            A new OrbitalState in the target reference frame.
+
+        Examples
+        --------
+        >>> state_j2000 = OrbitalState(...)
+        >>> state_gcrs = state_j2000.transform_to_frame('GCRS')
+
+        """
+        # Convert string to enum if needed
+        if isinstance(target_frame, str):
+            target_frame = ReferenceFrameType(target_frame)
+
+        # No transformation needed if already in target frame
+        if target_frame == self.reference_frame:
+            return self
+
+        # Use state's timestamp if not provided
+        if timestamp is None:
+            timestamp = self.timestamp
+
+        # Get frame instances
+        source_frame = self.reference_frame.get_frame_instance()
+        target_frame_inst = target_frame.get_frame_instance()
+
+        # Extract position and velocity
+        position = np.array(self.state_vector[:3]).flatten()
+        velocity = np.array(self.state_vector[3:6]).flatten() if len(self.state_vector) >= 6 else None
+
+        # Perform transformation using frame's transform_to method
+        pos_new, vel_new = source_frame.transform_to(
+            target_frame_inst, position, velocity, timestamp
+        )
+
+        # Create new state vector
+        if vel_new is not None:
+            new_state_vector = StateVector(np.concatenate([pos_new, vel_new]))
+        else:
+            new_state_vector = StateVector(pos_new)
+
+        # Create new OrbitalState with transformed coordinates
+        return OrbitalState(
+            state_vector=new_state_vector,
+            timestamp=self.timestamp,
+            reference_frame=target_frame,
+            grav_parameter=self.grav_parameter,
+            metadata=self.metadata
+        )
+
+    def to_j2000(self, timestamp: Optional[datetime] = None) -> 'OrbitalState':
+        """Convert to J2000 reference frame.
+
+        Parameters
+        ----------
+        timestamp : datetime, optional
+            Time at which to perform the transformation.
+
+        Returns
+        -------
+        OrbitalState
+            Orbital state in J2000 frame.
+
+        """
+        return self.transform_to_frame(ReferenceFrameType.J2000, timestamp)
+
+    def to_gcrs(self, timestamp: Optional[datetime] = None) -> 'OrbitalState':
+        """Convert to GCRS (Geocentric Celestial Reference System).
+
+        Parameters
+        ----------
+        timestamp : datetime, optional
+            Time at which to perform the transformation.
+
+        Returns
+        -------
+        OrbitalState
+            Orbital state in GCRS frame.
+
+        """
+        return self.transform_to_frame(ReferenceFrameType.GCRS, timestamp)
+
+    def to_icrs(self, timestamp: Optional[datetime] = None) -> 'OrbitalState':
+        """Convert to ICRS (International Celestial Reference System).
+
+        Parameters
+        ----------
+        timestamp : datetime, optional
+            Time at which to perform the transformation.
+
+        Returns
+        -------
+        OrbitalState
+            Orbital state in ICRS frame.
+
+        """
+        return self.transform_to_frame(ReferenceFrameType.ICRS, timestamp)
+
+    @property
+    def position(self) -> np.ndarray:
+        """Get position vector (first 3 elements of state vector)."""
+        return np.array(self.state_vector[:3]).flatten()
+
+    @property
+    def velocity(self) -> np.ndarray:
+        """Get velocity vector (elements 3-6 of state vector)."""
+        return np.array(self.state_vector[3:6]).flatten()
+
+    def get_frame_instance(self) -> ReferenceFrame:
+        """Get the ReferenceFrame instance for this state's frame.
+
+        Returns
+        -------
+        ReferenceFrame
+            The reference frame instance.
+
+        """
+        return self.reference_frame.get_frame_instance()
 
 
 class GaussianOrbitalState(Orbital, GaussianState):

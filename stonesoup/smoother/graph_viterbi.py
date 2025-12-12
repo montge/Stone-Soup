@@ -257,11 +257,17 @@ class GraphViterbiSmoother(Smoother):
         """
         # Extract position from measurement
         if hasattr(measurement, 'state_vector'):
-            # Map to measurement space if needed
+            meas_dim = measurement.state_vector.shape[0]
             if hasattr(self.measurement_model, 'mapping'):
                 mapping = self.measurement_model.mapping
-                # Get position dimensions from mapping
-                meas_vec = measurement.state_vector[mapping[:2], :]
+                # Check if measurement is already in measurement space (e.g., Detection)
+                # or in state space (e.g., State)
+                if meas_dim == len(mapping):
+                    # Already in measurement space, just take first 2 dimensions
+                    meas_vec = measurement.state_vector[:2, :]
+                else:
+                    # In state space, apply mapping
+                    meas_vec = measurement.state_vector[mapping[:2], :]
             else:
                 meas_vec = measurement.state_vector[:2, :]
         else:

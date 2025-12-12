@@ -115,6 +115,22 @@ namespaces = false
 
 [tool.pytest.ini_options]
 python_classes = []
+testpaths = ["stonesoup"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "benchmark: marks tests as benchmarks",
+    "integration: marks tests as integration tests",
+    "e2e: marks tests as end-to-end tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
 
 [tool.coverage.run]
 branch = true
@@ -127,6 +143,11 @@ omit = [
 ]
 
 [tool.coverage.report]
+# Coverage enforcement thresholds
+fail_under = 90
+precision = 2
+show_missing = true
+
 # Regexes for lines to exclude from consideration
 exclude_also = [
     # Don't complain if tests don't hit defensive assertion code
@@ -137,7 +158,19 @@ exclude_also = [
 
     # Ignore type checking
     "if TYPE_CHECKING:",
+
+    # Ignore abstract methods
+    "@abstractmethod",
+
+    # Ignore protocol definitions
+    "class.*\\(.*Protocol.*\\):",
 ]
+
+[tool.coverage.html]
+directory = "coverage_html_report"
+
+[tool.coverage.xml]
+output = "coverage.xml"
 
 # Ruff configuration - fast Python linter
 [tool.ruff]

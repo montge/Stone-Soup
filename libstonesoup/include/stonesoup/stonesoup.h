@@ -60,6 +60,7 @@
 
 #include "stonesoup/version.h"
 #include "stonesoup/types.h"
+#include "stonesoup/matrix.h"
 #include "stonesoup/kalman.h"
 #include "stonesoup/particle.h"
 #include "stonesoup/coordinates.h"

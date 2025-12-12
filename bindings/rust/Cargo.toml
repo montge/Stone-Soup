@@ -8,6 +8,7 @@ license = "MIT"
 repository = "https://github.com/dstl/Stone-Soup"
 keywords = ["tracking", "estimation", "kalman", "particle-filter"]
 categories = ["science", "algorithms"]
+rust-version = "1.70"
 
 [lib]
 name = "stonesoup"
@@ -15,6 +16,8 @@ crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
 libc = "0.2"
+nalgebra = "0.32"
+thiserror = "1.0"
 
 [dev-dependencies]
 approx = "0.5"
@@ -25,9 +28,24 @@ cc = "1.0"
 [features]
 default = []
 # Enable parallel processing support
-parallel = []
+parallel = ["nalgebra/rayon"]
 # Enable GPU acceleration where available
 gpu = []
+
+# Clippy configuration
+[lints.clippy]
+# Deny dangerous patterns
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+# Style
+needless_return = "warn"
+redundant_closure = "warn"
+# Correctness
+cast_possible_truncation = "warn"
+cast_sign_loss = "warn"
+# Performance
+inefficient_to_string = "warn"
 
 [[example]]
 name = "kalman_filter"

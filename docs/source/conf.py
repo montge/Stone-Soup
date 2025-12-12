@@ -128,6 +128,29 @@ needs_extra_links = [
 needs_table_columns = 'id;title;status;type'
 needs_table_style = 'table'
 
+# Enable JSON/ReqIF export for requirements interchange
+needs_build_json = True
+needs_build_needumls = True
+
+# ReqIF export configuration
+needs_services = {}
+needs_extra_options = ['verification_method', 'priority', 'risk']
+
+# Generate needumls diagrams
+needuml_graph_style = 'lefttoright'
+
+# Custom status values for requirements
+needs_statuses = [
+    {'name': 'draft', 'description': 'Requirement is in draft state'},
+    {'name': 'open', 'description': 'Requirement is open and pending'},
+    {'name': 'implemented', 'description': 'Requirement has been implemented'},
+    {'name': 'verified', 'description': 'Requirement has been verified'},
+    {'name': 'closed', 'description': 'Requirement is closed/completed'},
+]
+
+# Default status for new requirements
+needs_default_status = 'open'
+
 autodoc_default_options = {
     'members': None,
     'member-order': 'bysource',
