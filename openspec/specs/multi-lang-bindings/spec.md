@@ -1,0 +1,174 @@
+# multi-lang-bindings Specification
+
+## Purpose
+TBD - created by archiving change add-multi-language-sdk. Update Purpose after archive.
+## Requirements
+### Requirement: Core C Library
+The system SHALL provide a C library (libstonesoup) that implements core tracking algorithms with a stable ABI.
+
+#### Scenario: StateVector operations available in C
+- **WHEN** a C program includes stonesoup.h
+- **THEN** StateVector creation, arithmetic, and transformation functions are available
+
+#### Scenario: Kalman filter operations available in C
+- **WHEN** a C program links against libstonesoup
+- **THEN** Kalman predict and update operations are callable
+
+#### Scenario: MISRA C:2012 compliance
+- **WHEN** libstonesoup source code is analyzed with cppcheck MISRA addon
+- **THEN** no mandatory rule violations are reported
+
+### Requirement: Rust Bindings
+The system SHALL provide safe Rust bindings for libstonesoup with zero-cost FFI abstractions.
+
+#### Scenario: Rust StateVector type
+- **WHEN** a Rust program uses stonesoup::StateVector
+- **THEN** the type provides safe access to underlying C operations with ownership semantics
+
+#### Scenario: Rust clippy compliance
+- **WHEN** Rust bindings are analyzed with clippy
+- **THEN** no warnings are reported at the default warning level
+
+#### Scenario: Rust dependency security
+- **WHEN** cargo-audit is run against Rust bindings
+- **THEN** no known vulnerabilities are reported in dependencies
+
+### Requirement: Python Bindings (PyO3)
+The system SHALL provide Python bindings via PyO3 that integrate with NumPy and maintain API compatibility.
+
+#### Scenario: NumPy array compatibility
+- **WHEN** a Python program creates a StateVector from a numpy array
+- **THEN** the data is shared without copying where possible
+
+#### Scenario: Existing API compatibility
+- **WHEN** existing Python code imports stonesoup types
+- **THEN** the public API behavior is unchanged
+
+#### Scenario: Performance improvement
+- **WHEN** Kalman filter operations are benchmarked
+- **THEN** PyO3 bindings perform at least 2x faster than pure Python for large state vectors
+
+### Requirement: Java Bindings
+The system SHALL provide Java bindings using Panama FFI (JEP 454) with JNI fallback for older Java versions.
+
+#### Scenario: Panama FFI on Java 21+
+- **WHEN** Java 21+ code uses StoneSoup classes
+- **THEN** operations use Panama FFI without JNI overhead
+
+#### Scenario: JNI fallback on Java 11-20
+- **WHEN** Java 11-20 code uses StoneSoup classes
+- **THEN** operations fall back to JNI bindings
+
+#### Scenario: Java type safety
+- **WHEN** Java code uses StateVector class
+- **THEN** type-safe operations are available with proper null handling
+
+### Requirement: Ada Bindings
+The system SHALL provide Ada bindings with SPARK subset support for formal verification.
+
+#### Scenario: Ada specification files
+- **WHEN** an Ada program withs Stone_Soup package
+- **THEN** type-safe bindings for core operations are available
+
+#### Scenario: SPARK contracts
+- **WHEN** SPARK subset operations are analyzed with GNATprove
+- **THEN** contracts are proven free of runtime exceptions
+
+#### Scenario: Ada tasking safety
+- **WHEN** multiple Ada tasks use Stone_Soup concurrently
+- **THEN** no data races occur with proper protected object usage
+
+### Requirement: C++ Bindings
+The system SHALL provide C++ header-only wrappers with RAII semantics for libstonesoup.
+
+#### Scenario: RAII resource management
+- **WHEN** a C++ StateVector object goes out of scope
+- **THEN** underlying C resources are automatically released
+
+#### Scenario: C++ exception safety
+- **WHEN** a C operation fails
+- **THEN** a C++ exception is thrown with descriptive error message
+
+#### Scenario: MISRA C++:2023 compliance
+- **WHEN** C++ bindings are analyzed for MISRA compliance
+- **THEN** no mandatory rule violations are reported
+
+### Requirement: Go Bindings
+The system SHALL provide Go bindings via cgo with idiomatic Go types.
+
+#### Scenario: Go module availability
+- **WHEN** go get github.com/dstl/stone-soup/go is executed
+- **THEN** the module is installed with all dependencies
+
+#### Scenario: Go error handling
+- **WHEN** a C operation fails
+- **THEN** an error value is returned following Go conventions
+
+#### Scenario: Go garbage collection compatibility
+- **WHEN** Go code uses StateVector
+- **THEN** C memory is properly freed when Go objects are collected
+
+### Requirement: Node.js Bindings
+The system SHALL provide Node.js bindings via napi-rs with TypeScript type definitions.
+
+#### Scenario: TypeScript types
+- **WHEN** TypeScript code imports @stonesoup/core
+- **THEN** full type definitions are available for IDE support
+
+#### Scenario: Async operation support
+- **WHEN** long-running operations are called
+- **THEN** Promise-based async APIs are available
+
+#### Scenario: Node.js memory safety
+- **WHEN** Node.js bindings are run under valgrind
+- **THEN** no memory leaks are detected
+
+### Requirement: MATLAB Bindings
+The system SHALL provide MATLAB bindings via MEX interface for integration with MATLAB and Simulink.
+
+#### Scenario: MEX function availability
+- **WHEN** MATLAB code calls stonesoup MEX functions
+- **THEN** core tracking operations execute via libstonesoup
+
+#### Scenario: MATLAB array compatibility
+- **WHEN** MATLAB arrays are passed to stonesoup functions
+- **THEN** data is efficiently transferred via MEX API
+
+#### Scenario: Simulink block library
+- **WHEN** Simulink model uses Stone Soup blocks
+- **THEN** S-function blocks wrap core algorithms for simulation
+
+#### Scenario: MATLAB Coder compatibility
+- **WHEN** MATLAB code is compiled with MATLAB Coder
+- **THEN** generated C code links against libstonesoup
+
+### Requirement: GNU Octave Bindings
+The system SHALL provide GNU Octave bindings compatible with MATLAB interface.
+
+#### Scenario: Octave MEX compatibility
+- **WHEN** Octave loads stonesoup MEX files
+- **THEN** same API as MATLAB is available
+
+#### Scenario: Octave package
+- **WHEN** pkg install stonesoup is run in Octave
+- **THEN** stonesoup functions are available
+
+#### Scenario: MATLAB script compatibility
+- **WHEN** MATLAB scripts using stonesoup run in Octave
+- **THEN** scripts execute with same results
+
+### Requirement: Scilab Bindings
+The system SHALL provide Scilab bindings via gateway interface.
+
+#### Scenario: Scilab gateway functions
+- **WHEN** Scilab code calls stonesoup functions
+- **THEN** operations execute via C gateway interface
+
+#### Scenario: Xcos palette
+- **WHEN** Xcos model uses Stone Soup palette
+- **THEN** tracking blocks are available for simulation
+
+#### Scenario: Scilab ATOMS package
+- **WHEN** atomsInstall stonesoup is run
+- **THEN** stonesoup module is installed
+
