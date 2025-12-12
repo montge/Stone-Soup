@@ -1,0 +1,74 @@
+{% set name = "stonesoup" %}
+{% set version = "1.0.0" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  path: ../..
+
+build:
+  number: 0
+  noarch: python
+  script: {{ PYTHON }} -m pip install . -vv
+  entry_points:
+    - stonesoup = stonesoup.cli:main
+
+requirements:
+  host:
+    - python >=3.10
+    - pip
+    - setuptools
+    - wheel
+  run:
+    - python >=3.10
+    - numpy >=1.21.0
+    - scipy >=1.7.0
+    - matplotlib-base >=3.3.0
+    - ruamel.yaml >=0.17.0
+    - pymap3d
+    - rtree
+    - utm
+
+test:
+  imports:
+    - stonesoup
+    - stonesoup.base
+    - stonesoup.types
+    - stonesoup.models
+    - stonesoup.predictor
+    - stonesoup.updater
+    - stonesoup.hypothesiser
+    - stonesoup.dataassociator
+    - stonesoup.tracker
+    - stonesoup.initiator
+    - stonesoup.deleter
+  commands:
+    - pip check
+  requires:
+    - pip
+
+about:
+  home: https://github.com/dstl/Stone-Soup
+  license: MIT
+  license_family: MIT
+  license_file: LICENSE
+  summary: Framework for target tracking and state estimation
+  description: |
+    Stone Soup is a software project to provide the target tracking and state
+    estimation community with a framework for the development and testing of
+    tracking and state estimation algorithms.
+
+    Key features:
+    - Modular, component-based architecture
+    - Support for multiple tracking algorithms (Kalman, Particle, etc.)
+    - Extensible model system for predictions and measurements
+    - Data association and multi-target tracking
+    - Comprehensive test suite and documentation
+  doc_url: https://stonesoup.readthedocs.io
+  dev_url: https://github.com/dstl/Stone-Soup
+
+extra:
+  recipe-maintainers:
+    - stonesoup-developers

@@ -44,8 +44,89 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.autosectionlabel',
     'sphinx_gallery.gen_gallery',
+    'sphinx_needs',
 ]
 napoleon_google_docstring = False
+
+# -- sphinx-needs configuration -----------------------------------------------
+
+# Define the ID format for needs items
+needs_id_regex = '^[A-Z0-9_]+-[0-9]+'
+
+# Define custom need types for requirements traceability
+needs_types = [
+    {
+        'directive': 'req',
+        'title': 'Functional Requirement',
+        'prefix': 'REQ-',
+        'color': '#BFD8D2',
+        'style': 'node'
+    },
+    {
+        'directive': 'spec',
+        'title': 'Specification',
+        'prefix': 'SPEC-',
+        'color': '#FEDCD2',
+        'style': 'node'
+    },
+    {
+        'directive': 'test',
+        'title': 'Test Case',
+        'prefix': 'TEST-',
+        'color': '#DF744A',
+        'style': 'node'
+    },
+    {
+        'directive': 'perf',
+        'title': 'Performance Requirement',
+        'prefix': 'PERF-',
+        'color': '#DCB239',
+        'style': 'node'
+    },
+    {
+        'directive': 'safety',
+        'title': 'Safety Requirement',
+        'prefix': 'SAFETY-',
+        'color': '#FF6B6B',
+        'style': 'node'
+    },
+    {
+        'directive': 'icd',
+        'title': 'Interface Requirement',
+        'prefix': 'ICD-',
+        'color': '#95E1D3',
+        'style': 'node'
+    },
+]
+
+# Define extra link types for traceability
+needs_extra_links = [
+    {
+        'option': 'implements',
+        'incoming': 'is implemented by',
+        'outgoing': 'implements',
+        'copy': False,
+        'color': '#00AA00',
+    },
+    {
+        'option': 'tests',
+        'incoming': 'is tested by',
+        'outgoing': 'tests',
+        'copy': False,
+        'color': '#0000AA',
+    },
+    {
+        'option': 'satisfies',
+        'incoming': 'is satisfied by',
+        'outgoing': 'satisfies',
+        'copy': False,
+        'color': '#AA00AA',
+    },
+]
+
+# Additional sphinx-needs configuration options
+needs_table_columns = 'id;title;status;type'
+needs_table_style = 'table'
 
 autodoc_default_options = {
     'members': None,

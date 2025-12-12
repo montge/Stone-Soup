@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="1">
+    <title>Stone Soup</title>
+    <organization>uk.gov.dstl</organization>
+    <domains enable_anywhere="false" enable_currentUserHome="true" enable_localSystem="true"/>
+
+    <options customize="always" require-scripts="false" rootVolumeOnly="false"/>
+
+    <welcome file="welcome.html" mime-type="text/html"/>
+    <license file="license.html" mime-type="text/html"/>
+    <readme file="readme.html" mime-type="text/html"/>
+    <conclusion file="conclusion.html" mime-type="text/html"/>
+
+    <background file="background.png" alignment="bottomleft" scaling="none"/>
+
+    <choices-outline>
+        <line choice="default">
+            <line choice="stonesoup"/>
+            <line choice="documentation"/>
+            <line choice="examples"/>
+        </line>
+    </choices-outline>
+
+    <choice id="default"/>
+
+    <choice id="stonesoup"
+            visible="true"
+            title="Stone Soup Framework"
+            description="Core Stone Soup Python library and dependencies"
+            start_selected="true"
+            enabled="true">
+        <pkg-ref id="uk.gov.dstl.stonesoup.core"/>
+    </choice>
+
+    <choice id="documentation"
+            visible="true"
+            title="Documentation"
+            description="API documentation and user guides"
+            start_selected="true"
+            enabled="true">
+        <pkg-ref id="uk.gov.dstl.stonesoup.docs"/>
+    </choice>
+
+    <choice id="examples"
+            visible="true"
+            title="Examples and Tutorials"
+            description="Example scripts and Jupyter notebooks"
+            start_selected="true"
+            enabled="true">
+        <pkg-ref id="uk.gov.dstl.stonesoup.examples"/>
+    </choice>
+
+    <pkg-ref id="uk.gov.dstl.stonesoup.core">
+        <bundle-version>
+            <bundle id="uk.gov.dstl.stonesoup"
+                    CFBundleVersion="1.0.0"
+                    path="/usr/local/lib/python3.12/site-packages/stonesoup"/>
+        </bundle-version>
+    </pkg-ref>
+
+    <pkg-ref id="uk.gov.dstl.stonesoup.docs"/>
+    <pkg-ref id="uk.gov.dstl.stonesoup.examples"/>
+
+    <product id="uk.gov.dstl.stonesoup" version="1.0.0"/>
+
+    <volume-check>
+        <allowed-os-versions>
+            <os-version min="10.13"/>
+        </allowed-os-versions>
+    </volume-check>
+
+    <installation-check script="installCheck()"/>
+
+    <script>
+    <![CDATA[
+    function installCheck() {
+        var pythonVersion = system.run('/usr/bin/python3', '--version');
+        if (pythonVersion.match(/Python 3\.(1[0-9]|[2-9][0-9])/)) {
+            return true;
+        }
+        my.result.type = 'Fatal';
+        my.result.title = 'Python 3.10 or later required';
+        my.result.message = 'Stone Soup requires Python 3.10 or later. Please install a compatible Python version.';
+        return false;
+    }
+    ]]>
+    </script>
+
+</installer-gui-script>

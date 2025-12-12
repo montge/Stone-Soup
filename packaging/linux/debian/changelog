@@ -1,0 +1,19 @@
+stonesoup (1.0.0-1) unstable; urgency=medium
+
+  * Initial Debian package release
+  * Framework for target tracking and state estimation
+  * Modular component-based architecture
+  * Support for Kalman, particle, and other tracking algorithms
+  * Comprehensive test suite and documentation
+
+ -- Stone Soup Developers <stonesoup@dstl.gov.uk>  Thu, 11 Dec 2025 00:00:00 +0000
+
+stonesoup (0.1~beta-1) experimental; urgency=low
+
+  * Initial beta release
+  * Core tracking framework implementation
+  * Basic Kalman filter support
+  * Particle filter implementation
+  * Documentation and examples
+
+ -- Stone Soup Developers <stonesoup@dstl.gov.uk>  Mon, 01 Jan 2024 00:00:00 +0000

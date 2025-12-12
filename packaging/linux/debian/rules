@@ -1,0 +1,38 @@
+#!/usr/bin/make -f
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+export PYBUILD_NAME=stonesoup
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -rf build/
+	rm -rf *.egg-info/
+
+override_dh_auto_build:
+	dh_auto_build
+
+override_dh_auto_test:
+	# Run tests during build
+	# Uncomment when tests are ready
+	# PYBUILD_SYSTEM=custom \
+	# PYBUILD_TEST_ARGS="{interpreter} -m pytest stonesoup" \
+	# dh_auto_test
+
+override_dh_auto_install:
+	dh_auto_install
+
+override_dh_install:
+	dh_install
+	# Install documentation if available
+	if [ -d docs/build/html ]; then \
+		mkdir -p debian/python3-stonesoup/usr/share/doc/python3-stonesoup/html; \
+		cp -r docs/build/html/* debian/python3-stonesoup/usr/share/doc/python3-stonesoup/html/; \
+	fi
+
+override_dh_installchangelogs:
+	dh_installchangelogs CHANGELOG.md
