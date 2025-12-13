@@ -5,6 +5,7 @@
 [![Python Version](https://img.shields.io/pypi/pyversions/stonesoup?style=flat)](https://pypi.org/project/stonesoup)
 [![License](https://img.shields.io/github/license/dstl/Stone-Soup?style=flat)](https://github.com/dstl/Stone-Soup/blob/main/LICENSE)
 [![CircleCI branch](https://img.shields.io/circleci/project/github/dstl/Stone-Soup/main.svg?label=tests&style=flat)](https://circleci.com/gh/dstl/Stone-Soup)
+[![Nightly Build](https://img.shields.io/github/actions/workflow/status/dstl/Stone-Soup/nightly.yml?label=nightly&style=flat)](https://github.com/dstl/Stone-Soup/actions/workflows/nightly.yml)
 [![Codecov](https://img.shields.io/codecov/c/github/dstl/Stone-Soup.svg)](https://codecov.io/gh/dstl/Stone-Soup)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=stonesoup&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=stonesoup)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=stonesoup&metric=coverage)](https://sonarcloud.io/summary/new_code?id=stonesoup)
