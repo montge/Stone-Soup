@@ -54,7 +54,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ['3.10', '3.11', '3.12', '3.13']
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
 
     steps:
       - name: Set up Python ${{ matrix.python-version }}
@@ -75,7 +75,7 @@ jobs:
           pip install dist/*.whl
 
       - name: Test import
-        run: python -c "import stonesoup; print(f'Stone Soup version: {stonesoup.__version__}')"
+        run: python -c "import stonesoup; print('Stone Soup version:', stonesoup.__version__)"
 
   publish-pypi:
     name: Publish to PyPI
@@ -98,11 +98,118 @@ jobs:
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
 
-  create-release:
-    name: Create GitHub Release
+  # Rust release to crates.io
+  publish-rust:
+    name: Publish Rust Crate
     needs: [build, test-install]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Update Cargo.toml version
+        working-directory: bindings/rust
+        run: |
+          sed -i 's/^version = ".*"/version = "${{ steps.version.outputs.version }}"/' Cargo.toml
+
+      - name: Publish to crates.io
+        working-directory: bindings/rust
+        run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        continue-on-error: true
+
+  # Node.js release to npm
+  publish-npm:
+    name: Publish npm Package
+    needs: [build, test-install]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install Rust (for napi-rs)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Update package.json version
+        working-directory: bindings/nodejs
+        run: npm version ${{ steps.version.outputs.version }} --no-git-tag-version
+
+      - name: Install dependencies
+        working-directory: bindings/nodejs
+        run: npm ci
+
+      - name: Build
+        working-directory: bindings/nodejs
+        run: npm run build
+
+      - name: Publish to npm
+        working-directory: bindings/nodejs
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        continue-on-error: true
+
+  # Java release to Maven Central
+  publish-maven:
+    name: Publish Maven Artifact
+    needs: [build, test-install]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          server-id: ossrh
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Set version in pom.xml
+        working-directory: bindings/java
+        run: mvn versions:set -DnewVersion=${{ steps.version.outputs.version }}
+
+      - name: Deploy to Maven Central
+        working-directory: bindings/java
+        run: mvn clean deploy -P release -DskipTests
+        env:
+          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        continue-on-error: true
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build, test-install, publish-pypi, publish-rust, publish-npm, publish-maven]
+    runs-on: ubuntu-latest
+    if: always() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
 
     steps:
       - uses: actions/checkout@v4
@@ -124,6 +231,18 @@ jobs:
           cat CHANGELOG.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      - name: Collect publish status
+        id: status
+        run: |
+          echo "## Package Publication Status" >> status.md
+          echo "" >> status.md
+          echo "| Package | Status |" >> status.md
+          echo "|---------|--------|" >> status.md
+          echo "| PyPI | ${{ needs.publish-pypi.result }} |" >> status.md
+          echo "| crates.io | ${{ needs.publish-rust.result }} |" >> status.md
+          echo "| npm | ${{ needs.publish-npm.result }} |" >> status.md
+          echo "| Maven Central | ${{ needs.publish-maven.result }} |" >> status.md
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -135,8 +254,28 @@ jobs:
 
             ## Installation
 
+            **Python:**
             ```bash
             pip install stonesoup==${{ github.ref_name }}
+            ```
+
+            **Rust:**
+            ```bash
+            cargo add stonesoup
+            ```
+
+            **Node.js:**
+            ```bash
+            npm install @stonesoup/core
+            ```
+
+            **Java (Maven):**
+            ```xml
+            <dependency>
+              <groupId>uk.gov.dstl</groupId>
+              <artifactId>stonesoup</artifactId>
+              <version>${{ github.ref_name }}</version>
+            </dependency>
             ```
 
             ## Documentation
