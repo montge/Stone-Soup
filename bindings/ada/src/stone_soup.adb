@@ -23,12 +23,12 @@ is
 
    function Zeros (Dim : Dimension_Range) return State_Vector is
    begin
-      return (Dim => Dim, Data => (others => 0.0));
+      return (Dim => Dim, Data => [others => 0.0]);
    end Zeros;
 
    function Fill (Dim : Dimension_Range; Value : Long_Float) return State_Vector is
    begin
-      return (Dim => Dim, Data => (others => Value));
+      return (Dim => Dim, Data => [others => Value]);
    end Fill;
 
    function Get_Dim (SV : State_Vector) return Dimension_Range is
@@ -36,14 +36,14 @@ is
       return SV.Dim;
    end Get_Dim;
 
-   function Get (SV : State_Vector; Index : Dimension_Index) return Long_Float is
+   function Get (SV : State_Vector; Index : Dimension_Range) return Long_Float is
    begin
       return SV.Data (Index);
    end Get;
 
    procedure Set
-     (SV    : in out State_Vector;
-      Index : Dimension_Index;
+     (SV    : in Out State_Vector;
+      Index : Dimension_Range;
       Value : Long_Float) is
    begin
       SV.Data (Index) := Value;
@@ -52,7 +52,7 @@ is
    function Norm (SV : State_Vector) return Long_Float is
       Sum : Long_Float := 0.0;
    begin
-      for I in 0 .. SV.Dim - 1 loop
+      for I in 1 .. SV.Dim loop
          Sum := Sum + SV.Data (I) * SV.Data (I);
       end loop;
       return Sqrt (Sum);
@@ -61,7 +61,7 @@ is
    function "+" (Left, Right : State_Vector) return State_Vector is
       Result : State_Vector (Left.Dim);
    begin
-      for I in 0 .. Left.Dim - 1 loop
+      for I in 1 .. Left.Dim loop
          Result.Data (I) := Left.Data (I) + Right.Data (I);
       end loop;
       return Result;
@@ -70,7 +70,7 @@ is
    function "-" (Left, Right : State_Vector) return State_Vector is
       Result : State_Vector (Left.Dim);
    begin
-      for I in 0 .. Left.Dim - 1 loop
+      for I in 1 .. Left.Dim loop
          Result.Data (I) := Left.Data (I) - Right.Data (I);
       end loop;
       return Result;
@@ -79,7 +79,7 @@ is
    function "*" (Factor : Long_Float; SV : State_Vector) return State_Vector is
       Result : State_Vector (SV.Dim);
    begin
-      for I in 0 .. SV.Dim - 1 loop
+      for I in 1 .. SV.Dim loop
          Result.Data (I) := Factor * SV.Data (I);
       end loop;
       return Result;
@@ -100,13 +100,13 @@ is
 
    function Zero_Matrix (Dim : Dimension_Range) return Covariance_Matrix is
    begin
-      return (Dim => Dim, Data => (others => (others => 0.0)));
+      return (Dim => Dim, Data => [others => [others => 0.0]]);
    end Zero_Matrix;
 
    function Diagonal (Diag : State_Vector) return Covariance_Matrix is
       Result : Covariance_Matrix (Diag.Dim);
    begin
-      for I in 0 .. Diag.Dim - 1 loop
+      for I in 1 .. Diag.Dim loop
          Result.Data (I, I) := Diag.Data (I);
       end loop;
       return Result;
@@ -119,16 +119,16 @@ is
 
    function Get
      (M   : Covariance_Matrix;
-      Row : Dimension_Index;
-      Col : Dimension_Index) return Long_Float is
+      Row : Dimension_Range;
+      Col : Dimension_Range) return Long_Float is
    begin
       return M.Data (Row, Col);
    end Get;
 
    procedure Set
      (M     : in out Covariance_Matrix;
-      Row   : Dimension_Index;
-      Col   : Dimension_Index;
+      Row   : Dimension_Range;
+      Col   : Dimension_Range;
       Value : Long_Float) is
    begin
       M.Data (Row, Col) := Value;
@@ -137,7 +137,7 @@ is
    function Trace (M : Covariance_Matrix) return Long_Float is
       Sum : Long_Float := 0.0;
    begin
-      for I in 0 .. M.Dim - 1 loop
+      for I in 1 .. M.Dim loop
          Sum := Sum + M.Data (I, I);
       end loop;
       return Sum;
@@ -146,8 +146,8 @@ is
    function "+" (Left, Right : Covariance_Matrix) return Covariance_Matrix is
       Result : Covariance_Matrix (Left.Dim);
    begin
-      for I in 0 .. Left.Dim - 1 loop
-         for J in 0 .. Left.Dim - 1 loop
+      for I in 1 .. Left.Dim loop
+         for J in 1 .. Left.Dim loop
             Result.Data (I, J) := Left.Data (I, J) + Right.Data (I, J);
          end loop;
       end loop;
@@ -157,8 +157,8 @@ is
    function "-" (Left, Right : Covariance_Matrix) return Covariance_Matrix is
       Result : Covariance_Matrix (Left.Dim);
    begin
-      for I in 0 .. Left.Dim - 1 loop
-         for J in 0 .. Left.Dim - 1 loop
+      for I in 1 .. Left.Dim loop
+         for J in 1 .. Left.Dim loop
             Result.Data (I, J) := Left.Data (I, J) - Right.Data (I, J);
          end loop;
       end loop;
@@ -168,8 +168,8 @@ is
    function "*" (Factor : Long_Float; M : Covariance_Matrix) return Covariance_Matrix is
       Result : Covariance_Matrix (M.Dim);
    begin
-      for I in 0 .. M.Dim - 1 loop
-         for J in 0 .. M.Dim - 1 loop
+      for I in 1 .. M.Dim loop
+         for J in 1 .. M.Dim loop
             Result.Data (I, J) := Factor * M.Data (I, J);
          end loop;
       end loop;
@@ -180,10 +180,10 @@ is
       Result : Covariance_Matrix (Left.Dim);
       Sum    : Long_Float;
    begin
-      for I in 0 .. Left.Dim - 1 loop
-         for J in 0 .. Left.Dim - 1 loop
+      for I in 1 .. Left.Dim loop
+         for J in 1 .. Left.Dim loop
             Sum := 0.0;
-            for K in 0 .. Left.Dim - 1 loop
+            for K in 1 .. Left.Dim loop
                Sum := Sum + Left.Data (I, K) * Right.Data (K, J);
             end loop;
             Result.Data (I, J) := Sum;
@@ -196,9 +196,9 @@ is
       Result : State_Vector (V.Dim);
       Sum    : Long_Float;
    begin
-      for I in 0 .. M.Dim - 1 loop
+      for I in 1 .. M.Dim loop
          Sum := 0.0;
-         for J in 0 .. M.Dim - 1 loop
+         for J in 1 .. M.Dim loop
             Sum := Sum + M.Data (I, J) * V.Data (J);
          end loop;
          Result.Data (I) := Sum;
@@ -209,8 +209,8 @@ is
    function Transpose (M : Covariance_Matrix) return Covariance_Matrix is
       Result : Covariance_Matrix (M.Dim);
    begin
-      for I in 0 .. M.Dim - 1 loop
-         for J in 0 .. M.Dim - 1 loop
+      for I in 1 .. M.Dim loop
+         for J in 1 .. M.Dim loop
             Result.Data (I, J) := M.Data (J, I);
          end loop;
       end loop;
@@ -266,10 +266,10 @@ is
       Result : Covariance_Matrix (A.Dim);
       Sum    : Long_Float;
    begin
-      for I in 0 .. A.Dim - 1 loop
-         for J in 0 .. A.Dim - 1 loop
+      for I in 1 .. A.Dim loop
+         for J in 1 .. A.Dim loop
             Sum := 0.0;
-            for K in 0 .. A.Dim - 1 loop
+            for K in 1 .. A.Dim loop
                Sum := Sum + A.Data (I, K) * B.Data (J, K);
             end loop;
             Result.Data (I, J) := Sum;

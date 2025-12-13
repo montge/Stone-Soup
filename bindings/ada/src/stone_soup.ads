@@ -39,44 +39,44 @@ is
    -- State Vector Type
    ---------------------------------------------------------------------------
 
-   -- Fixed-size array for state vector data
-   type State_Vector_Array is array (Dimension_Index range <>) of Long_Float;
+   -- Fixed-size array for state vector data (1-based indexing for Ada)
+   type State_Vector_Array is array (Dimension_Range range <>) of Long_Float;
 
    -- State vector with known dimension
    type State_Vector (Dim : Dimension_Range) is record
-      Data : State_Vector_Array (0 .. Dim - 1) := (others => 0.0);
+      Data : State_Vector_Array (1 .. Dim) := [others => 0.0];
    end record
      with Dynamic_Predicate => Dim > 0;
 
    -- Create a zero state vector
    function Zeros (Dim : Dimension_Range) return State_Vector
      with Post => Zeros'Result.Dim = Dim and then
-                  (for all I in 0 .. Dim - 1 =>
+                  (for all I in 1 .. Dim =>
                      Zeros'Result.Data (I) = 0.0);
 
    -- Create a state vector filled with a value
    function Fill (Dim : Dimension_Range; Value : Long_Float) return State_Vector
      with Post => Fill'Result.Dim = Dim and then
-                  (for all I in 0 .. Dim - 1 =>
+                  (for all I in 1 .. Dim =>
                      Fill'Result.Data (I) = Value);
 
    -- Get the dimension of a state vector
    function Get_Dim (SV : State_Vector) return Dimension_Range
      with Post => Get_Dim'Result = SV.Dim;
 
-   -- Get value at index (0-based)
-   function Get (SV : State_Vector; Index : Dimension_Index) return Long_Float
-     with Pre => Index < SV.Dim,
+   -- Get value at index (1-based)
+   function Get (SV : State_Vector; Index : Dimension_Range) return Long_Float
+     with Pre => Index <= SV.Dim,
           Post => Get'Result = SV.Data (Index);
 
-   -- Set value at index (0-based)
+   -- Set value at index (1-based)
    procedure Set
      (SV    : in out State_Vector;
-      Index : Dimension_Index;
+      Index : Dimension_Range;
       Value : Long_Float)
-     with Pre  => Index < SV.Dim,
+     with Pre  => Index <= SV.Dim,
           Post => SV.Data (Index) = Value and then
-                  (for all I in 0 .. SV.Dim - 1 =>
+                  (for all I in 1 .. SV.Dim =>
                      (if I /= Index then SV.Data (I) = SV.Data'Old (I)));
 
    -- Compute Euclidean norm
@@ -101,13 +101,13 @@ is
    -- Covariance Matrix Type
    ---------------------------------------------------------------------------
 
-   -- Fixed-size 2D array for matrix data (row-major)
-   type Matrix_Array is array (Dimension_Index range <>,
-                               Dimension_Index range <>) of Long_Float;
+   -- Fixed-size 2D array for matrix data (row-major, 1-based indexing)
+   type Matrix_Array is array (Dimension_Range range <>,
+                               Dimension_Range range <>) of Long_Float;
 
    -- Covariance matrix with known dimension
    type Covariance_Matrix (Dim : Dimension_Range) is record
-      Data : Matrix_Array (0 .. Dim - 1, 0 .. Dim - 1) := (others => (others => 0.0));
+      Data : Matrix_Array (1 .. Dim, 1 .. Dim) := [others => [others => 0.0]];
    end record
      with Dynamic_Predicate => Dim > 0;
 
@@ -127,21 +127,21 @@ is
    function Get_Dim (M : Covariance_Matrix) return Dimension_Range
      with Post => Get_Dim'Result = M.Dim;
 
-   -- Get element at (row, col)
+   -- Get element at (row, col) - 1-based indexing
    function Get
      (M   : Covariance_Matrix;
-      Row : Dimension_Index;
-      Col : Dimension_Index) return Long_Float
-     with Pre  => Row < M.Dim and Col < M.Dim,
+      Row : Dimension_Range;
+      Col : Dimension_Range) return Long_Float
+     with Pre  => Row <= M.Dim and Col <= M.Dim,
           Post => Get'Result = M.Data (Row, Col);
 
-   -- Set element at (row, col)
+   -- Set element at (row, col) - 1-based indexing
    procedure Set
      (M     : in out Covariance_Matrix;
-      Row   : Dimension_Index;
-      Col   : Dimension_Index;
+      Row   : Dimension_Range;
+      Col   : Dimension_Range;
       Value : Long_Float)
-     with Pre  => Row < M.Dim and Col < M.Dim,
+     with Pre  => Row <= M.Dim and Col <= M.Dim,
           Post => M.Data (Row, Col) = Value;
 
    -- Compute trace (sum of diagonal)
