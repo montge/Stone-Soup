@@ -17,4 +17,4 @@
 
 ## 5. Reporting
 - [x] 5.1 Upload security reports as artifacts
-- [ ] 5.2 Add security findings to PR comments (GitHub Security tab via SARIF)
+- [x] 5.2 Add security findings to PR comments (GitHub Security tab via SARIF upload)

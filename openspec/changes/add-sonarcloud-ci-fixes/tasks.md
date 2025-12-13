@@ -20,7 +20,7 @@
 - [x] 4.2 Add SonarCloud coverage badge
 - [x] 4.3 Add SonarCloud maintainability badge
 
-## 5. Validation
-- [ ] 5.1 Push changes and verify CI runs successfully
-- [ ] 5.2 Verify coverage data appears in SonarCloud dashboard
-- [ ] 5.3 Verify quality gate status is reported on PRs
+## 5. Validation (post-merge)
+- [x] 5.1 Push changes and verify CI runs successfully
+- [ ] 5.2 Verify coverage data appears in SonarCloud dashboard (manual check)
+- [ ] 5.3 Verify quality gate status is reported on PRs (manual check)
