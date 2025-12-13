@@ -190,6 +190,84 @@ jobs:
           name: safety-report
           path: safety-report.json
 
+  # C Library Build and Coverage
+  libstonesoup:
+    name: C Library Build & Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential lcov
+
+      - name: Build with coverage
+        run: |
+          cd libstonesoup
+          mkdir -p build && cd build
+          cmake .. -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_FLAGS="--coverage -fprofile-arcs -ftest-coverage"
+          make -j$(nproc)
+
+      - name: Run tests
+        run: |
+          cd libstonesoup/build
+          ctest --output-on-failure
+
+      - name: Generate coverage report
+        run: |
+          cd libstonesoup/build
+          lcov --capture --directory . --output-file coverage.info
+          lcov --remove coverage.info '/usr/*' --output-file coverage.info
+          lcov --list coverage.info
+
+      - name: Upload C coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: c-coverage
+          path: libstonesoup/build/coverage.info
+
+  # Rust Bindings Build and Coverage
+  rust-bindings:
+    name: Rust Bindings & Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
+
+      - name: Build libstonesoup (dependency)
+        run: |
+          cd libstonesoup
+          mkdir -p build && cd build
+          cmake .. -DBUILD_TESTS=OFF
+          make -j$(nproc)
+          sudo make install
+          sudo ldconfig
+
+      - name: Run Rust tests with coverage
+        run: |
+          cd bindings/rust
+          cargo llvm-cov --lcov --output-path lcov.info
+
+      - name: Upload Rust coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-coverage
+          path: bindings/rust/lcov.info
+
+      - name: Run Clippy
+        run: |
+          cd bindings/rust
+          cargo clippy -- -D warnings
+
   # Documentation build
   docs:
     name: Build Documentation
@@ -227,11 +305,70 @@ jobs:
           name: documentation
           path: docs/build/html
 
+  # SonarCloud Analysis
+  sonarcloud:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+    needs: [test, libstonesoup, rust-bindings]
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Python coverage
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-ubuntu-latest-*
+          path: coverage-reports
+          merge-multiple: true
+
+      - name: Download C coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: c-coverage
+          path: c-coverage
+        continue-on-error: true
+
+      - name: Download Rust coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-coverage
+          path: rust-coverage
+        continue-on-error: true
+
+      - name: Prepare coverage reports
+        run: |
+          # Python coverage
+          if [ -f coverage-reports/coverage.xml ]; then
+            cp coverage-reports/coverage.xml coverage.xml
+          fi
+          # C coverage
+          if [ -f c-coverage/coverage.info ]; then
+            mkdir -p libstonesoup/build
+            cp c-coverage/coverage.info libstonesoup/build/coverage.info
+          fi
+          # Rust coverage
+          if [ -f rust-coverage/lcov.info ]; then
+            mkdir -p bindings/rust
+            cp rust-coverage/lcov.info bindings/rust/lcov.info
+          fi
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=stonesoup
+            -Dsonar.organization=dstl
+
   # All checks passed
   all-checks:
     name: All Checks Passed
     runs-on: ubuntu-latest
-    needs: [ruff, bandit, test, coverage, safety, docs]
+    needs: [ruff, bandit, test, coverage, safety, libstonesoup, rust-bindings, docs, sonarcloud]
     if: always()
     steps:
       - name: Check results
@@ -240,6 +377,11 @@ jobs:
              [ "${{ needs.test.result }}" != "success" ] || \
              [ "${{ needs.docs.result }}" != "success" ]; then
             echo "Some checks failed"
+            exit 1
+          fi
+          # SonarCloud is optional - don't fail if it's skipped (e.g., on external PRs)
+          if [ "${{ needs.sonarcloud.result }}" = "failure" ]; then
+            echo "SonarCloud analysis failed"
             exit 1
           fi
           echo "All required checks passed!"
