@@ -150,6 +150,7 @@
 #ifndef STONESOUP_PRECISION_H
 #define STONESOUP_PRECISION_H
 
+#include <stddef.h>
 #include <float.h>
 #include <math.h>
 

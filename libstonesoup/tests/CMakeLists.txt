@@ -48,6 +48,15 @@ set_tests_properties(test_coordinates PROPERTIES
     LABELS "unit;precision"
 )
 
+# Test executable for frame policies
+add_executable(test_frame_policies test_frame_policies.c)
+target_link_libraries(test_frame_policies PRIVATE stonesoup_shared)
+add_test(NAME test_frame_policies COMMAND test_frame_policies)
+set_tests_properties(test_frame_policies PROPERTIES
+    TIMEOUT 30
+    LABELS "unit;precision"
+)
+
 # Add precision-specific test configurations
 # Test with single precision
 add_test(NAME test_coordinates_single_precision

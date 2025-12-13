@@ -29,6 +29,7 @@ set(STONESOUP_SOURCES
     src/kalman.c
     src/particle.c
     src/coordinates.c
+    src/frame_policies.c
 )
 
 # Header files
@@ -39,6 +40,8 @@ set(STONESOUP_HEADERS
     include/stonesoup/kalman.h
     include/stonesoup/particle.h
     include/stonesoup/coordinates.h
+    include/stonesoup/precision.h
+    include/stonesoup/frame_policies.h
     include/stonesoup/version.h
 )
 

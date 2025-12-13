@@ -60,6 +60,8 @@
 
 #include "stonesoup/version.h"
 #include "stonesoup/types.h"
+#include "stonesoup/precision.h"
+#include "stonesoup/frame_policies.h"
 #include "stonesoup/matrix.h"
 #include "stonesoup/kalman.h"
 #include "stonesoup/particle.h"

@@ -33,8 +33,25 @@
   - Added usage examples and safety-critical guidance
 
 ## 5. Multi-Scale Handling
-- [ ] 5.1 Implement automatic unit scaling for large values
-- [ ] 5.2 Add coordinate frame-specific numeric policies
+- [x] 5.1 Implement automatic unit scaling for large values
+  - Created Ada package `Stone_Soup.Unit_Scaling` at `bindings/ada/src/stone_soup-unit_scaling.ads` and `.adb`
+  - Automatic scale selection based on magnitude (nano, micro, milli, base, kilo, mega, giga)
+  - Support for distances (mm, m, km, Mm, Gm), velocities (mm/s, m/s, km/s), and time (ns, us, ms, s, min, hr, days)
+  - Precision preservation via Long_Float and explicit scale tracking
+  - SPARK contracts ensure no precision loss during scaling operations
+  - Domain-specific scaling helpers for undersea, orbital, cislunar, and interplanetary tracking
+  - Arithmetic operations (+, -, *, /) with automatic unit conversion
+  - Comprehensive test suite with 32 tests, all passing
+- [x] 5.2 Add coordinate frame-specific numeric policies
+  - Created `libstonesoup/include/stonesoup/frame_policies.h` defining frame policies for ECI, ECEF, LLA, ENU, Lunar, Voxel, Polar, Spherical, and Cartesian frames
+  - Implemented `libstonesoup/src/frame_policies.c` with policy definitions and validation functions
+  - Each policy specifies precision requirements (position, velocity, time, angular), valid range limits, and recommended scale factors
+  - Added validation functions: `ss_validate_position()`, `ss_validate_velocity()`, `ss_validate_angle()`
+  - Added precision checking functions: `ss_check_position_precision()`, `ss_check_velocity_precision()`, `ss_check_angular_precision()`
+  - Added debug macros: `SS_VALIDATE_FRAME_POSITION()`, `SS_VALIDATE_FRAME_VELOCITY()`, `SS_VALIDATE_FRAME_ANGLE()`, `SS_CHECK_FRAME_PRECISION()`
+  - Frame policies include properties: is_rotating, has_angular_coords, has_singularities, spatial_dims
+  - Created comprehensive test suite `libstonesoup/tests/test_frame_policies.c` with 84 passing tests
+  - All tests pass successfully
 - [x] 5.3 Support switchable precision modes
   - Implemented via compile-time flags: STONESOUP_PRECISION_SINGLE, STONESOUP_PRECISION_DOUBLE, STONESOUP_PRECISION_EXTENDED
 - [x] 5.4 Add cross-domain coordinate transfer with precision management
