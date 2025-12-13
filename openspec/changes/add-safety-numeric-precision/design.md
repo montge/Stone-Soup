@@ -253,6 +253,78 @@ end Stone_Soup.Cislunar_Types;
 5. Update C library to use configurable precision type
 6. Add overflow checking macros
 
+## Numeric Assumptions and Constraints
+
+### Documented Assumptions
+
+**Physical Constants:**
+- Earth mean radius: 6,371 km (used as reference for altitude calculations)
+- Earth gravitational parameter (mu): 398,600.4418 km³/s²
+- Moon gravitational parameter: 4,902.8 km³/s²
+- Earth-Moon distance: 384,400 km (mean)
+- Sound speed in seawater: 1,400-1,600 m/s (temperature/salinity dependent)
+
+**Undersea Domain:**
+- Maximum depth: 11,000 m (Challenger Deep = 10,935 m, rounded up)
+- Maximum sonar range: 100 km (long-range passive sonar)
+- Maximum submarine velocity: 30 m/s (~60 knots for torpedoes)
+- Sound speed gradient: ±0.1 (m/s)/m
+- Pressure: 1-1,200 bar (1 bar + ~1 bar per 10m depth)
+
+**Orbital Domain:**
+- LEO altitude: 200-2,000 km
+- MEO altitude: 2,000-35,700 km
+- GEO altitude: 35,700-35,900 km
+- Maximum tracking altitude: 50,000 km (beyond GEO)
+- Orbital velocity: 0-12 km/s (escape velocity at Earth surface ~11.2 km/s)
+- Eccentricity: 0-0.99 (parabolic/hyperbolic excluded)
+
+**Cislunar Domain:**
+- Maximum distance: 500,000 km (beyond lunar orbit for L2)
+- Trans-lunar injection delta-V: 3,000-3,500 m/s
+- Lunar orbit insertion delta-V: 800-1,200 m/s
+- Lunar sphere of influence: ~66,000 km from Moon center
+
+### Overflow Prevention Strategy
+
+**Ada Type Constraints:**
+- All floating-point subtypes have explicit `range` constraints
+- SPARK contracts provide compile-time proof of range safety
+- Saturation arithmetic (Safe_Add_*) clamps to valid range rather than overflow
+
+**Precondition Patterns:**
+```ada
+-- Input validation prevents overflow in output
+function Compute_Slant_Range
+  (Horizontal_Range : Range_Meters;
+   Depth_Diff       : Depth_Delta) return Slant_Range
+  with Pre  => Horizontal_Range <= 100_000.0 and
+               Depth_Diff >= -11_000.0 and Depth_Diff <= 11_000.0,
+       Post => Compute_Slant_Range'Result >= 0.0;
+```
+
+**Postcondition Patterns:**
+```ada
+-- Output always within valid range
+function Safe_Add_Depth
+  (D1, D2 : Depth_Meters) return Depth_Meters
+  with Post => Safe_Add_Depth'Result <= Max_Depth_Meters;
+```
+
+### Precision Loss Prevention
+
+**Fixed-Point Types:**
+Used for operations requiring deterministic behavior:
+- `Fixed_Angle`: delta 1.0e-6 (~0.00006°, sufficient for orbital tracking)
+- `Fixed_Depth`: delta 0.001 (1 mm resolution)
+- `Fixed_Position`: delta 0.001 (1 mm resolution for local coordinates)
+
+**Long_Float Selection:**
+All domain types use `Long_Float` (64-bit IEEE 754) for:
+- Sufficient precision for all tracking domains (15-17 significant digits)
+- Hardware acceleration on modern processors
+- Compatibility with standard math libraries
+
 ## Open Questions
 
 1. Should we support automatic precision escalation (e.g., switching from 32-bit

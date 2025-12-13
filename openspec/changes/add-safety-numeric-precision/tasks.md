@@ -18,7 +18,7 @@
 ## 3. SPARK Proofs
 - [x] 3.1 Add SPARK contracts for numeric overflow prevention
 - [ ] 3.2 Prove range safety with GNATprove
-- [ ] 3.3 Document numeric assumptions and constraints
+- [x] 3.3 Document numeric assumptions and constraints
 - [x] 3.4 Add preconditions for coordinate transformation inputs
 
 ## 4. C Library Support
