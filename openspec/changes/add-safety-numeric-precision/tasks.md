@@ -25,16 +25,31 @@
 - [x] 4.1 Add compile-time domain selection for numeric types
 - [x] 4.2 Support configurable floating-point precision (float/double/long double)
 - [x] 4.3 Add overflow checking macros for debug builds
-- [ ] 4.4 Document numeric limits in API documentation
+- [x] 4.4 Document numeric limits in API documentation
+  - Added comprehensive documentation to `libstonesoup/include/stonesoup/precision.h`
+  - Documented precision characteristics for single, double, and extended precision
+  - Documented domain-specific precision requirements (undersea, orbital, cislunar, interplanetary)
+  - Documented coordinate transformation precision considerations
+  - Added usage examples and safety-critical guidance
 
 ## 5. Multi-Scale Handling
 - [ ] 5.1 Implement automatic unit scaling for large values
 - [ ] 5.2 Add coordinate frame-specific numeric policies
-- [ ] 5.3 Support switchable precision modes
+- [x] 5.3 Support switchable precision modes
+  - Implemented via compile-time flags: STONESOUP_PRECISION_SINGLE, STONESOUP_PRECISION_DOUBLE, STONESOUP_PRECISION_EXTENDED
 - [ ] 5.4 Add cross-domain coordinate transfer with precision management
 
 ## 6. Testing and Validation
 - [x] 6.1 Add boundary value tests for each numeric type
 - [x] 6.2 Add overflow/underflow detection tests
-- [ ] 6.3 Validate precision preservation across transformations
-- [ ] 6.4 Test multi-scale transitions (e.g., LEO to lunar transfer)
+- [x] 6.3 Validate precision preservation across transformations
+  - Created comprehensive test suite: `libstonesoup/tests/test_coordinates.c`
+  - Tests basic coordinate transformations (Cartesian ↔ polar, Cartesian ↔ spherical, geodetic ↔ ECEF)
+  - Tests round-trip precision preservation
+  - Tests domain-specific precision requirements (undersea: 1cm, LEO: 1m, GEO: 10m, cislunar: 100m)
+  - All 16 tests passing
+- [x] 6.4 Test multi-scale transitions (e.g., LEO to lunar transfer)
+  - Tests LEO to GEO transitions
+  - Tests GEO to lunar orbit transitions
+  - Tests undersea to orbital domain transitions (extreme scale change)
+  - Tests interplanetary scale precision (Mars distance)

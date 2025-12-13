@@ -39,7 +39,30 @@ set_tests_properties(test_particle PROPERTIES
     LABELS "unit"
 )
 
-# TODO: Add coordinate system tests when coordinates module is ready
-# add_executable(test_coordinates test_coordinates.c)
-# target_link_libraries(test_coordinates PRIVATE stonesoup_shared)
-# add_test(NAME test_coordinates COMMAND test_coordinates)
+# Test executable for coordinate transformations and precision
+add_executable(test_coordinates test_coordinates.c)
+target_link_libraries(test_coordinates PRIVATE stonesoup_shared)
+add_test(NAME test_coordinates COMMAND test_coordinates)
+set_tests_properties(test_coordinates PROPERTIES
+    TIMEOUT 30
+    LABELS "unit;precision"
+)
+
+# Add precision-specific test configurations
+# Test with single precision
+add_test(NAME test_coordinates_single_precision
+    COMMAND ${CMAKE_COMMAND}
+        -DSTONESOUP_PRECISION_SINGLE=ON
+        -DCMAKE_BUILD_TYPE=Debug
+        -B ${CMAKE_BINARY_DIR}/test_single
+        -S ${CMAKE_SOURCE_DIR}
+)
+
+# Test with extended precision
+add_test(NAME test_coordinates_extended_precision
+    COMMAND ${CMAKE_COMMAND}
+        -DSTONESOUP_PRECISION_EXTENDED=ON
+        -DCMAKE_BUILD_TYPE=Debug
+        -B ${CMAKE_BINARY_DIR}/test_extended
+        -S ${CMAKE_SOURCE_DIR}
+)

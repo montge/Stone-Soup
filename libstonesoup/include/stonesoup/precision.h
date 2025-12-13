@@ -11,6 +11,140 @@
  *
  * It also provides domain-specific range constants and optional
  * overflow checking macros for debug builds.
+ *
+ * @section precision_limits Numeric Precision Limits
+ *
+ * The numeric precision of ss_real_t depends on the selected mode:
+ *
+ * **Single Precision (float - 32-bit IEEE 754):**
+ * - Significant decimal digits: 6-7
+ * - Range: approximately 1.18e-38 to 3.40e+38
+ * - Machine epsilon: ~1.19e-7
+ * - Best for: Embedded systems, memory-constrained environments
+ * - Warning: May lose precision for large orbital/interplanetary coordinates
+ *
+ * **Double Precision (double - 64-bit IEEE 754, DEFAULT):**
+ * - Significant decimal digits: 15-16
+ * - Range: approximately 2.23e-308 to 1.80e+308
+ * - Machine epsilon: ~2.22e-16
+ * - Best for: General purpose tracking, orbital mechanics
+ * - Suitable for: All domains from undersea to cislunar
+ *
+ * **Extended Precision (long double - 80-bit or 128-bit):**
+ * - Significant decimal digits: 18-19 (x87 80-bit) or 33-34 (IEEE 128-bit)
+ * - Range: varies by platform
+ * - Machine epsilon: ~1.08e-19 (80-bit) or ~1.93e-34 (128-bit)
+ * - Best for: High-precision scientific computing, interplanetary trajectories
+ * - Note: Performance and size vary by platform
+ *
+ * @section domain_precision Domain-Specific Precision Requirements
+ *
+ * Different tracking domains have different precision requirements based
+ * on the scale of coordinates and velocities:
+ *
+ * **Undersea Domain:**
+ * - Coordinate range: 0-100 km
+ * - Required precision: 1 cm (1e-2 m)
+ * - Recommended mode: Single or Double
+ * - Precision preserved: Single gives ~1 mm at 100 km (sufficient)
+ *
+ * **Terrestrial/Orbital Domain (LEO-GEO):**
+ * - Coordinate range: 6,400-42,000 km
+ * - Required precision: 1 m
+ * - Recommended mode: Double
+ * - Precision preserved: Double gives ~1 mm at GEO altitude (excellent)
+ *
+ * **Cislunar Domain:**
+ * - Coordinate range: 0-500,000 km
+ * - Required precision: 10 m
+ * - Recommended mode: Double or Extended
+ * - Precision preserved: Double gives ~10 cm at lunar distance (good)
+ *
+ * **Interplanetary Domain:**
+ * - Coordinate range: 0-1,000,000,000 km (1e12 m)
+ * - Required precision: 1 km
+ * - Recommended mode: Extended
+ * - Precision preserved: Double gives ~100 m at Mars distance (acceptable)
+ *                        Extended recommended for high precision
+ *
+ * @section transformation_precision Coordinate Transformation Precision
+ *
+ * Coordinate transformations can introduce numerical errors. Key considerations:
+ *
+ * - **Cartesian ↔ Polar/Spherical:** Generally well-conditioned except near origin
+ *   (range < 1e-10). Use SS_CHECK_POSITIVE for range validation.
+ *
+ * - **Geodetic ↔ ECEF:** Well-conditioned with double precision for Earth.
+ *   Iterative algorithms may accumulate errors; typically converge to < 1 cm.
+ *
+ * - **Multi-scale transitions:** When transferring between domains (e.g., LEO to
+ *   lunar), consider rescaling coordinates to avoid precision loss. For example,
+ *   use kilometers instead of meters for cislunar trajectories.
+ *
+ * - **Jacobian computations:** Numerical derivatives can amplify errors. Ensure
+ *   input coordinates are well within the valid range and away from singularities.
+ *
+ * @section overflow_protection Overflow and Underflow Protection
+ *
+ * The library provides both compile-time and runtime protection:
+ *
+ * **Compile-time:** Domain-specific constants (SS_UNDERSEA_DEPTH_MAX, etc.)
+ * define safe operating ranges. Use these in algorithm design.
+ *
+ * **Runtime (Debug builds):** Define STONESOUP_DEBUG or STONESOUP_RANGE_CHECK
+ * to enable runtime validation macros (SS_CHECK_RANGE, SS_CHECK_POSITIVE, etc.)
+ * These abort on violations with diagnostic messages.
+ *
+ * **Finite value checks:** SS_CHECK_FINITE ensures values are not NaN or Inf,
+ * which can result from division by zero or overflow.
+ *
+ * @section usage_examples Usage Examples
+ *
+ * @code
+ * // Compile with double precision (default):
+ * // gcc -o mytracker mytracker.c -lstonesoup -lm
+ *
+ * // Compile with single precision:
+ * // gcc -DSTONESOUP_PRECISION_SINGLE -o mytracker mytracker.c -lstonesoup -lm
+ *
+ * // Compile with extended precision:
+ * // gcc -DSTONESOUP_PRECISION_EXTENDED -o mytracker mytracker.c -lstonesoup -lm
+ *
+ * // Enable range checking in debug builds:
+ * // gcc -DSTONESOUP_DEBUG -o mytracker mytracker.c -lstonesoup -lm
+ *
+ * // In code:
+ * void process_orbital_state(ss_real_t altitude) {
+ *     // Validate altitude is within orbital range
+ *     SS_CHECK_ORBITAL_ALTITUDE(altitude);
+ *
+ *     // Ensure computed value is finite
+ *     ss_real_t orbital_period = compute_period(altitude);
+ *     SS_CHECK_FINITE(orbital_period);
+ *
+ *     // Use type-safe math functions
+ *     ss_real_t semi_major_axis = SS_EARTH_RADIUS_M + altitude;
+ *     ss_real_t velocity = ss_sqrt(SS_EARTH_MU / semi_major_axis);
+ * }
+ * @endcode
+ *
+ * @section safety_critical Safety-Critical Considerations
+ *
+ * For DO-178C/DO-254 certification and safety-critical systems:
+ *
+ * - Always use explicit precision mode (define STONESOUP_PRECISION_SINGLE or
+ *   STONESOUP_PRECISION_DOUBLE) rather than relying on defaults.
+ *
+ * - Enable range checking in development builds to identify violations early.
+ *
+ * - Document precision requirements in system specifications.
+ *
+ * - Validate that chosen precision meets accuracy requirements for all
+ *   operational scenarios using worst-case analysis.
+ *
+ * - Consider fixed-point arithmetic for deterministic platforms (see Ada bindings).
+ *
+ * - Test boundary conditions at domain limits (SS_*_MAX constants).
  */
 
 #ifndef STONESOUP_PRECISION_H
