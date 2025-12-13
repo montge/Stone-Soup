@@ -61,6 +61,116 @@ jobs:
           name: bandit-report
           path: bandit-report.json
 
+  # Multi-language SAST with Semgrep
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/python
+            p/rust
+            p/java
+            p/golang
+            p/security-audit
+          generateSarif: true
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+        continue-on-error: true
+
+  # Rust dependency security scanning
+  cargo-audit:
+    name: Cargo Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      - name: Run cargo-audit
+        run: |
+          cd bindings/rust
+          cargo audit --json > cargo-audit-report.json || true
+          cargo audit
+        continue-on-error: true
+
+      - name: Upload cargo-audit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cargo-audit-report
+          path: bindings/rust/cargo-audit-report.json
+
+  # Node.js dependency security scanning
+  npm-audit:
+    name: NPM Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          cd bindings/nodejs
+          npm ci
+        continue-on-error: true
+
+      - name: Run npm audit
+        run: |
+          cd bindings/nodejs
+          npm audit --json > npm-audit-report.json || true
+          npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Upload npm audit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: npm-audit-report
+          path: bindings/nodejs/npm-audit-report.json
+
+  # Java dependency security scanning
+  java-security:
+    name: Java OWASP Dependency Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      - name: Run OWASP Dependency Check
+        run: |
+          cd bindings/java
+          mvn org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=7 || true
+
+      - name: Upload OWASP report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: owasp-dependency-check-report
+          path: bindings/java/target/dependency-check-report.html
+
   # Multi-platform, multi-version test matrix
   test:
     name: Test Python ${{ matrix.python-version }} on ${{ matrix.os }}
@@ -368,7 +478,7 @@ jobs:
   all-checks:
     name: All Checks Passed
     runs-on: ubuntu-latest
-    needs: [ruff, bandit, test, coverage, safety, libstonesoup, rust-bindings, docs, sonarcloud]
+    needs: [ruff, bandit, semgrep, cargo-audit, npm-audit, java-security, test, coverage, safety, libstonesoup, rust-bindings, docs, sonarcloud]
     if: always()
     steps:
       - name: Check results
