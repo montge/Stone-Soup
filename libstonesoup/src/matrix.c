@@ -554,6 +554,8 @@ lu_decomposition(
 
 /**
  * @brief Solve L * x = b where L is lower triangular (forward substitution)
+ *
+ * This version assumes L has real values on the diagonal (e.g., from Cholesky).
  */
 static void
 forward_substitution(
@@ -568,6 +570,27 @@ forward_substitution(
             sum -= MAT_AT(L, i, j) * x[j];
         }
         x[i] = sum / MAT_AT(L, i, i);
+    }
+}
+
+/**
+ * @brief Solve L * x = b where L has implicit 1's on diagonal (LU format)
+ *
+ * This version is for packed LU decomposition where L has implicit 1's.
+ */
+static void
+lu_forward_substitution(
+    const stonesoup_covariance_matrix_t* LU,
+    const double* b,
+    double* x,
+    size_t n
+) {
+    for (size_t i = 0; i < n; i++) {
+        double sum = b[i];
+        for (size_t j = 0; j < i; j++) {
+            sum -= MAT_AT(LU, i, j) * x[j];
+        }
+        x[i] = sum;  /* L has implicit 1's on diagonal */
     }
 }
 
@@ -587,6 +610,28 @@ backward_substitution(
             sum -= MAT_AT(U, i, j) * x[j];
         }
         x[i] = sum / MAT_AT(U, i, i);
+    }
+}
+
+/**
+ * @brief Solve L^T * x = b where L is lower triangular (transpose backward substitution)
+ *
+ * This solves the system with L's transpose without explicitly forming L^T.
+ * L^T[i][j] = L[j][i], so we access L[j][i] instead of L[i][j].
+ */
+static void
+cholesky_backward_substitution(
+    const stonesoup_covariance_matrix_t* L,
+    const double* b,
+    double* x,
+    size_t n
+) {
+    for (size_t i = n; i-- > 0; ) {
+        double sum = b[i];
+        for (size_t j = i + 1; j < n; j++) {
+            sum -= MAT_AT(L, j, i) * x[j];  /* Access L^T[i][j] = L[j][i] */
+        }
+        x[i] = sum / MAT_AT(L, i, i);  /* L^T diagonal = L diagonal */
     }
 }
 
@@ -657,7 +702,7 @@ stonesoup_matrix_inverse(
             return STONESOUP_ERROR_ALLOCATION;
         }
 
-        forward_substitution(LU, work, y, n);
+        lu_forward_substitution(LU, work, y, n);
 
         /* Solve U * x = y */
         for (size_t i = 0; i < n; i++) {
@@ -797,7 +842,7 @@ stonesoup_matrix_cholesky_solve(
         forward_substitution(L, b_col, y, n);
 
         /* Solve L^T * x = y */
-        backward_substitution(L, y, b_col, n);
+        cholesky_backward_substitution(L, y, b_col, n);
 
         /* Store result in X */
         for (size_t i = 0; i < n; i++) {
@@ -861,7 +906,7 @@ stonesoup_matrix_cholesky_solve_vector(
     forward_substitution(L, b->data, y, n);
 
     /* Solve L^T * x = y */
-    backward_substitution(L, y, x->data, n);
+    cholesky_backward_substitution(L, y, x->data, n);
 
     /* Clean up */
     stonesoup_covariance_matrix_free(L);

@@ -153,6 +153,7 @@ stonesoup_error_t stonesoup_kalman_update(
     }
 
     // K = P_pred * H^T * S^-1 (Kalman gain)
+    // Since K = PHt * S^-1, we solve S * K^T = PHt^T for K^T, then transpose
     // First compute P_pred * H^T
     stonesoup_covariance_matrix_t* PHt = stonesoup_covariance_matrix_create(state_dim, meas_dim);
     if (!PHt) {
@@ -169,55 +170,69 @@ stonesoup_error_t stonesoup_kalman_update(
         return err;
     }
 
-    // Now compute K = P_pred * H^T * S^-1
-    stonesoup_covariance_matrix_t* K = stonesoup_covariance_matrix_create(state_dim, meas_dim);
-    if (!K) {
+    // Transpose PHt to get PHt^T (meas_dim x state_dim)
+    stonesoup_covariance_matrix_t* PHt_T = stonesoup_covariance_matrix_create(meas_dim, state_dim);
+    if (!PHt_T) {
         stonesoup_state_vector_free(innovation);
         stonesoup_covariance_matrix_free(S);
         stonesoup_covariance_matrix_free(PHt);
         return STONESOUP_ERROR_ALLOCATION;
     }
 
-    err = stonesoup_matrix_cholesky_solve(S, PHt, K);
+    err = stonesoup_matrix_transpose(PHt, PHt_T);
+    stonesoup_covariance_matrix_free(PHt);
     if (err != STONESOUP_SUCCESS) {
         stonesoup_state_vector_free(innovation);
         stonesoup_covariance_matrix_free(S);
-        stonesoup_covariance_matrix_free(PHt);
-        stonesoup_covariance_matrix_free(K);
+        stonesoup_covariance_matrix_free(PHt_T);
         return err;
     }
 
-    stonesoup_covariance_matrix_free(S);
-    stonesoup_covariance_matrix_free(PHt);
-
-    // Transpose K to get correct dimensions for K * y
+    // Solve S * Kt = PHt^T for Kt (K transposed)
+    // Kt is (meas_dim x state_dim)
     stonesoup_covariance_matrix_t* Kt = stonesoup_covariance_matrix_create(meas_dim, state_dim);
     if (!Kt) {
         stonesoup_state_vector_free(innovation);
-        stonesoup_covariance_matrix_free(K);
+        stonesoup_covariance_matrix_free(S);
+        stonesoup_covariance_matrix_free(PHt_T);
         return STONESOUP_ERROR_ALLOCATION;
     }
 
-    err = stonesoup_matrix_transpose(K, Kt);
+    err = stonesoup_matrix_cholesky_solve(S, PHt_T, Kt);
+    stonesoup_covariance_matrix_free(S);
+    stonesoup_covariance_matrix_free(PHt_T);
     if (err != STONESOUP_SUCCESS) {
         stonesoup_state_vector_free(innovation);
-        stonesoup_covariance_matrix_free(K);
         stonesoup_covariance_matrix_free(Kt);
         return err;
     }
 
-    // x_post = x_pred + K^T * y
+    // Transpose Kt to get K (state_dim x meas_dim)
+    stonesoup_covariance_matrix_t* K = stonesoup_covariance_matrix_create(state_dim, meas_dim);
+    if (!K) {
+        stonesoup_state_vector_free(innovation);
+        stonesoup_covariance_matrix_free(Kt);
+        return STONESOUP_ERROR_ALLOCATION;
+    }
+
+    err = stonesoup_matrix_transpose(Kt, K);
+    stonesoup_covariance_matrix_free(Kt);
+    if (err != STONESOUP_SUCCESS) {
+        stonesoup_state_vector_free(innovation);
+        stonesoup_covariance_matrix_free(K);
+        return err;
+    }
+
+    // x_post = x_pred + K * y
     stonesoup_state_vector_t* Ky = stonesoup_state_vector_create(state_dim);
     if (!Ky) {
         stonesoup_state_vector_free(innovation);
         stonesoup_covariance_matrix_free(K);
-        stonesoup_covariance_matrix_free(Kt);
         return STONESOUP_ERROR_ALLOCATION;
     }
 
-    err = stonesoup_matrix_vector_multiply(Kt, innovation, Ky);
+    err = stonesoup_matrix_vector_multiply(K, innovation, Ky);
     stonesoup_state_vector_free(innovation);
-    stonesoup_covariance_matrix_free(Kt);
     if (err != STONESOUP_SUCCESS) {
         stonesoup_covariance_matrix_free(K);
         stonesoup_state_vector_free(Ky);
@@ -231,15 +246,15 @@ stonesoup_error_t stonesoup_kalman_update(
         return err;
     }
 
-    // P_post = (I - K^T * H) * P_pred
-    // First compute K^T * H
+    // P_post = (I - K * H) * P_pred
+    // First compute K * H
     stonesoup_covariance_matrix_t* KH = stonesoup_covariance_matrix_create(state_dim, state_dim);
     if (!KH) {
         stonesoup_covariance_matrix_free(K);
         return STONESOUP_ERROR_ALLOCATION;
     }
 
-    err = stonesoup_matrix_multiply_At_B(K, measurement_matrix, KH);
+    err = stonesoup_matrix_multiply(K, measurement_matrix, KH);
     stonesoup_covariance_matrix_free(K);
     if (err != STONESOUP_SUCCESS) {
         stonesoup_covariance_matrix_free(KH);
@@ -461,6 +476,7 @@ stonesoup_error_t stonesoup_ekf_update(
     }
 
     // K = P_pred * H^T * S^-1 (Kalman gain)
+    // Since K = PHt * S^-1, we solve S * K^T = PHt^T for K^T, then transpose
     // First compute P_pred * H^T
     stonesoup_covariance_matrix_t* PHt = stonesoup_covariance_matrix_create(state_dim, meas_dim);
     if (!PHt) {
@@ -477,55 +493,69 @@ stonesoup_error_t stonesoup_ekf_update(
         return err;
     }
 
-    // Now compute K = P_pred * H^T * S^-1
-    stonesoup_covariance_matrix_t* K = stonesoup_covariance_matrix_create(state_dim, meas_dim);
-    if (!K) {
+    // Transpose PHt to get PHt^T (meas_dim x state_dim)
+    stonesoup_covariance_matrix_t* PHt_T = stonesoup_covariance_matrix_create(meas_dim, state_dim);
+    if (!PHt_T) {
         stonesoup_state_vector_free(innovation);
         stonesoup_covariance_matrix_free(S);
         stonesoup_covariance_matrix_free(PHt);
         return STONESOUP_ERROR_ALLOCATION;
     }
 
-    err = stonesoup_matrix_cholesky_solve(S, PHt, K);
+    err = stonesoup_matrix_transpose(PHt, PHt_T);
+    stonesoup_covariance_matrix_free(PHt);
     if (err != STONESOUP_SUCCESS) {
         stonesoup_state_vector_free(innovation);
         stonesoup_covariance_matrix_free(S);
-        stonesoup_covariance_matrix_free(PHt);
-        stonesoup_covariance_matrix_free(K);
+        stonesoup_covariance_matrix_free(PHt_T);
         return err;
     }
 
-    stonesoup_covariance_matrix_free(S);
-    stonesoup_covariance_matrix_free(PHt);
-
-    // Transpose K to get correct dimensions for K * y
+    // Solve S * Kt = PHt^T for Kt (K transposed)
+    // Kt is (meas_dim x state_dim)
     stonesoup_covariance_matrix_t* Kt = stonesoup_covariance_matrix_create(meas_dim, state_dim);
     if (!Kt) {
         stonesoup_state_vector_free(innovation);
-        stonesoup_covariance_matrix_free(K);
+        stonesoup_covariance_matrix_free(S);
+        stonesoup_covariance_matrix_free(PHt_T);
         return STONESOUP_ERROR_ALLOCATION;
     }
 
-    err = stonesoup_matrix_transpose(K, Kt);
+    err = stonesoup_matrix_cholesky_solve(S, PHt_T, Kt);
+    stonesoup_covariance_matrix_free(S);
+    stonesoup_covariance_matrix_free(PHt_T);
     if (err != STONESOUP_SUCCESS) {
         stonesoup_state_vector_free(innovation);
-        stonesoup_covariance_matrix_free(K);
         stonesoup_covariance_matrix_free(Kt);
         return err;
     }
 
-    // x_post = x_pred + K^T * y
+    // Transpose Kt to get K (state_dim x meas_dim)
+    stonesoup_covariance_matrix_t* K = stonesoup_covariance_matrix_create(state_dim, meas_dim);
+    if (!K) {
+        stonesoup_state_vector_free(innovation);
+        stonesoup_covariance_matrix_free(Kt);
+        return STONESOUP_ERROR_ALLOCATION;
+    }
+
+    err = stonesoup_matrix_transpose(Kt, K);
+    stonesoup_covariance_matrix_free(Kt);
+    if (err != STONESOUP_SUCCESS) {
+        stonesoup_state_vector_free(innovation);
+        stonesoup_covariance_matrix_free(K);
+        return err;
+    }
+
+    // x_post = x_pred + K * y
     stonesoup_state_vector_t* Ky = stonesoup_state_vector_create(state_dim);
     if (!Ky) {
         stonesoup_state_vector_free(innovation);
         stonesoup_covariance_matrix_free(K);
-        stonesoup_covariance_matrix_free(Kt);
         return STONESOUP_ERROR_ALLOCATION;
     }
 
-    err = stonesoup_matrix_vector_multiply(Kt, innovation, Ky);
+    err = stonesoup_matrix_vector_multiply(K, innovation, Ky);
     stonesoup_state_vector_free(innovation);
-    stonesoup_covariance_matrix_free(Kt);
     if (err != STONESOUP_SUCCESS) {
         stonesoup_covariance_matrix_free(K);
         stonesoup_state_vector_free(Ky);
@@ -539,15 +569,15 @@ stonesoup_error_t stonesoup_ekf_update(
         return err;
     }
 
-    // P_post = (I - K^T * H) * P_pred
-    // First compute K^T * H
+    // P_post = (I - K * H) * P_pred
+    // First compute K * H
     stonesoup_covariance_matrix_t* KH = stonesoup_covariance_matrix_create(state_dim, state_dim);
     if (!KH) {
         stonesoup_covariance_matrix_free(K);
         return STONESOUP_ERROR_ALLOCATION;
     }
 
-    err = stonesoup_matrix_multiply_At_B(K, jacobian, KH);
+    err = stonesoup_matrix_multiply(K, jacobian, KH);
     stonesoup_covariance_matrix_free(K);
     if (err != STONESOUP_SUCCESS) {
         stonesoup_covariance_matrix_free(KH);
@@ -568,7 +598,7 @@ stonesoup_error_t stonesoup_ekf_update(
         return err;
     }
 
-    // Compute I - K^T * H
+    // Compute I - K * H
     stonesoup_covariance_matrix_t* I_KH = stonesoup_covariance_matrix_create(state_dim, state_dim);
     if (!I_KH) {
         stonesoup_covariance_matrix_free(KH);
@@ -584,7 +614,7 @@ stonesoup_error_t stonesoup_ekf_update(
         return err;
     }
 
-    // Finally compute P_post = (I - K^T * H) * P_pred
+    // Finally compute P_post = (I - K * H) * P_pred
     err = stonesoup_matrix_multiply(I_KH, predicted->covariance, posterior->covariance);
     stonesoup_covariance_matrix_free(I_KH);
     if (err != STONESOUP_SUCCESS) {

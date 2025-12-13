@@ -234,13 +234,16 @@ stonesoup_error_t stonesoup_particle_systematic_resample(
         return STONESOUP_ERROR_INVALID_SIZE;
     }
 
+    // Get state dimension from first particle
+    size_t dim = state->particles[0].state_vector->size;
+
     // Allocate temporary arrays
     double* cumsum = (double*)malloc(N * sizeof(double));
-    stonesoup_particle_t* new_particles = (stonesoup_particle_t*)malloc(N * sizeof(stonesoup_particle_t));
+    size_t* indices = (size_t*)malloc(N * sizeof(size_t));
 
-    if (!cumsum || !new_particles) {
+    if (!cumsum || !indices) {
         free(cumsum);
-        free(new_particles);
+        free(indices);
         return STONESOUP_ERROR_ALLOCATION;
     }
 
@@ -254,7 +257,7 @@ stonesoup_error_t stonesoup_particle_systematic_resample(
     double total_weight = cumsum[N-1];
     if (total_weight <= 0.0) {
         free(cumsum);
-        free(new_particles);
+        free(indices);
         return STONESOUP_ERROR_INVALID_ARG;
     }
 
@@ -265,7 +268,7 @@ stonesoup_error_t stonesoup_particle_systematic_resample(
     // Generate single random starting point u ~ U(0, 1/N)
     double u = ((double)rand() / RAND_MAX) / N;
 
-    // Select particles using systematic resampling
+    // Select particle indices using systematic resampling
     size_t j = 0;
     for (size_t i = 0; i < N; i++) {
         double u_i = u + (double)i / N;
@@ -275,17 +278,44 @@ stonesoup_error_t stonesoup_particle_systematic_resample(
             j++;
         }
 
-        // Copy selected particle
-        new_particles[i].state_vector = state->particles[j].state_vector;
-        new_particles[i].weight = 1.0 / N;  // Reset to uniform weight
+        indices[i] = j;
     }
 
-    // Copy new particles back to state
-    memcpy(state->particles, new_particles, N * sizeof(stonesoup_particle_t));
-
-    // Free temporary arrays
     free(cumsum);
-    free(new_particles);
+
+    // Allocate temporary storage for copying state vectors
+    double** temp_data = (double**)malloc(N * sizeof(double*));
+    if (!temp_data) {
+        free(indices);
+        return STONESOUP_ERROR_ALLOCATION;
+    }
+
+    for (size_t i = 0; i < N; i++) {
+        temp_data[i] = (double*)malloc(dim * sizeof(double));
+        if (!temp_data[i]) {
+            for (size_t k = 0; k < i; k++) {
+                free(temp_data[k]);
+            }
+            free(temp_data);
+            free(indices);
+            return STONESOUP_ERROR_ALLOCATION;
+        }
+        // Copy the selected particle's data
+        memcpy(temp_data[i], state->particles[indices[i]].state_vector->data,
+               dim * sizeof(double));
+    }
+
+    free(indices);
+
+    // Copy data back to particles and reset weights
+    for (size_t i = 0; i < N; i++) {
+        memcpy(state->particles[i].state_vector->data, temp_data[i],
+               dim * sizeof(double));
+        state->particles[i].weight = 1.0 / N;
+        free(temp_data[i]);
+    }
+
+    free(temp_data);
 
     return STONESOUP_SUCCESS;
 }
@@ -302,13 +332,16 @@ stonesoup_error_t stonesoup_particle_stratified_resample(
         return STONESOUP_ERROR_INVALID_SIZE;
     }
 
+    // Get state dimension from first particle
+    size_t dim = state->particles[0].state_vector->size;
+
     // Allocate temporary arrays
     double* cumsum = (double*)malloc(N * sizeof(double));
-    stonesoup_particle_t* new_particles = (stonesoup_particle_t*)malloc(N * sizeof(stonesoup_particle_t));
+    size_t* indices = (size_t*)malloc(N * sizeof(size_t));
 
-    if (!cumsum || !new_particles) {
+    if (!cumsum || !indices) {
         free(cumsum);
-        free(new_particles);
+        free(indices);
         return STONESOUP_ERROR_ALLOCATION;
     }
 
@@ -322,7 +355,7 @@ stonesoup_error_t stonesoup_particle_stratified_resample(
     double total_weight = cumsum[N-1];
     if (total_weight <= 0.0) {
         free(cumsum);
-        free(new_particles);
+        free(indices);
         return STONESOUP_ERROR_INVALID_ARG;
     }
 
@@ -341,17 +374,44 @@ stonesoup_error_t stonesoup_particle_stratified_resample(
             j++;
         }
 
-        // Copy selected particle
-        new_particles[i].state_vector = state->particles[j].state_vector;
-        new_particles[i].weight = 1.0 / N;  // Reset to uniform weight
+        indices[i] = j;
     }
 
-    // Copy new particles back to state
-    memcpy(state->particles, new_particles, N * sizeof(stonesoup_particle_t));
-
-    // Free temporary arrays
     free(cumsum);
-    free(new_particles);
+
+    // Allocate temporary storage for copying state vectors
+    double** temp_data = (double**)malloc(N * sizeof(double*));
+    if (!temp_data) {
+        free(indices);
+        return STONESOUP_ERROR_ALLOCATION;
+    }
+
+    for (size_t i = 0; i < N; i++) {
+        temp_data[i] = (double*)malloc(dim * sizeof(double));
+        if (!temp_data[i]) {
+            for (size_t k = 0; k < i; k++) {
+                free(temp_data[k]);
+            }
+            free(temp_data);
+            free(indices);
+            return STONESOUP_ERROR_ALLOCATION;
+        }
+        // Copy the selected particle's data
+        memcpy(temp_data[i], state->particles[indices[i]].state_vector->data,
+               dim * sizeof(double));
+    }
+
+    free(indices);
+
+    // Copy data back to particles and reset weights
+    for (size_t i = 0; i < N; i++) {
+        memcpy(state->particles[i].state_vector->data, temp_data[i],
+               dim * sizeof(double));
+        state->particles[i].weight = 1.0 / N;
+        free(temp_data[i]);
+    }
+
+    free(temp_data);
 
     return STONESOUP_SUCCESS;
 }
@@ -368,13 +428,16 @@ stonesoup_error_t stonesoup_particle_multinomial_resample(
         return STONESOUP_ERROR_INVALID_SIZE;
     }
 
+    // Get state dimension from first particle
+    size_t dim = state->particles[0].state_vector->size;
+
     // Allocate temporary arrays
     double* cumsum = (double*)malloc(N * sizeof(double));
-    stonesoup_particle_t* new_particles = (stonesoup_particle_t*)malloc(N * sizeof(stonesoup_particle_t));
+    size_t* indices = (size_t*)malloc(N * sizeof(size_t));
 
-    if (!cumsum || !new_particles) {
+    if (!cumsum || !indices) {
         free(cumsum);
-        free(new_particles);
+        free(indices);
         return STONESOUP_ERROR_ALLOCATION;
     }
 
@@ -388,7 +451,7 @@ stonesoup_error_t stonesoup_particle_multinomial_resample(
     double total_weight = cumsum[N-1];
     if (total_weight <= 0.0) {
         free(cumsum);
-        free(new_particles);
+        free(indices);
         return STONESOUP_ERROR_INVALID_ARG;
     }
 
@@ -396,7 +459,7 @@ stonesoup_error_t stonesoup_particle_multinomial_resample(
         cumsum[i] /= total_weight;
     }
 
-    // Generate N random numbers and select particles
+    // Generate N random numbers and select particle indices
     for (size_t i = 0; i < N; i++) {
         // Generate random number u ~ U(0, 1)
         double u = (double)rand() / RAND_MAX;
@@ -407,17 +470,44 @@ stonesoup_error_t stonesoup_particle_multinomial_resample(
             j++;
         }
 
-        // Copy selected particle
-        new_particles[i].state_vector = state->particles[j].state_vector;
-        new_particles[i].weight = 1.0 / N;  // Reset to uniform weight
+        indices[i] = j;
     }
 
-    // Copy new particles back to state
-    memcpy(state->particles, new_particles, N * sizeof(stonesoup_particle_t));
-
-    // Free temporary arrays
     free(cumsum);
-    free(new_particles);
+
+    // Allocate temporary storage for copying state vectors
+    double** temp_data = (double**)malloc(N * sizeof(double*));
+    if (!temp_data) {
+        free(indices);
+        return STONESOUP_ERROR_ALLOCATION;
+    }
+
+    for (size_t i = 0; i < N; i++) {
+        temp_data[i] = (double*)malloc(dim * sizeof(double));
+        if (!temp_data[i]) {
+            for (size_t k = 0; k < i; k++) {
+                free(temp_data[k]);
+            }
+            free(temp_data);
+            free(indices);
+            return STONESOUP_ERROR_ALLOCATION;
+        }
+        // Copy the selected particle's data
+        memcpy(temp_data[i], state->particles[indices[i]].state_vector->data,
+               dim * sizeof(double));
+    }
+
+    free(indices);
+
+    // Copy data back to particles and reset weights
+    for (size_t i = 0; i < N; i++) {
+        memcpy(state->particles[i].state_vector->data, temp_data[i],
+               dim * sizeof(double));
+        state->particles[i].weight = 1.0 / N;
+        free(temp_data[i]);
+    }
+
+    free(temp_data);
 
     return STONESOUP_SUCCESS;
 }
