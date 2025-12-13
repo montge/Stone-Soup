@@ -423,6 +423,98 @@ jobs:
           cd bindings/rust
           cargo clippy -- -D warnings
 
+  # Java Bindings Tests
+  java-bindings:
+    name: Java Bindings Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      - name: Build libstonesoup
+        run: |
+          cd libstonesoup
+          mkdir -p build && cd build
+          cmake .. -DBUILD_TESTS=OFF
+          make -j$(nproc)
+          sudo make install
+          sudo ldconfig
+
+      - name: Run Java tests
+        run: |
+          cd bindings/java
+          mvn test
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: java-test-results
+          path: bindings/java/target/surefire-reports/
+
+  # Node.js Bindings Tests
+  nodejs-bindings:
+    name: Node.js Bindings Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build libstonesoup
+        run: |
+          cd libstonesoup
+          mkdir -p build && cd build
+          cmake .. -DBUILD_TESTS=OFF
+          make -j$(nproc)
+          sudo make install
+          sudo ldconfig
+
+      - name: Install dependencies
+        run: |
+          cd bindings/nodejs
+          npm ci
+
+      - name: Run Node.js tests
+        run: |
+          cd bindings/nodejs
+          npm test
+
+  # Go Bindings Tests
+  go-bindings:
+    name: Go Bindings Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build libstonesoup
+        run: |
+          cd libstonesoup
+          mkdir -p build && cd build
+          cmake .. -DBUILD_TESTS=OFF
+          make -j$(nproc)
+          sudo make install
+          sudo ldconfig
+
+      - name: Run Go tests
+        run: |
+          cd bindings/go
+          go test -v ./...
+
   # Documentation build
   docs:
     name: Build Documentation
@@ -523,7 +615,7 @@ jobs:
   all-checks:
     name: All Checks Passed
     runs-on: ubuntu-latest
-    needs: [ruff, bandit, semgrep, cargo-audit, npm-audit, java-security, test, coverage, safety, libstonesoup, misra, rust-bindings, docs, sonarcloud]
+    needs: [ruff, bandit, semgrep, cargo-audit, npm-audit, java-security, test, coverage, safety, libstonesoup, misra, rust-bindings, java-bindings, nodejs-bindings, go-bindings, docs, sonarcloud]
     if: always()
     steps:
       - name: Check results
