@@ -3,19 +3,82 @@ build/
 dist/
 *.egg-info
 __pycache__/
+*.pyc
+*.pyo
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
 
 # Sphinx documentation
 /docs/build/
 /docs/source/auto*
 /docs/source/sg_execution_times.rst
 
-# coverage
+# Coverage
 .coverage
 htmlcov/
+coverage.xml
+*.lcov
+lcov.info
 
 # pytest
 .pytest_cache/
+junit.xml
 
-#Animation plotting example
+# SonarCloud / SonarQube
+.sonar/
+.scannerwork/
+sonar-report.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# C/C++ build artifacts
+libstonesoup/build/
+*.o
+*.a
+*.so
+*.dylib
+
+# Rust
+bindings/rust/target/
+Cargo.lock
+
+# Java
+bindings/java/target/
+*.class
+*.jar
+
+# Node.js
+bindings/nodejs/node_modules/
+bindings/nodejs/dist/
+bindings/nodejs/*.tgz
+
+# Go
+bindings/go/bin/
+
+# Ada
+bindings/ada/obj/
+bindings/ada/lib/
+
+# Security scan reports
+bandit-report.json
+safety-report.json
+cargo-audit-report.json
+npm-audit-report.json
+semgrep.sarif
+cppcheck-report.xml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Animation plotting example
 docs/examples/plotting/example_animation.gif
-venv/
