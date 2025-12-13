@@ -21,12 +21,12 @@
 - [x] 3.4 Implement `kalman_predict` and `kalman_update` high-level functions
 - [x] 3.5 Add input validation and error handling
 
-## 4. Xcos Palette (Optional Phase)
-- [ ] 4.1 Create `xcos/` directory structure
-- [ ] 4.2 Implement Kalman Predictor block (S-function style)
-- [ ] 4.3 Implement Kalman Updater block
-- [ ] 4.4 Create palette XML definition
-- [ ] 4.5 Add demo Xcos models
+## 4. Xcos Palette
+- [x] 4.1 Create `xcos/` directory structure
+- [x] 4.2 Implement Kalman Predictor block (S-function style)
+- [x] 4.3 Implement Kalman Updater block
+- [x] 4.4 Create palette XML definition
+- [x] 4.5 Add demo Xcos models
 
 ## 5. ATOMS Package
 - [x] 5.1 Create `DESCRIPTION` file for ATOMS
