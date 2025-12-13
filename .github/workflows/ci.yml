@@ -338,6 +338,51 @@ jobs:
           name: c-coverage
           path: libstonesoup/build/coverage.info
 
+  # MISRA C:2012 Compliance Check
+  misra:
+    name: MISRA C Compliance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cppcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cppcheck
+
+      - name: Run cppcheck analysis
+        run: |
+          cd libstonesoup
+          cppcheck --enable=all --std=c17 \
+            --suppress=missingIncludeSystem \
+            --suppress=unusedFunction \
+            -I include src \
+            --xml 2> cppcheck-report.xml || true
+
+      - name: Generate HTML report
+        run: |
+          cd libstonesoup
+          cppcheck-htmlreport --file=cppcheck-report.xml --report-dir=cppcheck-html || true
+
+      - name: Check for errors
+        run: |
+          cd libstonesoup
+          cppcheck --enable=all --std=c17 \
+            --suppress=missingIncludeSystem \
+            --suppress=unusedFunction \
+            --error-exitcode=1 \
+            -I include src
+        continue-on-error: true
+
+      - name: Upload cppcheck report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cppcheck-report
+          path: |
+            libstonesoup/cppcheck-report.xml
+            libstonesoup/cppcheck-html/
+
   # Rust Bindings Build and Coverage
   rust-bindings:
     name: Rust Bindings & Coverage
@@ -471,14 +516,14 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.projectKey=stonesoup
-            -Dsonar.organization=dstl
+            -Dsonar.projectKey=montge_Stone-Soup
+            -Dsonar.organization=montge
 
   # All checks passed
   all-checks:
     name: All Checks Passed
     runs-on: ubuntu-latest
-    needs: [ruff, bandit, semgrep, cargo-audit, npm-audit, java-security, test, coverage, safety, libstonesoup, rust-bindings, docs, sonarcloud]
+    needs: [ruff, bandit, semgrep, cargo-audit, npm-audit, java-security, test, coverage, safety, libstonesoup, misra, rust-bindings, docs, sonarcloud]
     if: always()
     steps:
       - name: Check results
