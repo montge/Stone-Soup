@@ -82,3 +82,4 @@ Thumbs.db
 
 # Animation plotting example
 docs/examples/plotting/example_animation.gif
+.hypothesis/
