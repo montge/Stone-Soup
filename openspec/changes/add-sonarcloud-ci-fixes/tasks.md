@@ -6,8 +6,8 @@
 ## 2. SonarCloud Integration
 - [x] 2.1 Create sonar-project.properties configuration file
 - [x] 2.2 Add SonarCloud GitHub Action step to ci.yml
-- [ ] 2.3 Configure SONAR_TOKEN secret in repository settings
-- [ ] 2.4 Configure quality gate thresholds in SonarCloud project settings
+- [x] 2.3 Configure SONAR_TOKEN secret in repository settings
+- [ ] 2.4 Configure quality gate thresholds in SonarCloud project settings (post-deployment)
 
 ## 3. Coverage Reporting
 - [x] 3.1 Configure coverage XML output compatible with SonarCloud
