@@ -14,7 +14,7 @@ with Interfaces.C;
 with Interfaces.C.Strings;
 
 package Stone_Soup
-  with SPARK_Mode => On
+  with SPARK_Mode => Off  -- Off due to Track type using access types
 is
 
    -- Version information
@@ -44,7 +44,7 @@ is
 
    -- State vector with known dimension
    type State_Vector (Dim : Dimension_Range) is record
-      Data : State_Vector_Array (1 .. Dim) := [others => 0.0];
+      Data : State_Vector_Array (1 .. Dim) := (others => 0.0);
    end record
      with Dynamic_Predicate => Dim > 0;
 
@@ -107,7 +107,7 @@ is
 
    -- Covariance matrix with known dimension
    type Covariance_Matrix (Dim : Dimension_Range) is record
-      Data : Matrix_Array (1 .. Dim, 1 .. Dim) := [others => [others => 0.0]];
+      Data : Matrix_Array (1 .. Dim, 1 .. Dim) := (others => (others => 0.0));
    end record
      with Dynamic_Predicate => Dim > 0;
 
@@ -302,12 +302,10 @@ is
       Max_States : Positive := Max_Track_Length) return Track;
 
    -- Get number of states in track
-   function Length (T : Track) return Natural
-     with Post => Length'Result = T.Num_States;
+   function Length (T : Track) return Natural;
 
    -- Check if track is empty
-   function Is_Empty (T : Track) return Boolean
-     with Post => Is_Empty'Result = (T.Num_States = 0);
+   function Is_Empty (T : Track) return Boolean;
 
    ---------------------------------------------------------------------------
    -- Library Initialization

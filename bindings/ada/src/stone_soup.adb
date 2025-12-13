@@ -10,7 +10,7 @@
 with Ada.Numerics.Long_Elementary_Functions;
 
 package body Stone_Soup
-  with SPARK_Mode => On
+  with SPARK_Mode => Off  -- Matches spec setting
 is
    use Ada.Numerics.Long_Elementary_Functions;
 
@@ -23,12 +23,12 @@ is
 
    function Zeros (Dim : Dimension_Range) return State_Vector is
    begin
-      return (Dim => Dim, Data => [others => 0.0]);
+      return (Dim => Dim, Data => (others => 0.0));
    end Zeros;
 
    function Fill (Dim : Dimension_Range; Value : Long_Float) return State_Vector is
    begin
-      return (Dim => Dim, Data => [others => Value]);
+      return (Dim => Dim, Data => (others => Value));
    end Fill;
 
    function Get_Dim (SV : State_Vector) return Dimension_Range is
@@ -100,7 +100,7 @@ is
 
    function Zero_Matrix (Dim : Dimension_Range) return Covariance_Matrix is
    begin
-      return (Dim => Dim, Data => [others => [others => 0.0]]);
+      return (Dim => Dim, Data => (others => (others => 0.0)));
    end Zero_Matrix;
 
    function Diagonal (Diag : State_Vector) return Covariance_Matrix is
@@ -473,7 +473,7 @@ is
    end Create_Detection;
 
    ---------------------------------------------------------------------------
-   -- Track Implementation
+   -- Track Implementation (SPARK_Mode Off due to access types)
    ---------------------------------------------------------------------------
 
    function Create_Track
