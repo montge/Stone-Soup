@@ -205,6 +205,44 @@ const state = new GaussianState({
 const predicted = kalmanPredict(state, transitionMatrix, processNoise);
 ```
 
+### Scilab (`scilab/`)
+
+Scilab bindings for numerical computation and Xcos simulation integration.
+
+**Requirements:** Scilab 6.0+, libstonesoup
+
+**Build:**
+```bash
+cd scilab
+# Open Scilab and run:
+exec("builder.sce", -1);
+```
+
+**Example:**
+```scilab
+// Load Stone Soup
+exec("loader.sce", -1);
+
+// Create Gaussian state
+sv = [0; 1; 0; 1];  // [x, vx, y, vy]
+P = eye(4, 4);
+gs = GaussianState(sv, P);
+
+// Constant velocity model
+dt = 1.0;
+F = constant_velocity_transition(2, dt);
+Q = 0.1 * eye(4, 4);
+
+// Kalman prediction
+gs_pred = kalman_predict(gs, F, Q);
+
+// Measurement update
+H = position_measurement_matrix(2);
+R = 0.5 * eye(2, 2);
+measurement = [1.1; 1.2];
+gs_post = kalman_update(gs_pred, measurement, H, R);
+```
+
 ### Ada (`ada/`)
 
 Ada bindings with strong typing guarantees and SPARK contracts.
@@ -260,18 +298,20 @@ State can be serialized to JSON for cross-language communication:
 All bindings interface with a common C API layer (`libstonesoup`) that provides a stable ABI:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Application Code                          │
-├─────────┬─────────┬─────────┬─────────┬─────────┬───────────┤
-│  Python │   Rust  │   C++   │   Java  │   Go    │  Node.js  │
-│  (PyO3) │(nalgebra)│ (RAII) │(Panama) │  (cgo)  │ (napi-rs) │
-├─────────┴─────────┴─────────┴─────────┴─────────┴───────────┤
-│                   libstonesoup (C API)                       │
-│              - StateVector operations                        │
-│              - CovarianceMatrix operations                   │
-│              - Kalman filter                                 │
-│              - Particle filter                               │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          Application Code                                 │
+├─────────┬─────────┬─────────┬─────────┬─────────┬─────────┬─────────────┤
+│  Python │   Rust  │   C++   │   Java  │   Go    │ Node.js │   Scilab    │
+│  (PyO3) │(nalgebra)│ (RAII) │(Panama) │  (cgo)  │(napi-rs)│  (gateway)  │
+├─────────┴─────────┴─────────┴─────────┴─────────┴─────────┴─────────────┤
+│            Ada (SPARK)  │  MATLAB (MEX)  │  GNU Octave (MEX)            │
+├─────────────────────────────────────────────────────────────────────────┤
+│                        libstonesoup (C API)                              │
+│                   - StateVector operations                               │
+│                   - CovarianceMatrix operations                          │
+│                   - Kalman filter                                        │
+│                   - Particle filter                                      │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 Each language binding:

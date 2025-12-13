@@ -1,0 +1,13 @@
+stonesoup_version - Get Stone Soup version string
+stonesoup_state_vector_create - Create a state vector
+stonesoup_state_vector_add - Add two state vectors
+stonesoup_state_vector_norm - Compute Euclidean norm
+stonesoup_covariance_identity - Create identity matrix
+stonesoup_kalman_predict - Kalman filter prediction
+stonesoup_kalman_update - Kalman filter update
+StateVector - High-level state vector constructor
+GaussianState - Gaussian state with mean and covariance
+kalman_predict - High-level Kalman prediction
+kalman_update - High-level Kalman update
+constant_velocity_transition - Create CV transition matrix
+position_measurement_matrix - Create position measurement matrix

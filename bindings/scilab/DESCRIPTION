@@ -1,0 +1,40 @@
+Toolbox: stonesoup
+
+Title: Stone Soup Tracking Framework
+
+Summary: Target tracking and state estimation algorithms
+
+Version: 0.1.0
+
+Author: Stone Soup Contributors
+
+Maintainer: Stone Soup Contributors
+
+Category: Signal Processing
+
+Entity: DSTL
+
+WebSite: https://github.com/dstl/Stone-Soup
+
+License: MIT
+
+ScilabVersion: >= 6.0
+
+Depends:
+
+Date: 2024-12-13
+
+Description: Stone Soup is a software project to provide an open source
+ framework for target tracking and state estimation. This Scilab module
+ provides bindings to the Stone Soup C library (libstonesoup) for use in
+ Scilab and Xcos simulations.
+ .
+ Features:
+ - State vector and covariance matrix operations
+ - Kalman filter prediction and update
+ - Extended Kalman Filter (EKF) support
+ - Particle filter operations
+ .
+ Requirements:
+ - libstonesoup compiled and installed
+ - Scilab 6.0 or later

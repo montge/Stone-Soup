@@ -1,0 +1,21 @@
+// Stone Soup module cleanup script
+// This file is executed when the module is unloaded
+
+mprintf("Unloading Stone Soup tracking framework...\n");
+
+// Clear Stone Soup functions from memory
+clear stonesoup_version;
+clear stonesoup_state_vector_create;
+clear stonesoup_state_vector_zeros;
+clear stonesoup_state_vector_add;
+clear stonesoup_state_vector_subtract;
+clear stonesoup_state_vector_scale;
+clear stonesoup_state_vector_norm;
+clear stonesoup_covariance_matrix_create;
+clear stonesoup_covariance_matrix_identity;
+clear stonesoup_kalman_predict;
+clear stonesoup_kalman_update;
+clear StateVector;
+clear GaussianState;
+
+mprintf("Stone Soup unloaded.\n");
