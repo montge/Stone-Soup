@@ -37,7 +37,14 @@
 - [ ] 5.2 Add coordinate frame-specific numeric policies
 - [x] 5.3 Support switchable precision modes
   - Implemented via compile-time flags: STONESOUP_PRECISION_SINGLE, STONESOUP_PRECISION_DOUBLE, STONESOUP_PRECISION_EXTENDED
-- [ ] 5.4 Add cross-domain coordinate transfer with precision management
+- [x] 5.4 Add cross-domain coordinate transfer with precision management
+  - Created Ada package `Stone_Soup.Domain_Transfer` at `bindings/ada/src/stone_soup-domain_transfer.ads` and `.adb`
+  - Supports transfers between: Undersea, Surface, LEO, MEO, GEO, Cislunar, Interplanetary domains
+  - Tracks accumulated precision loss across transformations with domain-specific thresholds
+  - Provides precision status (OK, Warning, Critical) based on loss factor
+  - SPARK contracts ensure valid domain transfers and precision bounds
+  - Hierarchical coordinate frame support with automatic routing through intermediate domains
+  - Domain-specific precision requirements: Undersea (1cm), LEO (1m), GEO (10m), Cislunar (100m), Interplanetary (1km)
 
 ## 6. Testing and Validation
 - [x] 6.1 Add boundary value tests for each numeric type
