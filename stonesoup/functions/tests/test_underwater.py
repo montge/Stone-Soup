@@ -11,6 +11,13 @@ from ..underwater import (
     cart2depth_bearing_range,
     depth_bearing_range2cart,
     depth_to_pressure,
+    ecef_to_enu,
+    ecef_to_geodetic_underwater,
+    enu_to_ecef,
+    enu_to_geodetic_depth,
+    geodetic_depth_to_enu,
+    geodetic_to_ecef_underwater,
+    haversine_distance,
     pressure_to_depth,
     sound_speed_mackenzie,
     sound_speed_unesco,
@@ -359,3 +366,244 @@ def test_transmission_loss_small_distance():
     tl = transmission_loss(distance=1.0, frequency=10.0)
     assert tl > 0
     assert tl < 10  # Should be reasonable for 1m
+
+
+# =============================================================================
+# Geodetic Integration Tests
+# =============================================================================
+
+
+def test_geodetic_to_ecef_at_equator_surface():
+    """Test ECEF conversion at equator, prime meridian, surface."""
+    lat, lon, depth = 0.0, 0.0, 0.0
+    x, y, z = geodetic_to_ecef_underwater(lat, lon, depth)
+    # At equator, prime meridian: x = semi-major axis, y = 0, z = 0
+    assert x == approx(6378137.0, rel=1e-6)
+    assert y == approx(0.0, abs=1e-6)
+    assert z == approx(0.0, abs=1e-6)
+
+
+def test_geodetic_to_ecef_at_pole():
+    """Test ECEF conversion at north pole."""
+    lat, lon, depth = np.pi / 2, 0.0, 0.0
+    x, y, z = geodetic_to_ecef_underwater(lat, lon, depth)
+    # At pole: x = 0, y = 0, z = semi-minor axis
+    # z = N(1-e2) = a(1-e2) / sqrt(1-e2) = a*sqrt(1-e2) for pole
+    assert x == approx(0.0, abs=1e-6)
+    assert y == approx(0.0, abs=1e-6)
+    assert z > 6356000.0  # Should be close to semi-minor axis
+
+
+def test_geodetic_to_ecef_with_depth():
+    """Depth should reduce ECEF distance from Earth center."""
+    lat, lon = np.radians(45.0), np.radians(0.0)
+    x_surface, y_surface, z_surface = geodetic_to_ecef_underwater(lat, lon, 0.0)
+    x_deep, y_deep, z_deep = geodetic_to_ecef_underwater(lat, lon, 1000.0)
+
+    r_surface = np.sqrt(x_surface**2 + y_surface**2 + z_surface**2)
+    r_deep = np.sqrt(x_deep**2 + y_deep**2 + z_deep**2)
+
+    # Underwater point should be closer to Earth center
+    assert r_deep < r_surface
+
+
+def test_ecef_to_geodetic_roundtrip():
+    """Test ECEF to geodetic roundtrip conversion."""
+    lat_orig = np.radians(51.4769)  # Greenwich
+    lon_orig = np.radians(-0.0005)
+    depth_orig = 100.0
+
+    x, y, z = geodetic_to_ecef_underwater(lat_orig, lon_orig, depth_orig)
+    lat, lon, depth = ecef_to_geodetic_underwater(x, y, z)
+
+    assert lat == approx(lat_orig, rel=1e-10)
+    assert lon == approx(lon_orig, rel=1e-10)
+    assert depth == approx(depth_orig, rel=1e-6)
+
+
+@pytest.mark.parametrize(
+    "lat_deg,lon_deg,depth",
+    [
+        (0.0, 0.0, 0.0),
+        (45.0, 90.0, 500.0),
+        (-30.0, 120.0, 2000.0),
+        (89.0, -45.0, 100.0),
+        (-89.0, 180.0, 3000.0),
+    ],
+)
+def test_ecef_geodetic_roundtrip_parametrized(lat_deg, lon_deg, depth):
+    """Test roundtrip at various locations."""
+    lat_orig = np.radians(lat_deg)
+    lon_orig = np.radians(lon_deg)
+
+    x, y, z = geodetic_to_ecef_underwater(lat_orig, lon_orig, depth)
+    lat, lon, depth_back = ecef_to_geodetic_underwater(x, y, z)
+
+    assert lat == approx(lat_orig, rel=1e-10, abs=1e-10)
+    assert lon == approx(lon_orig, rel=1e-10, abs=1e-10)
+    assert depth_back == approx(depth, rel=1e-6, abs=1e-6)
+
+
+def test_enu_at_reference_is_zero():
+    """Point at reference should have ENU = (0, 0, 0)."""
+    ref_lat = np.radians(45.0)
+    ref_lon = np.radians(-122.0)
+    ref_depth = 0.0
+
+    x, y, z = geodetic_to_ecef_underwater(ref_lat, ref_lon, ref_depth)
+    e, n, u = ecef_to_enu(x, y, z, ref_lat, ref_lon, ref_depth)
+
+    assert e == approx(0.0, abs=1e-6)
+    assert n == approx(0.0, abs=1e-6)
+    assert u == approx(0.0, abs=1e-6)
+
+
+def test_enu_north_direction():
+    """Point 1km north should have north ~= 1000m."""
+    ref_lat = np.radians(45.0)
+    ref_lon = np.radians(-122.0)
+
+    # Move ~1km north (approx 0.009 degrees at 45 lat)
+    target_lat = ref_lat + 0.009 * np.pi / 180
+    target_lon = ref_lon
+    target_depth = 0.0
+
+    x, y, z = geodetic_to_ecef_underwater(target_lat, target_lon, target_depth)
+    e, n, u = ecef_to_enu(x, y, z, ref_lat, ref_lon, 0.0)
+
+    assert abs(e) < 1.0  # Should be nearly zero east
+    assert n > 900 and n < 1100  # Should be ~1000m north
+    assert abs(u) < 1.0  # Should be nearly zero up
+
+
+def test_enu_east_direction():
+    """Point 1km east should have east ~= 1000m."""
+    ref_lat = np.radians(45.0)
+    ref_lon = np.radians(-122.0)
+
+    # Move ~1km east (approx 0.013 degrees at 45 lat)
+    target_lat = ref_lat
+    target_lon = ref_lon + 0.013 * np.pi / 180
+    target_depth = 0.0
+
+    x, y, z = geodetic_to_ecef_underwater(target_lat, target_lon, target_depth)
+    e, n, u = ecef_to_enu(x, y, z, ref_lat, ref_lon, 0.0)
+
+    assert e > 900 and e < 1100  # Should be ~1000m east
+    assert abs(n) < 1.0  # Should be nearly zero north
+    assert abs(u) < 1.0  # Should be nearly zero up
+
+
+def test_enu_down_direction():
+    """Point 100m deeper should have up ~= -100m."""
+    ref_lat = np.radians(45.0)
+    ref_lon = np.radians(-122.0)
+    ref_depth = 0.0
+
+    target_lat = ref_lat
+    target_lon = ref_lon
+    target_depth = 100.0
+
+    x, y, z = geodetic_to_ecef_underwater(target_lat, target_lon, target_depth)
+    e, n, u = ecef_to_enu(x, y, z, ref_lat, ref_lon, ref_depth)
+
+    assert abs(e) < 0.1  # Should be zero east
+    assert abs(n) < 0.1  # Should be zero north
+    assert u == approx(-100.0, rel=1e-4)  # Should be -100m (down)
+
+
+def test_enu_to_ecef_roundtrip():
+    """Test ENU to ECEF roundtrip."""
+    ref_lat = np.radians(34.0)
+    ref_lon = np.radians(-118.0)
+    ref_depth = 50.0
+
+    east_orig, north_orig, up_orig = 500.0, -300.0, -150.0
+
+    x, y, z = enu_to_ecef(east_orig, north_orig, up_orig, ref_lat, ref_lon, ref_depth)
+    e, n, u = ecef_to_enu(x, y, z, ref_lat, ref_lon, ref_depth)
+
+    assert e == approx(east_orig, rel=1e-10)
+    assert n == approx(north_orig, rel=1e-10)
+    assert u == approx(up_orig, rel=1e-10)
+
+
+def test_geodetic_depth_to_enu_basic():
+    """Test geodetic to ENU conversion."""
+    ref_lat = np.radians(45.0)
+    ref_lon = np.radians(0.0)
+
+    # Target at same location but 200m deep
+    target_lat = ref_lat
+    target_lon = ref_lon
+    target_depth = 200.0
+
+    e, n, u = geodetic_depth_to_enu(target_lat, target_lon, target_depth, ref_lat, ref_lon, 0.0)
+
+    assert abs(e) < 0.1
+    assert abs(n) < 0.1
+    assert u == approx(-200.0, rel=1e-4)
+
+
+def test_enu_to_geodetic_depth_roundtrip():
+    """Test ENU to geodetic roundtrip."""
+    ref_lat = np.radians(40.0)
+    ref_lon = np.radians(-74.0)
+    ref_depth = 0.0
+
+    # Start with geodetic coordinates
+    target_lat = np.radians(40.01)
+    target_lon = np.radians(-73.99)
+    target_depth = 300.0
+
+    # Convert to ENU
+    e, n, u = geodetic_depth_to_enu(
+        target_lat, target_lon, target_depth, ref_lat, ref_lon, ref_depth
+    )
+
+    # Convert back to geodetic
+    lat, lon, depth = enu_to_geodetic_depth(e, n, u, ref_lat, ref_lon, ref_depth)
+
+    assert lat == approx(target_lat, rel=1e-10)
+    assert lon == approx(target_lon, rel=1e-10)
+    assert depth == approx(target_depth, rel=1e-6)
+
+
+def test_haversine_distance_surface():
+    """Test haversine distance at surface."""
+    # Two points ~111km apart (1 degree at equator)
+    lat1, lon1 = 0.0, 0.0
+    lat2, lon2 = 0.0, np.radians(1.0)
+
+    dist = haversine_distance(lat1, lon1, lat2, lon2)
+
+    # 1 degree at equator is ~111km
+    assert dist == approx(111320.0, rel=0.01)
+
+
+def test_haversine_distance_same_point():
+    """Distance to same point should be zero."""
+    lat, lon = np.radians(45.0), np.radians(-90.0)
+    dist = haversine_distance(lat, lon, lat, lon)
+    assert dist == approx(0.0, abs=1e-6)
+
+
+def test_haversine_distance_vertical():
+    """Distance for same lat/lon but different depth."""
+    lat, lon = np.radians(30.0), np.radians(60.0)
+    dist = haversine_distance(lat, lon, lat, lon, depth1=0.0, depth2=1000.0)
+    assert dist == approx(1000.0, rel=1e-4)
+
+
+def test_haversine_distance_3d():
+    """Test 3D distance with both horizontal and vertical components."""
+    lat1, lon1, depth1 = np.radians(45.0), np.radians(0.0), 0.0
+    lat2, lon2, depth2 = np.radians(45.0), np.radians(0.01), 500.0
+
+    dist = haversine_distance(lat1, lon1, lat2, lon2, depth1, depth2)
+
+    # Should be greater than either horizontal or vertical distance alone
+    horiz_dist = haversine_distance(lat1, lon1, lat2, lon2, 0.0, 0.0)
+    assert dist > horiz_dist
+    assert dist > 500.0
+    assert dist < horiz_dist + 500.0  # Triangle inequality

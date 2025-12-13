@@ -449,3 +449,336 @@ def bearing_elevation_range2cart(bearing, elevation, slant_range):
     y = horizontal_range * np.cos(bearing)
 
     return x, y, z
+
+
+# =============================================================================
+# Geodetic Integration Functions (WGS84)
+# =============================================================================
+
+# WGS84 ellipsoid parameters
+WGS84_SEMI_MAJOR_AXIS = 6378137.0  # meters
+WGS84_FLATTENING = 1.0 / 298.257223563
+WGS84_SEMI_MINOR_AXIS = WGS84_SEMI_MAJOR_AXIS * (1 - WGS84_FLATTENING)
+WGS84_ECCENTRICITY_SQUARED = 2 * WGS84_FLATTENING - WGS84_FLATTENING**2
+
+
+def geodetic_to_ecef_underwater(lat, lon, depth):
+    """Convert geodetic coordinates with depth to ECEF.
+
+    This is the underwater extension of standard geodetic-to-ECEF conversion.
+    Depth is measured positive downward from the WGS84 ellipsoid surface.
+
+    Parameters
+    ----------
+    lat : float
+        Geodetic latitude in radians (positive north)
+    lon : float
+        Geodetic longitude in radians (positive east)
+    depth : float
+        Depth in meters (positive downward from ellipsoid surface)
+
+    Returns
+    -------
+    tuple
+        (x, y, z) ECEF coordinates in meters
+
+    Notes
+    -----
+    Depth is converted to negative altitude for ECEF calculation:
+        altitude = -depth
+    """
+    a = WGS84_SEMI_MAJOR_AXIS
+    e2 = WGS84_ECCENTRICITY_SQUARED
+
+    # Depth is negative altitude
+    alt = -depth
+
+    sin_lat = np.sin(lat)
+    cos_lat = np.cos(lat)
+
+    # Prime vertical radius of curvature
+    N = a / np.sqrt(1.0 - e2 * sin_lat**2)
+
+    x = (N + alt) * cos_lat * np.cos(lon)
+    y = (N + alt) * cos_lat * np.sin(lon)
+    z = (N * (1.0 - e2) + alt) * sin_lat
+
+    return x, y, z
+
+
+def ecef_to_geodetic_underwater(x, y, z, tolerance=1e-12, max_iterations=10):
+    """Convert ECEF coordinates to geodetic with depth.
+
+    Uses Bowring's iterative method for the lat/lon conversion.
+
+    Parameters
+    ----------
+    x : float
+        ECEF X-coordinate in meters
+    y : float
+        ECEF Y-coordinate in meters
+    z : float
+        ECEF Z-coordinate in meters
+    tolerance : float, optional
+        Convergence tolerance for latitude in radians
+    max_iterations : int, optional
+        Maximum number of iterations
+
+    Returns
+    -------
+    tuple
+        (lat, lon, depth) where:
+        - lat: Geodetic latitude in radians
+        - lon: Geodetic longitude in radians
+        - depth: Depth in meters (positive downward)
+    """
+    a = WGS84_SEMI_MAJOR_AXIS
+    b = WGS84_SEMI_MINOR_AXIS
+    e2 = WGS84_ECCENTRICITY_SQUARED
+    ep2 = (a**2 - b**2) / b**2  # Second eccentricity squared
+
+    # Longitude is straightforward
+    lon = np.arctan2(y, x)
+
+    # Horizontal distance from z-axis
+    p = np.sqrt(x**2 + y**2)
+
+    # Initial latitude estimate using parametric latitude
+    theta = np.arctan2(z * a, p * b)
+    lat = np.arctan2(z + ep2 * b * np.sin(theta) ** 3, p - e2 * a * np.cos(theta) ** 3)
+
+    # Iterate to improve latitude
+    for _ in range(max_iterations):
+        sin_lat = np.sin(lat)
+        N = a / np.sqrt(1.0 - e2 * sin_lat**2)
+
+        lat_new = np.arctan2(z + e2 * N * sin_lat, p)
+
+        if np.abs(lat_new - lat) < tolerance:
+            lat = lat_new
+            break
+        lat = lat_new
+
+    # Compute altitude and convert to depth
+    sin_lat = np.sin(lat)
+    cos_lat = np.cos(lat)
+    N = a / np.sqrt(1.0 - e2 * sin_lat**2)
+
+    if np.abs(cos_lat) > 1e-10:
+        alt = p / cos_lat - N
+    else:
+        alt = np.abs(z) / np.abs(sin_lat) - N * (1 - e2)
+
+    # Depth is negative altitude
+    depth = -alt
+
+    return lat, lon, depth
+
+
+def ecef_to_enu(x, y, z, ref_lat, ref_lon, ref_depth=0.0):
+    """Convert ECEF coordinates to local ENU (East-North-Up).
+
+    The ENU frame is centered at the reference point with:
+    - East: Positive toward increasing longitude
+    - North: Positive toward increasing latitude
+    - Up: Positive away from Earth center (opposite to depth)
+
+    Parameters
+    ----------
+    x : float
+        ECEF X-coordinate in meters
+    y : float
+        ECEF Y-coordinate in meters
+    z : float
+        ECEF Z-coordinate in meters
+    ref_lat : float
+        Reference latitude in radians
+    ref_lon : float
+        Reference longitude in radians
+    ref_depth : float, optional
+        Reference depth in meters (default 0 = surface)
+
+    Returns
+    -------
+    tuple
+        (east, north, up) coordinates in meters
+    """
+    # Get reference point in ECEF
+    ref_x, ref_y, ref_z = geodetic_to_ecef_underwater(ref_lat, ref_lon, ref_depth)
+
+    # Difference vector
+    dx = x - ref_x
+    dy = y - ref_y
+    dz = z - ref_z
+
+    sin_lat = np.sin(ref_lat)
+    cos_lat = np.cos(ref_lat)
+    sin_lon = np.sin(ref_lon)
+    cos_lon = np.cos(ref_lon)
+
+    # Rotation matrix ECEF to ENU
+    east = -sin_lon * dx + cos_lon * dy
+    north = -sin_lat * cos_lon * dx - sin_lat * sin_lon * dy + cos_lat * dz
+    up = cos_lat * cos_lon * dx + cos_lat * sin_lon * dy + sin_lat * dz
+
+    return east, north, up
+
+
+def enu_to_ecef(east, north, up, ref_lat, ref_lon, ref_depth=0.0):
+    """Convert local ENU coordinates to ECEF.
+
+    Parameters
+    ----------
+    east : float
+        East coordinate in meters
+    north : float
+        North coordinate in meters
+    up : float
+        Up coordinate in meters (positive away from Earth)
+    ref_lat : float
+        Reference latitude in radians
+    ref_lon : float
+        Reference longitude in radians
+    ref_depth : float, optional
+        Reference depth in meters (default 0 = surface)
+
+    Returns
+    -------
+    tuple
+        (x, y, z) ECEF coordinates in meters
+    """
+    # Get reference point in ECEF
+    ref_x, ref_y, ref_z = geodetic_to_ecef_underwater(ref_lat, ref_lon, ref_depth)
+
+    sin_lat = np.sin(ref_lat)
+    cos_lat = np.cos(ref_lat)
+    sin_lon = np.sin(ref_lon)
+    cos_lon = np.cos(ref_lon)
+
+    # Rotation matrix ENU to ECEF (transpose of ECEF to ENU)
+    dx = -sin_lon * east - sin_lat * cos_lon * north + cos_lat * cos_lon * up
+    dy = cos_lon * east - sin_lat * sin_lon * north + cos_lat * sin_lon * up
+    dz = cos_lat * north + sin_lat * up
+
+    x = ref_x + dx
+    y = ref_y + dy
+    z = ref_z + dz
+
+    return x, y, z
+
+
+def geodetic_depth_to_enu(lat, lon, depth, ref_lat, ref_lon, ref_depth=0.0):
+    """Convert geodetic coordinates with depth to local ENU.
+
+    This is the primary function for converting geodetic underwater
+    positions to the local ENU coordinate system used in tracking.
+
+    Parameters
+    ----------
+    lat : float
+        Target latitude in radians
+    lon : float
+        Target longitude in radians
+    depth : float
+        Target depth in meters (positive downward)
+    ref_lat : float
+        Reference latitude in radians
+    ref_lon : float
+        Reference longitude in radians
+    ref_depth : float, optional
+        Reference depth in meters (default 0 = surface)
+
+    Returns
+    -------
+    tuple
+        (east, north, up) coordinates in meters
+
+    Notes
+    -----
+    In underwater tracking, 'up' is typically negative (below surface),
+    and the reference point is often at the surface above the tracking area.
+    """
+    # Convert target to ECEF
+    x, y, z = geodetic_to_ecef_underwater(lat, lon, depth)
+
+    # Convert to ENU
+    return ecef_to_enu(x, y, z, ref_lat, ref_lon, ref_depth)
+
+
+def enu_to_geodetic_depth(east, north, up, ref_lat, ref_lon, ref_depth=0.0):
+    """Convert local ENU coordinates to geodetic with depth.
+
+    Parameters
+    ----------
+    east : float
+        East coordinate in meters
+    north : float
+        North coordinate in meters
+    up : float
+        Up coordinate in meters (negative for underwater)
+    ref_lat : float
+        Reference latitude in radians
+    ref_lon : float
+        Reference longitude in radians
+    ref_depth : float, optional
+        Reference depth in meters (default 0 = surface)
+
+    Returns
+    -------
+    tuple
+        (lat, lon, depth) where:
+        - lat: Geodetic latitude in radians
+        - lon: Geodetic longitude in radians
+        - depth: Depth in meters (positive downward)
+    """
+    # Convert ENU to ECEF
+    x, y, z = enu_to_ecef(east, north, up, ref_lat, ref_lon, ref_depth)
+
+    # Convert ECEF to geodetic with depth
+    return ecef_to_geodetic_underwater(x, y, z)
+
+
+def haversine_distance(lat1, lon1, lat2, lon2, depth1=0.0, depth2=0.0):
+    """Calculate distance between two underwater points.
+
+    Uses the haversine formula for horizontal distance, then applies
+    Pythagorean theorem with depth difference for 3D distance.
+
+    Parameters
+    ----------
+    lat1 : float
+        Latitude of first point in radians
+    lon1 : float
+        Longitude of first point in radians
+    lat2 : float
+        Latitude of second point in radians
+    lon2 : float
+        Longitude of second point in radians
+    depth1 : float, optional
+        Depth of first point in meters (default 0)
+    depth2 : float, optional
+        Depth of second point in meters (default 0)
+
+    Returns
+    -------
+    float
+        3D distance between points in meters
+    """
+    # Use mean Earth radius at the average depth
+    avg_depth = (depth1 + depth2) / 2
+    R = WGS84_SEMI_MAJOR_AXIS - avg_depth  # Approximate radius at depth
+
+    # Haversine formula for horizontal distance
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+
+    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+
+    horizontal_dist = R * c
+
+    # 3D distance including depth difference
+    depth_diff = depth2 - depth1
+    distance = np.sqrt(horizontal_dist**2 + depth_diff**2)
+
+    return distance

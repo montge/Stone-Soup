@@ -2,7 +2,7 @@
 - [x] 1.1 Add depth-based coordinate frame (East-North-Depth)
 - [x] 1.2 Add bathymetric-relative coordinates (height above seafloor)
 - [x] 1.3 Add pressure-depth conversion models
-- [ ] 1.4 Integrate with existing geodetic systems (WGS84 at surface)
+- [x] 1.4 Integrate with existing geodetic systems (WGS84 at surface)
 
 ## 2. Underwater Propagation Models
 - [x] 2.1 Add sound velocity profile (SVP) support
