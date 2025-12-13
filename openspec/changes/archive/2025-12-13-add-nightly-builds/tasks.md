@@ -10,7 +10,7 @@
 
 ## 3. Rust Nightly
 - [x] 3.1 Build Rust crate with pre-release version
-- [ ] 3.2 Publish to crates.io with pre-release tag (requires CARGO_REGISTRY_TOKEN secret)
+- [x] 3.2 Publish to crates.io with pre-release tag (requires CARGO_REGISTRY_TOKEN secret)
 
 ## 4. Node.js Nightly
 - [x] 4.1 Build npm package

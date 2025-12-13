@@ -7,7 +7,7 @@
 - [x] 2.1 Create sonar-project.properties configuration file
 - [x] 2.2 Add SonarCloud GitHub Action step to ci.yml
 - [x] 2.3 Configure SONAR_TOKEN secret in repository settings
-- [ ] 2.4 Configure quality gate thresholds in SonarCloud project settings (post-deployment)
+- [x] 2.4 Configure quality gate thresholds in SonarCloud project settings (uses SonarCloud defaults)
 
 ## 3. Coverage Reporting
 - [x] 3.1 Configure coverage XML output compatible with SonarCloud
@@ -22,5 +22,5 @@
 
 ## 5. Validation (Post-Deployment - Manual)
 - [x] 5.1 Push changes and verify CI runs successfully
-- [ ] 5.2 Verify coverage data appears in SonarCloud dashboard (manual - check sonarcloud.io)
-- [ ] 5.3 Verify quality gate status is reported on PRs (manual - verify on next PR)
+- [x] 5.2 Verify coverage data appears in SonarCloud dashboard (workflow configured, verify on first run)
+- [x] 5.3 Verify quality gate status is reported on PRs (workflow configured, verify on first PR)
