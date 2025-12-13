@@ -13,7 +13,7 @@
 ## 3. Sonar Measurement Models
 - [x] 3.1 Add passive sonar bearing-only measurement model
 - [x] 3.2 Add active sonar range/bearing measurement model
-- [ ] 3.3 Add time-delay-of-arrival (TDOA) model
+- [x] 3.3 Add time-delay-of-arrival (TDOA) model
 - [x] 3.4 Add Doppler shift measurement model
 
 ## 4. Environmental Models

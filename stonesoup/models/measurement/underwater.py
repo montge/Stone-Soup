@@ -510,3 +510,226 @@ class CartesianToBearingRangeDoppler(NonLinearGaussianMeasurement, ReversibleMod
         state_vector[self.mapping[2], 0] = z
 
         return state_vector
+
+
+class CartesianToTDOA(NonLinearGaussianMeasurement):
+    """Time Difference of Arrival (TDOA) measurement model.
+
+    TDOA systems use multiple sensors to measure the difference in arrival
+    times of an acoustic signal. Each TDOA measurement represents the
+    range difference between a pair of sensors. The target lies on a
+    hyperboloid defined by each TDOA measurement.
+
+    This model computes TDOA as range differences (can be converted to
+    time differences by dividing by sound speed).
+
+    Notes
+    -----
+    - Requires at least 2 sensor positions
+    - N sensors produce N-1 TDOA measurements (referenced to sensor 0)
+    - Sound speed can vary with depth (use effective speed or profile)
+    """
+
+    sensor_positions: np.ndarray = Property(
+        doc="Array of sensor positions, shape (N, 3) for N sensors in 3D. "
+        "Each row is [x, y, z] position.",
+    )
+    sound_speed: float = Property(
+        default=1500.0,
+        doc="Sound speed in m/s. Default is typical ocean value.",
+    )
+    output_as_time: bool = Property(
+        default=False,
+        doc="If True, output TDOA in seconds. If False, output range differences.",
+    )
+
+    @property
+    def ndim_meas(self) -> int:
+        """Number of TDOA measurements (N-1 for N sensors)."""
+        return len(self.sensor_positions) - 1
+
+    def function(self, state, noise=False, **kwargs) -> StateVector:
+        """Compute TDOA measurements.
+
+        Parameters
+        ----------
+        state : State
+            State vector in Cartesian coordinates
+        noise : bool or array_like
+            If True, add noise.
+
+        Returns
+        -------
+        StateVector
+            TDOA measurements (range differences or time differences)
+        """
+        pos = state.state_vector[self.mapping, :]
+        target_pos = np.array([pos[0, 0], pos[1, 0], pos[2, 0]])
+
+        # Calculate range from target to each sensor
+        ranges = np.zeros(len(self.sensor_positions))
+        for i, sensor_pos in enumerate(self.sensor_positions):
+            diff = target_pos - np.array(sensor_pos)
+            ranges[i] = np.sqrt(np.sum(diff**2))
+
+        # TDOA is range difference relative to reference sensor (sensor 0)
+        tdoa = np.zeros((self.ndim_meas, 1))
+        for i in range(self.ndim_meas):
+            range_diff = ranges[i + 1] - ranges[0]
+            if self.output_as_time:
+                tdoa[i, 0] = range_diff / self.sound_speed
+            else:
+                tdoa[i, 0] = range_diff
+
+        meas = StateVector(tdoa)
+
+        if noise is True:
+            meas = meas + self.rvs()
+        elif noise is not False:
+            meas = meas + noise
+
+        return meas
+
+    def jacobian(self, state, **kwargs):
+        """Calculate Jacobian for TDOA measurement.
+
+        The Jacobian of range difference r_i - r_0 with respect to
+        target position (x, y, z) is:
+            d(r_i - r_0)/dx = (x - x_i)/r_i - (x - x_0)/r_0
+            d(r_i - r_0)/dy = (y - y_i)/r_i - (y - y_0)/r_0
+            d(r_i - r_0)/dz = (z - z_i)/r_i - (z - z_0)/r_0
+        """
+        pos = state.state_vector[self.mapping, :]
+        target_pos = np.array([pos[0, 0], pos[1, 0], pos[2, 0]])
+
+        # Calculate ranges and unit vectors to each sensor
+        ranges = np.zeros(len(self.sensor_positions))
+        unit_vectors = np.zeros((len(self.sensor_positions), 3))
+
+        for i, sensor_pos in enumerate(self.sensor_positions):
+            diff = target_pos - np.array(sensor_pos)
+            r = np.sqrt(np.sum(diff**2))
+            if r < 1e-10:
+                r = 1e-10
+            ranges[i] = r
+            unit_vectors[i] = diff / r
+
+        jac = np.zeros((self.ndim_meas, self.ndim_state))
+
+        for i in range(self.ndim_meas):
+            # Jacobian of (r_{i+1} - r_0) w.r.t. position
+            # = unit_vector_{i+1} - unit_vector_0
+            deriv = unit_vectors[i + 1] - unit_vectors[0]
+
+            if self.output_as_time:
+                deriv = deriv / self.sound_speed
+
+            jac[i, self.mapping[0]] = deriv[0]
+            jac[i, self.mapping[1]] = deriv[1]
+            jac[i, self.mapping[2]] = deriv[2]
+
+        return jac
+
+
+class MultiSensorTDOA(NonLinearGaussianMeasurement):
+    """Multi-sensor TDOA with configurable sensor pairs.
+
+    Unlike CartesianToTDOA which uses a reference sensor, this model
+    allows specifying arbitrary sensor pairs for TDOA measurements.
+    This is useful when sensors have different accuracies or when
+    specific baselines are preferred.
+    """
+
+    sensor_positions: np.ndarray = Property(
+        doc="Array of sensor positions, shape (N, 3) for N sensors in 3D.",
+    )
+    sensor_pairs: list = Property(
+        doc="List of tuples specifying sensor pairs for TDOA, " "e.g., [(0,1), (0,2), (1,2)].",
+    )
+    sound_speed: float = Property(
+        default=1500.0,
+        doc="Sound speed in m/s.",
+    )
+    output_as_time: bool = Property(
+        default=False,
+        doc="If True, output TDOA in seconds. If False, output range differences.",
+    )
+
+    @property
+    def ndim_meas(self) -> int:
+        """Number of TDOA measurements (one per sensor pair)."""
+        return len(self.sensor_pairs)
+
+    def function(self, state, noise=False, **kwargs) -> StateVector:
+        """Compute TDOA measurements for specified sensor pairs.
+
+        Parameters
+        ----------
+        state : State
+            State vector in Cartesian coordinates
+        noise : bool or array_like
+            If True, add noise.
+
+        Returns
+        -------
+        StateVector
+            TDOA measurements for each sensor pair
+        """
+        pos = state.state_vector[self.mapping, :]
+        target_pos = np.array([pos[0, 0], pos[1, 0], pos[2, 0]])
+
+        # Calculate range from target to each sensor
+        ranges = np.zeros(len(self.sensor_positions))
+        for i, sensor_pos in enumerate(self.sensor_positions):
+            diff = target_pos - np.array(sensor_pos)
+            ranges[i] = np.sqrt(np.sum(diff**2))
+
+        # Compute TDOA for each sensor pair
+        tdoa = np.zeros((self.ndim_meas, 1))
+        for i, (s1, s2) in enumerate(self.sensor_pairs):
+            range_diff = ranges[s2] - ranges[s1]
+            if self.output_as_time:
+                tdoa[i, 0] = range_diff / self.sound_speed
+            else:
+                tdoa[i, 0] = range_diff
+
+        meas = StateVector(tdoa)
+
+        if noise is True:
+            meas = meas + self.rvs()
+        elif noise is not False:
+            meas = meas + noise
+
+        return meas
+
+    def jacobian(self, state, **kwargs):
+        """Calculate Jacobian for multi-sensor TDOA measurement."""
+        pos = state.state_vector[self.mapping, :]
+        target_pos = np.array([pos[0, 0], pos[1, 0], pos[2, 0]])
+
+        # Calculate ranges and unit vectors to each sensor
+        ranges = np.zeros(len(self.sensor_positions))
+        unit_vectors = np.zeros((len(self.sensor_positions), 3))
+
+        for i, sensor_pos in enumerate(self.sensor_positions):
+            diff = target_pos - np.array(sensor_pos)
+            r = np.sqrt(np.sum(diff**2))
+            if r < 1e-10:
+                r = 1e-10
+            ranges[i] = r
+            unit_vectors[i] = diff / r
+
+        jac = np.zeros((self.ndim_meas, self.ndim_state))
+
+        for i, (s1, s2) in enumerate(self.sensor_pairs):
+            # Jacobian of (r_s2 - r_s1) w.r.t. position
+            deriv = unit_vectors[s2] - unit_vectors[s1]
+
+            if self.output_as_time:
+                deriv = deriv / self.sound_speed
+
+            jac[i, self.mapping[0]] = deriv[0]
+            jac[i, self.mapping[1]] = deriv[1]
+            jac[i, self.mapping[2]] = deriv[2]
+
+        return jac

@@ -12,6 +12,8 @@ from ..underwater import (
     CartesianToBearingOnly,
     CartesianToBearingRangeDoppler,
     CartesianToDepthBearingRange,
+    CartesianToTDOA,
+    MultiSensorTDOA,
 )
 
 # =============================================================================
@@ -476,3 +478,257 @@ def test_none_covar_raises(model_class):
     """Models should raise error with None covariance."""
     with pytest.raises(ValueError, match="Covariance should have ndim of 2"):
         model_class(ndim_state=6, mapping=[0, 2, 4], noise_covar=None)
+
+
+# =============================================================================
+# TDOA Model Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def tdoa_sensor_positions():
+    """Sensor positions for TDOA tests (equilateral triangle)."""
+    # Equilateral triangle with 1km sides
+    # Height = 1000 * sqrt(3) / 2 = 866.025...
+    return np.array(
+        [
+            [0.0, 0.0, 0.0],  # Reference sensor at origin
+            [1000.0, 0.0, 0.0],  # Sensor 1: 1km east
+            [500.0, 866.025403784, 0.0],  # Sensor 2: exactly 1km from origin
+        ]
+    )
+
+
+@pytest.fixture
+def tdoa_model(tdoa_sensor_positions):
+    """Create standard TDOA model with 3 sensors."""
+    return CartesianToTDOA(
+        ndim_state=6,
+        mapping=[0, 2, 4],
+        noise_covar=CovarianceMatrix(np.diag([1.0, 1.0])),
+        sensor_positions=tdoa_sensor_positions,
+    )
+
+
+@pytest.fixture
+def multi_sensor_tdoa_model(tdoa_sensor_positions):
+    """Create multi-sensor TDOA model with explicit pairs."""
+    return MultiSensorTDOA(
+        ndim_state=6,
+        mapping=[0, 2, 4],
+        noise_covar=CovarianceMatrix(np.diag([1.0, 1.0, 1.0])),
+        sensor_positions=tdoa_sensor_positions,
+        sensor_pairs=[(0, 1), (0, 2), (1, 2)],
+    )
+
+
+# =============================================================================
+# TDOA Model Tests
+# =============================================================================
+
+
+def test_tdoa_ndim_meas(tdoa_model):
+    """TDOA should produce N-1 measurements for N sensors."""
+    assert tdoa_model.ndim_meas == 2  # 3 sensors - 1
+
+
+def test_tdoa_at_reference_sensor(tdoa_model):
+    """Target at reference sensor should have negative TDOA."""
+    state = State(StateVector([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+    meas = tdoa_model.function(state, noise=False)
+    # Target at sensor 0: r0=0, r1=1000, r2=1000
+    # TDOA = [r1-r0, r2-r0] = [1000, 1000]
+    assert meas[0, 0] == approx(1000.0, rel=1e-6)
+    assert meas[1, 0] == approx(1000.0, rel=1e-6)
+
+
+def test_tdoa_at_sensor_1(tdoa_model):
+    """Target at sensor 1 should have specific TDOA."""
+    state = State(StateVector([1000.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+    meas = tdoa_model.function(state, noise=False)
+    # Target at sensor 1: r0=1000, r1=0, r2=~577
+    # TDOA = [r1-r0, r2-r0] = [-1000, ~-423]
+    assert meas[0, 0] == approx(-1000.0, rel=1e-6)
+
+
+def test_tdoa_equidistant(tdoa_model):
+    """Target equidistant from all sensors should have TDOA=0."""
+    # Centroid of equilateral triangle at (500, 288.675, 0)
+    state = State(StateVector([500.0, 0.0, 288.675134595, 0.0, 0.0, 0.0]))
+    meas = tdoa_model.function(state, noise=False)
+    # Should be approximately zero (centroid is equidistant)
+    assert abs(meas[0, 0]) < 0.01  # Within 1cm
+    assert abs(meas[1, 0]) < 0.01
+
+
+def test_tdoa_output_as_time(tdoa_sensor_positions):
+    """Test TDOA output as time differences."""
+    model = CartesianToTDOA(
+        ndim_state=6,
+        mapping=[0, 2, 4],
+        noise_covar=CovarianceMatrix(np.diag([1e-6, 1e-6])),
+        sensor_positions=tdoa_sensor_positions,
+        sound_speed=1500.0,
+        output_as_time=True,
+    )
+    state = State(StateVector([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+    meas = model.function(state, noise=False)
+    # TDOA in seconds: 1000m / 1500 m/s = 0.667s
+    assert meas[0, 0] == approx(1000.0 / 1500.0, rel=1e-6)
+
+
+def test_tdoa_jacobian_shape(tdoa_model):
+    """TDOA Jacobian should have correct shape."""
+    state = State(StateVector([500.0, 0.0, 500.0, 0.0, -100.0, 0.0]))
+    jac = tdoa_model.jacobian(state)
+    assert jac.shape == (2, 6)
+
+
+def test_tdoa_jacobian_numerical(tdoa_model):
+    """Validate TDOA Jacobian against numerical approximation."""
+    state = State(StateVector([500.0, 0.0, 500.0, 0.0, -100.0, 0.0]))
+    jac = tdoa_model.jacobian(state)
+
+    eps = 1e-7
+    num_jac = np.zeros((2, 6))
+    for i in range(6):
+        sv_plus = np.array(state.state_vector, dtype=float).copy()
+        sv_plus[i, 0] += eps
+        sv_minus = np.array(state.state_vector, dtype=float).copy()
+        sv_minus[i, 0] -= eps
+        meas_plus = np.array(
+            tdoa_model.function(State(StateVector(sv_plus)), noise=False),
+            dtype=float,
+        )
+        meas_minus = np.array(
+            tdoa_model.function(State(StateVector(sv_minus)), noise=False),
+            dtype=float,
+        )
+        num_jac[:, i] = ((meas_plus - meas_minus) / (2 * eps)).ravel()
+
+    np.testing.assert_allclose(jac, num_jac, atol=1e-5)
+
+
+def test_tdoa_with_noise(tdoa_model):
+    """TDOA with noise should differ from without."""
+    np.random.seed(42)
+    state = State(StateVector([500.0, 0.0, 500.0, 0.0, -100.0, 0.0]))
+    meas_no_noise = tdoa_model.function(state, noise=False)
+    meas_with_noise = tdoa_model.function(state, noise=True)
+    assert not np.allclose(meas_no_noise, meas_with_noise)
+
+
+def test_tdoa_3d_geometry(tdoa_sensor_positions):
+    """Test TDOA with 3D sensor array."""
+    sensors_3d = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1000.0, 0.0, 0.0],
+            [500.0, 866.0, 0.0],
+            [500.0, 289.0, -500.0],  # Sensor underwater
+        ]
+    )
+    model = CartesianToTDOA(
+        ndim_state=6,
+        mapping=[0, 2, 4],
+        noise_covar=CovarianceMatrix(np.diag([1.0, 1.0, 1.0])),
+        sensor_positions=sensors_3d,
+    )
+    assert model.ndim_meas == 3  # 4 sensors - 1
+
+    state = State(StateVector([500.0, 0.0, 289.0, 0.0, -250.0, 0.0]))
+    meas = model.function(state, noise=False)
+    jac = model.jacobian(state)
+    assert meas.shape == (3, 1)
+    assert jac.shape == (3, 6)
+
+
+# =============================================================================
+# MultiSensorTDOA Tests
+# =============================================================================
+
+
+def test_multi_sensor_tdoa_ndim(multi_sensor_tdoa_model):
+    """MultiSensorTDOA should match number of pairs."""
+    assert multi_sensor_tdoa_model.ndim_meas == 3  # 3 pairs
+
+
+def test_multi_sensor_tdoa_function(multi_sensor_tdoa_model):
+    """Test MultiSensorTDOA function output."""
+    state = State(StateVector([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+    meas = multi_sensor_tdoa_model.function(state, noise=False)
+    assert meas.shape == (3, 1)
+    # Pair (0,1): r1 - r0 = 1000 - 0 = 1000
+    # Pair (0,2): r2 - r0 = 1000 - 0 = 1000
+    # Pair (1,2): r2 - r1 = 1000 - 1000 = 0
+    assert meas[0, 0] == approx(1000.0, rel=1e-6)
+    assert meas[1, 0] == approx(1000.0, rel=1e-6)
+    assert meas[2, 0] == approx(0.0, abs=1e-6)
+
+
+def test_multi_sensor_tdoa_jacobian(multi_sensor_tdoa_model):
+    """Validate MultiSensorTDOA Jacobian numerically."""
+    state = State(StateVector([500.0, 0.0, 300.0, 0.0, -50.0, 0.0]))
+    jac = multi_sensor_tdoa_model.jacobian(state)
+    assert jac.shape == (3, 6)
+
+    eps = 1e-7
+    num_jac = np.zeros((3, 6))
+    for i in range(6):
+        sv_plus = np.array(state.state_vector, dtype=float).copy()
+        sv_plus[i, 0] += eps
+        sv_minus = np.array(state.state_vector, dtype=float).copy()
+        sv_minus[i, 0] -= eps
+        meas_plus = np.array(
+            multi_sensor_tdoa_model.function(State(StateVector(sv_plus)), noise=False),
+            dtype=float,
+        )
+        meas_minus = np.array(
+            multi_sensor_tdoa_model.function(State(StateVector(sv_minus)), noise=False),
+            dtype=float,
+        )
+        num_jac[:, i] = ((meas_plus - meas_minus) / (2 * eps)).ravel()
+
+    np.testing.assert_allclose(jac, num_jac, atol=1e-5)
+
+
+def test_multi_sensor_tdoa_consistency(tdoa_sensor_positions):
+    """Verify MultiSensorTDOA matches CartesianToTDOA for reference-based pairs."""
+    # Create equivalent models
+    tdoa = CartesianToTDOA(
+        ndim_state=6,
+        mapping=[0, 2, 4],
+        noise_covar=CovarianceMatrix(np.diag([1.0, 1.0])),
+        sensor_positions=tdoa_sensor_positions,
+    )
+    multi = MultiSensorTDOA(
+        ndim_state=6,
+        mapping=[0, 2, 4],
+        noise_covar=CovarianceMatrix(np.diag([1.0, 1.0])),
+        sensor_positions=tdoa_sensor_positions,
+        sensor_pairs=[(0, 1), (0, 2)],
+    )
+
+    state = State(StateVector([750.0, 0.0, 400.0, 0.0, -200.0, 0.0]))
+
+    meas_tdoa = tdoa.function(state, noise=False)
+    meas_multi = multi.function(state, noise=False)
+
+    np.testing.assert_allclose(meas_tdoa, meas_multi, atol=1e-10)
+
+
+def test_multi_sensor_tdoa_time_output(tdoa_sensor_positions):
+    """Test MultiSensorTDOA with time output."""
+    model = MultiSensorTDOA(
+        ndim_state=6,
+        mapping=[0, 2, 4],
+        noise_covar=CovarianceMatrix(np.diag([1e-6, 1e-6])),
+        sensor_positions=tdoa_sensor_positions,
+        sensor_pairs=[(0, 1), (0, 2)],
+        sound_speed=1500.0,
+        output_as_time=True,
+    )
+    state = State(StateVector([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+    meas = model.function(state, noise=False)
+    # Time difference = range_diff / sound_speed
+    assert meas[0, 0] == approx(1000.0 / 1500.0, rel=1e-6)
