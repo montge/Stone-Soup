@@ -12,38 +12,42 @@ Results are output in a markdown table format suitable for documentation.
 """
 
 import argparse
-import sys
-import time
 import statistics
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, List, Optional
 
 import numpy as np
 
 # Try to import PyO3 bindings
 try:
     import stonesoup_native  # PyO3 bindings
+
     HAS_NATIVE = True
 except ImportError:
     HAS_NATIVE = False
     print("Warning: Native bindings not available. Install with: pip install stonesoup-native")
 
 # Import pure Python Stone Soup
-from stonesoup.types.state import State, GaussianState
-from stonesoup.types.array import StateVector, CovarianceMatrix
-from stonesoup.predictor.kalman import KalmanPredictor
-from stonesoup.updater.kalman import KalmanUpdater
-from stonesoup.models.transition.linear import ConstantVelocity, CombinedLinearGaussianTransitionModel
 from stonesoup.models.measurement.linear import LinearGaussian
+from stonesoup.models.transition.linear import (
+    CombinedLinearGaussianTransitionModel,
+    ConstantVelocity,
+)
+from stonesoup.predictor.kalman import KalmanPredictor
+from stonesoup.types.array import CovarianceMatrix, StateVector
+from stonesoup.types.state import GaussianState
+from stonesoup.updater.kalman import KalmanUpdater
 
 
 @dataclass
 class BenchmarkResult:
     """Results from a single benchmark"""
+
     name: str
     pure_python_ms: float
-    native_ms: Optional[float]
-    speedup: Optional[float]
+    native_ms: float | None
+    speedup: float | None
     iterations: int
 
 
@@ -72,16 +76,13 @@ class PythonKalmanBenchmark:
         self.meas_dim = meas_dim
 
         # Create constant velocity model (2D)
-        self.transition_model = CombinedLinearGaussianTransitionModel([
-            ConstantVelocity(0.1),
-            ConstantVelocity(0.1)
-        ])
+        self.transition_model = CombinedLinearGaussianTransitionModel(
+            [ConstantVelocity(0.1), ConstantVelocity(0.1)]
+        )
 
         # Create measurement model (observe position only)
         self.measurement_model = LinearGaussian(
-            ndim_state=state_dim,
-            mapping=(0, 2),
-            noise_covar=np.eye(meas_dim) * 0.5
+            ndim_state=state_dim, mapping=(0, 2), noise_covar=np.eye(meas_dim) * 0.5
         )
 
         # Create predictor and updater
@@ -90,8 +91,7 @@ class PythonKalmanBenchmark:
 
         # Create initial state
         self.prior = GaussianState(
-            state_vector=StateVector([0, 1, 0, 1]),
-            covar=CovarianceMatrix(np.eye(state_dim))
+            state_vector=StateVector([0, 1, 0, 1]), covar=CovarianceMatrix(np.eye(state_dim))
         )
 
     def predict(self):
@@ -126,21 +126,13 @@ class NativeKalmanBenchmark:
 
         # Transition matrix for constant velocity
         dt = 1.0
-        self.F = np.array([
-            [1, dt, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 1, dt],
-            [0, 0, 0, 1]
-        ])
+        self.F = np.array([[1, dt, 0, 0], [0, 1, 0, 0], [0, 0, 1, dt], [0, 0, 0, 1]])
 
         # Process noise
         self.Q = np.eye(state_dim) * 0.1
 
         # Measurement matrix (observe x and y)
-        self.H = np.array([
-            [1, 0, 0, 0],
-            [0, 0, 1, 0]
-        ])
+        self.H = np.array([[1, 0, 0, 0], [0, 0, 1, 0]])
 
         # Measurement noise
         self.R = np.eye(meas_dim) * 0.5
@@ -150,12 +142,7 @@ class NativeKalmanBenchmark:
         if not HAS_NATIVE:
             return None
 
-        return stonesoup_native.kalman_predict(
-            self.state_vector,
-            self.covariance,
-            self.F,
-            self.Q
-        )
+        return stonesoup_native.kalman_predict(self.state_vector, self.covariance, self.F, self.Q)
 
     def update(self, predicted_state, predicted_cov):
         """Run native update step"""
@@ -164,11 +151,7 @@ class NativeKalmanBenchmark:
 
         measurement = np.array([1.0, 1.0])
         return stonesoup_native.kalman_update(
-            predicted_state,
-            predicted_cov,
-            measurement,
-            self.H,
-            self.R
+            predicted_state, predicted_cov, measurement, self.H, self.R
         )
 
     def full_cycle(self):
@@ -244,7 +227,65 @@ class MatrixBenchmark:
         return stonesoup_native.matrix_cholesky(self.mat1)
 
 
-def run_benchmarks(iterations: int = 1000, warmup: int = 100) -> List[BenchmarkResult]:
+class BatchProcessingBenchmark:
+    """Benchmark batch processing of large arrays - where PyO3 excels"""
+
+    def __init__(self, batch_size: int = 1000, state_dim: int = 6):
+        self.batch_size = batch_size
+        self.state_dim = state_dim
+        # Pre-generate batch data
+        self.state_vectors = [np.random.randn(state_dim) for _ in range(batch_size)]
+        self.covariances = [np.eye(state_dim) * (i + 1) for i in range(batch_size)]
+        # Single large array for vectorized operations
+        self.large_array = np.random.randn(batch_size, state_dim)
+        self.weights = np.random.rand(batch_size)
+        self.weights /= self.weights.sum()
+
+    def python_batch_norms(self):
+        """Compute norms of batch of state vectors using pure Python loop"""
+        return [np.linalg.norm(sv) for sv in self.state_vectors]
+
+    def python_weighted_mean(self):
+        """Compute weighted mean of state vectors"""
+        result = np.zeros(self.state_dim)
+        for i, sv in enumerate(self.state_vectors):
+            result += self.weights[i] * sv
+        return result
+
+    def python_vectorized_norms(self):
+        """Compute norms using NumPy vectorized operations"""
+        return np.linalg.norm(self.large_array, axis=1)
+
+    def python_covariance_traces(self):
+        """Compute traces of batch of covariance matrices"""
+        return [np.trace(cov) for cov in self.covariances]
+
+    def native_batch_norms(self):
+        """Native batch norm computation"""
+        if not HAS_NATIVE:
+            return None
+        return stonesoup_native.batch_norms(self.state_vectors)
+
+    def native_weighted_mean(self):
+        """Native weighted mean computation"""
+        if not HAS_NATIVE:
+            return None
+        return stonesoup_native.weighted_mean(self.state_vectors, self.weights)
+
+    def native_vectorized_norms(self):
+        """Native vectorized norm computation"""
+        if not HAS_NATIVE:
+            return None
+        return stonesoup_native.matrix_row_norms(self.large_array)
+
+    def native_covariance_traces(self):
+        """Native batch trace computation"""
+        if not HAS_NATIVE:
+            return None
+        return stonesoup_native.batch_traces(self.covariances)
+
+
+def run_benchmarks(iterations: int = 1000, warmup: int = 100) -> list[BenchmarkResult]:
     """Run all benchmarks and return results"""
     results = []
 
@@ -258,51 +299,123 @@ def run_benchmarks(iterations: int = 1000, warmup: int = 100) -> List[BenchmarkR
     py_time = time_function(sv_bench.python_add, iterations, warmup)
     native_time = time_function(sv_bench.native_add, iterations, warmup) if HAS_NATIVE else None
     speedup = py_time / native_time if native_time else None
-    results.append(BenchmarkResult("StateVector add (dim=100)", py_time, native_time, speedup, iterations))
+    results.append(
+        BenchmarkResult("StateVector add (dim=100)", py_time, native_time, speedup, iterations)
+    )
 
     py_time = time_function(sv_bench.python_norm, iterations, warmup)
     native_time = time_function(sv_bench.native_norm, iterations, warmup) if HAS_NATIVE else None
     speedup = py_time / native_time if native_time else None
-    results.append(BenchmarkResult("StateVector norm (dim=100)", py_time, native_time, speedup, iterations))
+    results.append(
+        BenchmarkResult("StateVector norm (dim=100)", py_time, native_time, speedup, iterations)
+    )
 
     # Matrix benchmarks
     print("Benchmarking Matrix operations...")
     mat_bench = MatrixBenchmark(dim=50)
 
     py_time = time_function(mat_bench.python_multiply, iterations, warmup)
-    native_time = time_function(mat_bench.native_multiply, iterations, warmup) if HAS_NATIVE else None
+    native_time = (
+        time_function(mat_bench.native_multiply, iterations, warmup) if HAS_NATIVE else None
+    )
     speedup = py_time / native_time if native_time else None
-    results.append(BenchmarkResult("Matrix multiply (50x50)", py_time, native_time, speedup, iterations))
+    results.append(
+        BenchmarkResult("Matrix multiply (50x50)", py_time, native_time, speedup, iterations)
+    )
 
     py_time = time_function(mat_bench.python_inverse, iterations, warmup)
-    native_time = time_function(mat_bench.native_inverse, iterations, warmup) if HAS_NATIVE else None
+    native_time = (
+        time_function(mat_bench.native_inverse, iterations, warmup) if HAS_NATIVE else None
+    )
     speedup = py_time / native_time if native_time else None
-    results.append(BenchmarkResult("Matrix inverse (50x50)", py_time, native_time, speedup, iterations))
+    results.append(
+        BenchmarkResult("Matrix inverse (50x50)", py_time, native_time, speedup, iterations)
+    )
 
     py_time = time_function(mat_bench.python_cholesky, iterations, warmup)
-    native_time = time_function(mat_bench.native_cholesky, iterations, warmup) if HAS_NATIVE else None
+    native_time = (
+        time_function(mat_bench.native_cholesky, iterations, warmup) if HAS_NATIVE else None
+    )
     speedup = py_time / native_time if native_time else None
-    results.append(BenchmarkResult("Matrix Cholesky (50x50)", py_time, native_time, speedup, iterations))
+    results.append(
+        BenchmarkResult("Matrix Cholesky (50x50)", py_time, native_time, speedup, iterations)
+    )
 
     # Kalman filter benchmarks
     print("Benchmarking Kalman filter operations...")
     py_kalman = PythonKalmanBenchmark()
     native_kalman = NativeKalmanBenchmark()
 
-    py_time = time_function(py_kalman.predict, iterations // 10, warmup // 10)  # Fewer iterations (slower)
+    py_time = time_function(
+        py_kalman.predict, iterations // 10, warmup // 10
+    )  # Fewer iterations (slower)
     native_time = time_function(native_kalman.predict, iterations, warmup) if HAS_NATIVE else None
     speedup = py_time / native_time if native_time else None
-    results.append(BenchmarkResult("Kalman predict (4D state)", py_time, native_time, speedup, iterations))
+    results.append(
+        BenchmarkResult("Kalman predict (4D state)", py_time, native_time, speedup, iterations)
+    )
 
     py_time = time_function(py_kalman.full_cycle, iterations // 10, warmup // 10)
-    native_time = time_function(native_kalman.full_cycle, iterations, warmup) if HAS_NATIVE else None
+    native_time = (
+        time_function(native_kalman.full_cycle, iterations, warmup) if HAS_NATIVE else None
+    )
     speedup = py_time / native_time if native_time else None
-    results.append(BenchmarkResult("Kalman full cycle (4D)", py_time, native_time, speedup, iterations))
+    results.append(
+        BenchmarkResult("Kalman full cycle (4D)", py_time, native_time, speedup, iterations)
+    )
+
+    # Batch processing benchmarks - where PyO3 excels
+    print("Benchmarking Batch processing operations...")
+    batch_bench = BatchProcessingBenchmark(batch_size=1000, state_dim=6)
+
+    py_time = time_function(batch_bench.python_batch_norms, iterations // 10, warmup // 10)
+    native_time = (
+        time_function(batch_bench.native_batch_norms, iterations // 10, warmup // 10)
+        if HAS_NATIVE
+        else None
+    )
+    speedup = py_time / native_time if native_time else None
+    results.append(
+        BenchmarkResult("Batch norms (1000x6)", py_time, native_time, speedup, iterations // 10)
+    )
+
+    py_time = time_function(batch_bench.python_weighted_mean, iterations // 10, warmup // 10)
+    native_time = (
+        time_function(batch_bench.native_weighted_mean, iterations // 10, warmup // 10)
+        if HAS_NATIVE
+        else None
+    )
+    speedup = py_time / native_time if native_time else None
+    results.append(
+        BenchmarkResult("Weighted mean (1000x6)", py_time, native_time, speedup, iterations // 10)
+    )
+
+    py_time = time_function(batch_bench.python_vectorized_norms, iterations, warmup)
+    native_time = (
+        time_function(batch_bench.native_vectorized_norms, iterations, warmup)
+        if HAS_NATIVE
+        else None
+    )
+    speedup = py_time / native_time if native_time else None
+    results.append(
+        BenchmarkResult("Vectorized norms (1000x6)", py_time, native_time, speedup, iterations)
+    )
+
+    py_time = time_function(batch_bench.python_covariance_traces, iterations // 10, warmup // 10)
+    native_time = (
+        time_function(batch_bench.native_covariance_traces, iterations // 10, warmup // 10)
+        if HAS_NATIVE
+        else None
+    )
+    speedup = py_time / native_time if native_time else None
+    results.append(
+        BenchmarkResult("Batch traces (1000x6x6)", py_time, native_time, speedup, iterations // 10)
+    )
 
     return results
 
 
-def format_results_markdown(results: List[BenchmarkResult]) -> str:
+def format_results_markdown(results: list[BenchmarkResult]) -> str:
     """Format results as a markdown table"""
     lines = [
         "## Benchmark Results: PyO3 vs Pure Python",
@@ -317,29 +430,38 @@ def format_results_markdown(results: List[BenchmarkResult]) -> str:
         speedup_str = f"{r.speedup:.2f}x" if r.speedup else "N/A"
         lines.append(f"| {r.name} | {py_str} | {native_str} | {speedup_str} |")
 
-    lines.extend([
-        "",
-        f"*Benchmarks run with {results[0].iterations if results else 0} iterations*",
-        "",
-        "### Notes",
-        "",
-        "- Pure Python uses NumPy for underlying array operations",
-        "- Native bindings use Rust/C implementations via PyO3",
-        "- Speedup > 1.0x means native is faster",
-        "- Kalman filter benchmarks include full object creation overhead for Python",
-    ])
+    lines.extend(
+        [
+            "",
+            f"*Benchmarks run with {results[0].iterations if results else 0} iterations*",
+            "",
+            "### Notes",
+            "",
+            "- Pure Python uses NumPy for underlying array operations",
+            "- Native bindings use Rust/C implementations via PyO3",
+            "- Speedup > 1.0x means native is faster",
+            "- Kalman filter benchmarks include full object creation overhead for Python",
+        ]
+    )
 
     return "\n".join(lines)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Benchmark PyO3 vs Pure Python")
-    parser.add_argument("--iterations", "-n", type=int, default=1000,
-                        help="Number of iterations per benchmark (default: 1000)")
-    parser.add_argument("--warmup", "-w", type=int, default=100,
-                        help="Number of warmup iterations (default: 100)")
-    parser.add_argument("--output", "-o", type=str, default=None,
-                        help="Output file for results (default: stdout)")
+    parser.add_argument(
+        "--iterations",
+        "-n",
+        type=int,
+        default=1000,
+        help="Number of iterations per benchmark (default: 1000)",
+    )
+    parser.add_argument(
+        "--warmup", "-w", type=int, default=100, help="Number of warmup iterations (default: 100)"
+    )
+    parser.add_argument(
+        "--output", "-o", type=str, default=None, help="Output file for results (default: stdout)"
+    )
 
     args = parser.parse_args()
 
@@ -363,8 +485,9 @@ def main():
     print(output)
 
     if args.output:
-        with open(args.output, "w") as f:
-            f.write(output)
+        from pathlib import Path
+
+        Path(args.output).write_text(output)
         print(f"\nResults saved to: {args.output}")
 
 

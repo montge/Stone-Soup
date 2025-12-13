@@ -69,6 +69,9 @@ dev = [
     "safety>=3.0",
     # Pre-commit hooks
     "pre-commit>=3.0",
+    # Benchmarking
+    "pytest-benchmark>=4.0",
+    "asv>=0.6",
 ]
 video = [
     "ffmpeg-python",
