@@ -1178,3 +1178,336 @@ def apply_current_to_velocity(vx, vy, vz, current_field, x, y, z):
     """
     cx, cy, cz = current_field(x, y, z)
     return vx + cx, vy + cy, vz + cz
+
+
+# =============================================================================
+# Bathymetry Grid Support
+# =============================================================================
+
+
+def create_flat_bathymetry(depth, x_range, y_range, resolution=100.0):
+    """Create a flat (constant depth) bathymetry grid.
+
+    Parameters
+    ----------
+    depth : float
+        Constant water depth in meters (positive)
+    x_range : tuple
+        (x_min, x_max) extent in meters
+    y_range : tuple
+        (y_min, y_max) extent in meters
+    resolution : float, optional
+        Grid cell size in meters (default 100m)
+
+    Returns
+    -------
+    dict
+        Bathymetry grid with 'x', 'y', 'depth' arrays
+    """
+    x = np.arange(x_range[0], x_range[1] + resolution, resolution)
+    y = np.arange(y_range[0], y_range[1] + resolution, resolution)
+    X, Y = np.meshgrid(x, y)
+    depths = np.full(X.shape, depth)
+
+    return {"x": x, "y": y, "depth": depths}
+
+
+def create_sloped_bathymetry(
+    shallow_depth,
+    deep_depth,
+    slope_start_x,
+    slope_end_x,
+    x_range,
+    y_range,
+    resolution=100.0,
+):
+    """Create a bathymetry grid with a linear slope.
+
+    Models a continental shelf transitioning to deep water.
+
+    Parameters
+    ----------
+    shallow_depth : float
+        Depth in shallow region in meters
+    deep_depth : float
+        Depth in deep region in meters
+    slope_start_x : float
+        X coordinate where slope begins
+    slope_end_x : float
+        X coordinate where slope ends
+    x_range : tuple
+        (x_min, x_max) extent in meters
+    y_range : tuple
+        (y_min, y_max) extent in meters
+    resolution : float, optional
+        Grid cell size in meters (default 100m)
+
+    Returns
+    -------
+    dict
+        Bathymetry grid with 'x', 'y', 'depth' arrays
+    """
+    x = np.arange(x_range[0], x_range[1] + resolution, resolution)
+    y = np.arange(y_range[0], y_range[1] + resolution, resolution)
+    X, Y = np.meshgrid(x, y)
+
+    depths = np.zeros(X.shape)
+    for i in range(X.shape[0]):
+        for j in range(X.shape[1]):
+            xi = X[i, j]
+            if xi <= slope_start_x:
+                depths[i, j] = shallow_depth
+            elif xi >= slope_end_x:
+                depths[i, j] = deep_depth
+            else:
+                # Linear interpolation on slope
+                t = (xi - slope_start_x) / (slope_end_x - slope_start_x)
+                depths[i, j] = shallow_depth + t * (deep_depth - shallow_depth)
+
+    return {"x": x, "y": y, "depth": depths}
+
+
+def create_canyon_bathymetry(
+    base_depth, canyon_depth, canyon_center_y, canyon_width, x_range, y_range, resolution=100.0
+):
+    """Create a bathymetry grid with an underwater canyon.
+
+    Parameters
+    ----------
+    base_depth : float
+        Base water depth in meters
+    canyon_depth : float
+        Additional depth of canyon center in meters
+    canyon_center_y : float
+        Y coordinate of canyon centerline
+    canyon_width : float
+        Width of canyon in meters (at half-depth)
+    x_range : tuple
+        (x_min, x_max) extent in meters
+    y_range : tuple
+        (y_min, y_max) extent in meters
+    resolution : float, optional
+        Grid cell size in meters (default 100m)
+
+    Returns
+    -------
+    dict
+        Bathymetry grid with 'x', 'y', 'depth' arrays
+    """
+    x = np.arange(x_range[0], x_range[1] + resolution, resolution)
+    y = np.arange(y_range[0], y_range[1] + resolution, resolution)
+    X, Y = np.meshgrid(x, y)
+
+    # Gaussian canyon profile
+    canyon_profile = canyon_depth * np.exp(
+        -((Y - canyon_center_y) ** 2) / (2 * (canyon_width / 2) ** 2)
+    )
+    depths = base_depth + canyon_profile
+
+    return {"x": x, "y": y, "depth": depths}
+
+
+def interpolate_bathymetry(bathymetry, x, y):
+    """Interpolate seafloor depth at a given position.
+
+    Parameters
+    ----------
+    bathymetry : dict
+        Bathymetry grid with 'x', 'y', 'depth' arrays
+    x : float or array_like
+        X coordinate(s) in meters
+    y : float or array_like
+        Y coordinate(s) in meters
+
+    Returns
+    -------
+    float or ndarray
+        Interpolated depth(s) in meters
+    """
+    from scipy.interpolate import RegularGridInterpolator
+
+    x_arr = np.asarray(x)
+    y_arr = np.asarray(y)
+    scalar_input = x_arr.ndim == 0 and y_arr.ndim == 0
+
+    x_arr = np.atleast_1d(x_arr)
+    y_arr = np.atleast_1d(y_arr)
+
+    # Create interpolator
+    interp = RegularGridInterpolator(
+        (bathymetry["y"], bathymetry["x"]),
+        bathymetry["depth"],
+        method="linear",
+        bounds_error=False,
+        fill_value=None,
+    )
+
+    # Interpolate
+    points = np.column_stack([y_arr, x_arr])
+    depths = interp(points)
+
+    if scalar_input:
+        return float(depths[0])
+    return depths
+
+
+def height_above_seafloor(x, y, z, bathymetry):
+    """Calculate height above seafloor at a given position.
+
+    Parameters
+    ----------
+    x : float
+        X coordinate in meters
+    y : float
+        Y coordinate in meters
+    z : float
+        Z coordinate in meters (negative = underwater)
+    bathymetry : dict
+        Bathymetry grid
+
+    Returns
+    -------
+    float
+        Height above seafloor in meters (negative = below seafloor)
+    """
+    seafloor_depth = interpolate_bathymetry(bathymetry, x, y)
+    # z is up, seafloor is at z = -seafloor_depth
+    return z - (-seafloor_depth)
+
+
+def is_in_water(x, y, z, bathymetry):
+    """Check if a point is within the water column.
+
+    Parameters
+    ----------
+    x : float
+        X coordinate in meters
+    y : float
+        Y coordinate in meters
+    z : float
+        Z coordinate in meters (negative = underwater)
+    bathymetry : dict
+        Bathymetry grid
+
+    Returns
+    -------
+    bool
+        True if point is in water (below surface, above seafloor)
+    """
+    if z > 0:  # Above water
+        return False
+    return height_above_seafloor(x, y, z, bathymetry) >= 0
+
+
+# =============================================================================
+# Tidal Effect Models
+# =============================================================================
+
+
+def simple_tidal_offset(time_hours, amplitude, period_hours=12.42):
+    """Calculate simple sinusoidal tidal height offset.
+
+    Parameters
+    ----------
+    time_hours : float
+        Time in hours from reference (e.g., high tide)
+    amplitude : float
+        Tidal amplitude in meters (half of tidal range)
+    period_hours : float, optional
+        Tidal period in hours (default 12.42 for M2 constituent)
+
+    Returns
+    -------
+    float
+        Tidal height offset in meters (positive = high tide)
+    """
+    omega = 2 * np.pi / period_hours
+    return amplitude * np.cos(omega * time_hours)
+
+
+def dual_constituent_tide(time_hours, amp_m2, amp_s2, phase_m2=0.0, phase_s2=0.0):
+    """Calculate tide from M2 (lunar) and S2 (solar) constituents.
+
+    This produces the spring-neap cycle typical of most tidal regions.
+
+    Parameters
+    ----------
+    time_hours : float
+        Time in hours from reference
+    amp_m2 : float
+        M2 (lunar semidiurnal) amplitude in meters
+    amp_s2 : float
+        S2 (solar semidiurnal) amplitude in meters
+    phase_m2 : float, optional
+        M2 phase offset in radians
+    phase_s2 : float, optional
+        S2 phase offset in radians
+
+    Returns
+    -------
+    float
+        Tidal height offset in meters
+    """
+    # M2 period = 12.42 hours, S2 period = 12.00 hours
+    omega_m2 = 2 * np.pi / 12.42
+    omega_s2 = 2 * np.pi / 12.00
+
+    m2 = amp_m2 * np.cos(omega_m2 * time_hours + phase_m2)
+    s2 = amp_s2 * np.cos(omega_s2 * time_hours + phase_s2)
+
+    return m2 + s2
+
+
+def tidal_current(time_hours, max_speed, direction_rad, period_hours=12.42, phase=0.0):
+    """Calculate tidal current velocity.
+
+    Models a simple reversing tidal current with sinusoidal variation.
+
+    Parameters
+    ----------
+    time_hours : float
+        Time in hours from reference
+    max_speed : float
+        Maximum current speed in m/s
+    direction_rad : float
+        Principal current direction in radians (0=north, pi/2=east)
+    period_hours : float, optional
+        Tidal period in hours
+    phase : float, optional
+        Phase offset in radians (0 = max flood at t=0)
+
+    Returns
+    -------
+    tuple
+        (vx, vy) current velocity components in m/s
+    """
+    omega = 2 * np.pi / period_hours
+    speed = max_speed * np.sin(omega * time_hours + phase)
+
+    vx = speed * np.sin(direction_rad)
+    vy = speed * np.cos(direction_rad)
+
+    return vx, vy
+
+
+def apply_tide_to_depth(depth, time_hours, tidal_amplitude, period_hours=12.42):
+    """Adjust water depth for tidal effects.
+
+    Parameters
+    ----------
+    depth : float
+        Mean water depth in meters
+    time_hours : float
+        Time in hours from reference
+    tidal_amplitude : float
+        Tidal amplitude in meters
+    period_hours : float, optional
+        Tidal period in hours
+
+    Returns
+    -------
+    float
+        Actual water depth accounting for tide
+    """
+    tide_offset = simple_tidal_offset(time_hours, tidal_amplitude, period_hours)
+    return depth + tide_offset

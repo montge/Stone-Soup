@@ -19,8 +19,8 @@
 ## 4. Environmental Models
 - [x] 4.1 Add ocean current models (3D velocity fields)
 - [x] 4.2 Add temperature/salinity profiles
-- [ ] 4.3 Add bathymetry grid support
-- [ ] 4.4 Add tidal effect models
+- [x] 4.3 Add bathymetry grid support
+- [x] 4.4 Add tidal effect models
 
 ## 5. Testing
 - [x] 5.1 Add unit tests for undersea coordinate transforms

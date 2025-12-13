@@ -7,18 +7,23 @@ from pytest import approx
 from ..underwater import (
     acoustic_attenuation,
     apply_current_to_velocity,
+    apply_tide_to_depth,
     bearing_elevation_range2cart,
     cart2bearing_elevation_range,
     cart2depth_bearing_range,
     compute_sound_speed_gradient,
+    create_canyon_bathymetry,
     create_depth_varying_current,
+    create_flat_bathymetry,
     create_isothermal_profile,
     create_mixed_layer_profile,
     create_shear_current,
+    create_sloped_bathymetry,
     create_thermocline_profile,
     create_uniform_current,
     depth_bearing_range2cart,
     depth_to_pressure,
+    dual_constituent_tide,
     ecef_to_enu,
     ecef_to_geodetic_underwater,
     enu_to_ecef,
@@ -27,11 +32,16 @@ from ..underwater import (
     geodetic_depth_to_enu,
     geodetic_to_ecef_underwater,
     haversine_distance,
+    height_above_seafloor,
+    interpolate_bathymetry,
     interpolate_profile,
+    is_in_water,
     pressure_to_depth,
+    simple_tidal_offset,
     sound_speed_mackenzie,
     sound_speed_profile,
     sound_speed_unesco,
+    tidal_current,
     transmission_loss,
 )
 
@@ -872,3 +882,344 @@ def test_current_direction_east():
     vx, vy, vz = current(0, 0, 0)
     assert vx == approx(1.0, rel=1e-6)
     assert vy == approx(0.0, abs=1e-10)
+
+
+# =============================================================================
+# Bathymetry Grid Tests
+# =============================================================================
+
+
+def test_flat_bathymetry_structure():
+    """Flat bathymetry should have correct structure."""
+    bathy = create_flat_bathymetry(100.0, (0, 1000), (0, 1000), resolution=100.0)
+    assert "x" in bathy
+    assert "y" in bathy
+    assert "depth" in bathy
+    assert bathy["depth"].ndim == 2
+
+
+def test_flat_bathymetry_constant():
+    """Flat bathymetry should have constant depth."""
+    bathy = create_flat_bathymetry(150.0, (0, 500), (0, 500))
+    assert np.all(bathy["depth"] == 150.0)
+
+
+def test_flat_bathymetry_grid_extent():
+    """Flat bathymetry grid should cover specified extent."""
+    bathy = create_flat_bathymetry(100.0, (0, 1000), (-500, 500), resolution=100.0)
+    assert bathy["x"][0] == 0.0
+    assert bathy["x"][-1] >= 1000.0
+    assert bathy["y"][0] == -500.0
+    assert bathy["y"][-1] >= 500.0
+
+
+def test_sloped_bathymetry_shallow_region():
+    """Sloped bathymetry should have shallow depth before slope."""
+    bathy = create_sloped_bathymetry(
+        shallow_depth=50.0,
+        deep_depth=500.0,
+        slope_start_x=200.0,
+        slope_end_x=400.0,
+        x_range=(0, 600),
+        y_range=(0, 200),
+    )
+    # Points before slope should have shallow depth
+    shallow_idx = bathy["x"] <= 200.0
+    for j in range(bathy["depth"].shape[0]):
+        assert np.all(bathy["depth"][j, shallow_idx] == 50.0)
+
+
+def test_sloped_bathymetry_deep_region():
+    """Sloped bathymetry should have deep depth after slope."""
+    bathy = create_sloped_bathymetry(
+        shallow_depth=50.0,
+        deep_depth=500.0,
+        slope_start_x=200.0,
+        slope_end_x=400.0,
+        x_range=(0, 600),
+        y_range=(0, 200),
+    )
+    # Points after slope should have deep depth
+    deep_idx = bathy["x"] >= 400.0
+    for j in range(bathy["depth"].shape[0]):
+        assert np.all(bathy["depth"][j, deep_idx] == 500.0)
+
+
+def test_sloped_bathymetry_transition():
+    """Sloped bathymetry should transition smoothly."""
+    bathy = create_sloped_bathymetry(
+        shallow_depth=50.0,
+        deep_depth=500.0,
+        slope_start_x=200.0,
+        slope_end_x=400.0,
+        x_range=(0, 600),
+        y_range=(0, 200),
+        resolution=50.0,
+    )
+    # Midpoint of slope should have average depth
+    mid_x = 300.0
+    mid_idx = np.argmin(np.abs(bathy["x"] - mid_x))
+    expected_depth = (50.0 + 500.0) / 2
+    assert bathy["depth"][0, mid_idx] == approx(expected_depth, rel=0.1)
+
+
+def test_canyon_bathymetry_base_depth():
+    """Canyon bathymetry should have base depth away from canyon."""
+    bathy = create_canyon_bathymetry(
+        base_depth=100.0,
+        canyon_depth=200.0,
+        canyon_center_y=500.0,
+        canyon_width=100.0,
+        x_range=(0, 1000),
+        y_range=(0, 1000),
+    )
+    # Far from canyon center, depth should be near base depth
+    far_y_idx = np.argmin(np.abs(bathy["y"] - 0.0))  # y=0, far from center at 500
+    assert bathy["depth"][far_y_idx, 0] == approx(100.0, rel=0.01)
+
+
+def test_canyon_bathymetry_canyon_center():
+    """Canyon bathymetry should be deepest at canyon center."""
+    bathy = create_canyon_bathymetry(
+        base_depth=100.0,
+        canyon_depth=200.0,
+        canyon_center_y=500.0,
+        canyon_width=100.0,
+        x_range=(0, 1000),
+        y_range=(0, 1000),
+    )
+    # At canyon center, depth should be base + canyon depth
+    center_y_idx = np.argmin(np.abs(bathy["y"] - 500.0))
+    expected_max_depth = 100.0 + 200.0
+    assert bathy["depth"][center_y_idx, 0] == approx(expected_max_depth, rel=0.01)
+
+
+def test_interpolate_bathymetry_exact_point():
+    """Interpolation at grid point should return exact value."""
+    bathy = create_flat_bathymetry(100.0, (0, 500), (0, 500), resolution=100.0)
+    depth = interpolate_bathymetry(bathy, 100.0, 100.0)
+    assert depth == approx(100.0, rel=1e-6)
+
+
+def test_interpolate_bathymetry_between_points():
+    """Interpolation between grid points should give intermediate value."""
+    bathy = create_sloped_bathymetry(
+        shallow_depth=50.0,
+        deep_depth=150.0,
+        slope_start_x=0.0,
+        slope_end_x=1000.0,
+        x_range=(0, 1000),
+        y_range=(0, 200),
+        resolution=100.0,
+    )
+    # At midpoint, depth should be average
+    depth = interpolate_bathymetry(bathy, 500.0, 100.0)
+    assert depth == approx(100.0, rel=0.1)
+
+
+def test_interpolate_bathymetry_array():
+    """Interpolation should work for arrays of points."""
+    bathy = create_flat_bathymetry(200.0, (0, 1000), (0, 1000))
+    x = np.array([100.0, 200.0, 300.0])
+    y = np.array([100.0, 200.0, 300.0])
+    depths = interpolate_bathymetry(bathy, x, y)
+    assert len(depths) == 3
+    assert np.all(depths == approx(200.0, rel=1e-6))
+
+
+def test_height_above_seafloor_at_surface():
+    """Point at surface should have height = seafloor depth."""
+    bathy = create_flat_bathymetry(100.0, (0, 500), (0, 500))
+    hab = height_above_seafloor(250.0, 250.0, 0.0, bathy)
+    assert hab == approx(100.0, rel=1e-6)
+
+
+def test_height_above_seafloor_underwater():
+    """Point underwater should have reduced height."""
+    bathy = create_flat_bathymetry(100.0, (0, 500), (0, 500))
+    hab = height_above_seafloor(250.0, 250.0, -50.0, bathy)
+    assert hab == approx(50.0, rel=1e-6)
+
+
+def test_height_above_seafloor_at_bottom():
+    """Point at seafloor should have height = 0."""
+    bathy = create_flat_bathymetry(100.0, (0, 500), (0, 500))
+    hab = height_above_seafloor(250.0, 250.0, -100.0, bathy)
+    assert hab == approx(0.0, abs=1e-6)
+
+
+def test_height_above_seafloor_below_bottom():
+    """Point below seafloor should have negative height."""
+    bathy = create_flat_bathymetry(100.0, (0, 500), (0, 500))
+    hab = height_above_seafloor(250.0, 250.0, -150.0, bathy)
+    assert hab == approx(-50.0, rel=1e-6)
+
+
+def test_is_in_water_surface():
+    """Point at surface should be in water."""
+    bathy = create_flat_bathymetry(100.0, (0, 500), (0, 500))
+    assert is_in_water(250.0, 250.0, 0.0, bathy) is True
+
+
+def test_is_in_water_underwater():
+    """Point underwater should be in water."""
+    bathy = create_flat_bathymetry(100.0, (0, 500), (0, 500))
+    assert is_in_water(250.0, 250.0, -50.0, bathy) is True
+
+
+def test_is_in_water_above_surface():
+    """Point above surface should not be in water."""
+    bathy = create_flat_bathymetry(100.0, (0, 500), (0, 500))
+    assert is_in_water(250.0, 250.0, 10.0, bathy) is False
+
+
+def test_is_in_water_at_bottom():
+    """Point at seafloor should be in water."""
+    bathy = create_flat_bathymetry(100.0, (0, 500), (0, 500))
+    assert is_in_water(250.0, 250.0, -100.0, bathy) is True
+
+
+def test_is_in_water_below_bottom():
+    """Point below seafloor should not be in water."""
+    bathy = create_flat_bathymetry(100.0, (0, 500), (0, 500))
+    assert is_in_water(250.0, 250.0, -150.0, bathy) is False
+
+
+# =============================================================================
+# Tidal Effect Tests
+# =============================================================================
+
+
+def test_simple_tidal_offset_high_tide():
+    """At t=0, tide should be at maximum (high tide)."""
+    offset = simple_tidal_offset(0.0, amplitude=1.0)
+    assert offset == approx(1.0, rel=1e-6)
+
+
+def test_simple_tidal_offset_low_tide():
+    """At t=period/2, tide should be at minimum (low tide)."""
+    period = 12.42
+    offset = simple_tidal_offset(period / 2, amplitude=1.0, period_hours=period)
+    assert offset == approx(-1.0, rel=1e-6)
+
+
+def test_simple_tidal_offset_mid_tide():
+    """At t=period/4, tide should be at zero."""
+    period = 12.42
+    offset = simple_tidal_offset(period / 4, amplitude=1.0, period_hours=period)
+    assert offset == approx(0.0, abs=1e-6)
+
+
+def test_simple_tidal_offset_periodicity():
+    """Tide should repeat after one period."""
+    period = 12.42
+    offset1 = simple_tidal_offset(0.0, amplitude=1.5, period_hours=period)
+    offset2 = simple_tidal_offset(period, amplitude=1.5, period_hours=period)
+    assert offset1 == approx(offset2, rel=1e-6)
+
+
+def test_simple_tidal_offset_amplitude():
+    """Amplitude should scale the offset."""
+    offset1 = simple_tidal_offset(0.0, amplitude=1.0)
+    offset2 = simple_tidal_offset(0.0, amplitude=2.0)
+    assert offset2 == approx(2 * offset1, rel=1e-6)
+
+
+def test_dual_constituent_tide_at_zero():
+    """At t=0 with zero phases, both constituents should be at max."""
+    offset = dual_constituent_tide(0.0, amp_m2=1.0, amp_s2=0.5)
+    assert offset == approx(1.5, rel=1e-6)  # 1.0 + 0.5
+
+
+def test_dual_constituent_tide_spring_tide():
+    """Spring tide occurs when M2 and S2 are in phase."""
+    # Both at high, zero phase offset
+    offset = dual_constituent_tide(0.0, amp_m2=1.0, amp_s2=0.5, phase_m2=0.0, phase_s2=0.0)
+    assert offset == approx(1.5, rel=1e-6)
+
+
+def test_dual_constituent_tide_neap_tide():
+    """Neap tide occurs when M2 and S2 are out of phase."""
+    # M2 at high, S2 at low (phase = pi)
+    offset = dual_constituent_tide(0.0, amp_m2=1.0, amp_s2=0.5, phase_m2=0.0, phase_s2=np.pi)
+    assert offset == approx(0.5, rel=1e-6)  # 1.0 - 0.5
+
+
+def test_dual_constituent_tide_m2_only():
+    """With amp_s2=0, should behave like simple M2 tide."""
+    offset1 = dual_constituent_tide(6.21, amp_m2=1.0, amp_s2=0.0)
+    offset2 = simple_tidal_offset(6.21, amplitude=1.0, period_hours=12.42)
+    assert offset1 == approx(offset2, rel=1e-6)
+
+
+def test_tidal_current_max_flood():
+    """At phase=0, current should be at maximum flood."""
+    vx, vy = tidal_current(0.0, max_speed=1.0, direction_rad=np.pi / 2, phase=0.0)
+    # sin(0) = 0, so at t=0 current is 0
+    assert vx == approx(0.0, abs=1e-10)
+    assert vy == approx(0.0, abs=1e-10)
+
+
+def test_tidal_current_quarter_period():
+    """At t=period/4, current should be at maximum."""
+    period = 12.42
+    vx, vy = tidal_current(period / 4, max_speed=1.0, direction_rad=np.pi / 2, period_hours=period)
+    # sin(pi/2) = 1, flowing east
+    assert vx == approx(1.0, rel=1e-6)
+    assert vy == approx(0.0, abs=1e-10)
+
+
+def test_tidal_current_half_period():
+    """At t=period/2, current should reverse to zero crossing."""
+    period = 12.42
+    vx, vy = tidal_current(period / 2, max_speed=1.0, direction_rad=np.pi / 2, period_hours=period)
+    # sin(pi) = 0
+    assert vx == approx(0.0, abs=1e-10)
+    assert vy == approx(0.0, abs=1e-10)
+
+
+def test_tidal_current_direction_north():
+    """Current with direction=0 should flow north."""
+    period = 12.42
+    vx, vy = tidal_current(period / 4, max_speed=1.0, direction_rad=0.0, period_hours=period)
+    assert vx == approx(0.0, abs=1e-10)
+    assert vy == approx(1.0, rel=1e-6)
+
+
+def test_tidal_current_periodicity():
+    """Tidal current should repeat after one period."""
+    period = 12.42
+    vx1, vy1 = tidal_current(1.0, max_speed=0.5, direction_rad=np.pi / 4, period_hours=period)
+    vx2, vy2 = tidal_current(
+        1.0 + period, max_speed=0.5, direction_rad=np.pi / 4, period_hours=period
+    )
+    assert vx1 == approx(vx2, rel=1e-6)
+    assert vy1 == approx(vy2, rel=1e-6)
+
+
+def test_apply_tide_to_depth_high_tide():
+    """At high tide, water depth should increase."""
+    depth = apply_tide_to_depth(100.0, 0.0, tidal_amplitude=2.0)
+    assert depth == approx(102.0, rel=1e-6)
+
+
+def test_apply_tide_to_depth_low_tide():
+    """At low tide, water depth should decrease."""
+    period = 12.42
+    depth = apply_tide_to_depth(100.0, period / 2, tidal_amplitude=2.0, period_hours=period)
+    assert depth == approx(98.0, rel=1e-6)
+
+
+def test_apply_tide_to_depth_mean_tide():
+    """At mean tide, depth should equal mean depth."""
+    period = 12.42
+    depth = apply_tide_to_depth(100.0, period / 4, tidal_amplitude=2.0, period_hours=period)
+    assert depth == approx(100.0, abs=1e-6)
+
+
+def test_apply_tide_to_depth_amplitude():
+    """Larger amplitude should cause larger depth variation."""
+    depth1 = apply_tide_to_depth(100.0, 0.0, tidal_amplitude=1.0)
+    depth2 = apply_tide_to_depth(100.0, 0.0, tidal_amplitude=3.0)
+    assert depth1 == approx(101.0, rel=1e-6)
+    assert depth2 == approx(103.0, rel=1e-6)
