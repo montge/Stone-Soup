@@ -170,4 +170,47 @@ is
    function Is_In_Lunar_SOI (Moon_Dist : Long_Float) return Boolean is
      (Moon_Dist >= 0.0 and Moon_Dist <= Lunar_SOI_Km);
 
+   ---------------------------------------------------------------------------
+   -- Safe Arithmetic Operations (Overflow-Checked)
+   ---------------------------------------------------------------------------
+
+   -- Safe distance addition with saturation
+   function Safe_Add_Distance
+     (D1, D2 : Earth_Distance_Km) return Earth_Distance_Km
+     with Post => Safe_Add_Distance'Result <= Max_Distance_Km;
+
+   -- Compute distance from Lagrange point
+   function Distance_From_Lagrange
+     (Point    : Lagrange_Point;
+      Position : ECI_Position_Km) return Lagrange_Offset_Km
+     with Post => Distance_From_Lagrange'Result >= 0.0;
+
+   ---------------------------------------------------------------------------
+   -- Coordinate Transformation Preconditions
+   ---------------------------------------------------------------------------
+
+   -- Check if ECI position is valid for cislunar operations
+   function Valid_ECI_Position
+     (X, Y, Z : ECI_Position_Km) return Boolean is
+     (X >= -Max_Distance_Km and X <= Max_Distance_Km and
+      Y >= -Max_Distance_Km and Y <= Max_Distance_Km and
+      Z >= -Max_Distance_Km and Z <= Max_Distance_Km);
+
+   -- Check if position is in Earth's sphere of influence
+   -- (Roughly, distance < 929,000 km, but we use practical cislunar range)
+   function Is_In_Earth_SOI (Earth_Dist : Earth_Distance_Km) return Boolean is
+     (Earth_Dist >= 0.0 and Earth_Dist <= Max_Distance_Km);
+
+   ---------------------------------------------------------------------------
+   -- Trajectory Validation Functions
+   ---------------------------------------------------------------------------
+
+   -- Validate trans-lunar injection velocity
+   function Is_Valid_TLI_DeltaV (DV : Long_Float) return Boolean is
+     (DV >= 3_000.0 and DV <= 3_500.0);
+
+   -- Validate lunar orbit insertion velocity
+   function Is_Valid_LOI_DeltaV (DV : Long_Float) return Boolean is
+     (DV >= 800.0 and DV <= 1_200.0);
+
 end Stone_Soup.Cislunar_Types;

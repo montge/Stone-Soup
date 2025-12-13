@@ -190,4 +190,59 @@ is
    function Is_Valid_Eccentricity (E : Long_Float) return Boolean is
      (E >= 0.0 and E < 1.0);
 
+   ---------------------------------------------------------------------------
+   -- Safe Arithmetic Operations (Overflow-Checked)
+   ---------------------------------------------------------------------------
+
+   -- Safe altitude addition with saturation
+   function Safe_Add_Altitude
+     (A1, A2 : Altitude_Km) return Altitude_Km
+     with Post => Safe_Add_Altitude'Result <= Max_Altitude_Km;
+
+   -- Compute orbital radius from altitude
+   function Altitude_To_Radius (Alt : Altitude_Km) return Geocentric_Radius_Km
+     with Post => Altitude_To_Radius'Result >= Earth_Radius_Km;
+
+   -- Compute altitude from orbital radius
+   function Radius_To_Altitude (Radius : Geocentric_Radius_Km) return Altitude_Km
+     with Pre  => Radius >= Earth_Radius_Km,
+          Post => Radius_To_Altitude'Result >= 0.0;
+
+   ---------------------------------------------------------------------------
+   -- Orbital Mechanics Functions with SPARK Contracts
+   ---------------------------------------------------------------------------
+
+   -- Compute orbital velocity at given radius
+   -- V = sqrt(mu/r) where mu = Earth_Mu (km^3/s^2)
+   function Orbital_Velocity (Radius : Geocentric_Radius_Km) return Velocity_KmPS
+     with Pre  => Radius >= Earth_Radius_Km,
+          Post => Orbital_Velocity'Result >= 0.0 and
+                  Orbital_Velocity'Result <= Max_Orbital_Velocity;
+
+   -- Compute orbital period at given semi-major axis
+   -- T = 2*Pi*sqrt(a^3/mu)
+   function Orbital_Period (SemiMajor : SemiMajor_Axis_Km) return Orbital_Period_S
+     with Pre  => SemiMajor >= Min_SemiMajor,
+          Post => Orbital_Period'Result >= 5_000.0;
+
+   ---------------------------------------------------------------------------
+   -- Coordinate Transformation Preconditions
+   ---------------------------------------------------------------------------
+
+   -- Check if ECEF position is valid
+   function Valid_ECEF_Position
+     (X, Y, Z : ECEF_Position_Km) return Boolean is
+     (X >= -Max_ECEF_Km and X <= Max_ECEF_Km and
+      Y >= -Max_ECEF_Km and Y <= Max_ECEF_Km and
+      Z >= -Max_ECEF_Km and Z <= Max_ECEF_Km);
+
+   -- Check if Keplerian elements are valid
+   function Valid_Keplerian
+     (A : SemiMajor_Axis_Km;
+      E : Eccentricity;
+      I : Inclination_Rad) return Boolean is
+     (A >= Min_SemiMajor and A <= Max_SemiMajor and
+      E >= 0.0 and E < 1.0 and
+      I >= 0.0 and I <= 3.14159265358979323846);
+
 end Stone_Soup.Orbital_Types;

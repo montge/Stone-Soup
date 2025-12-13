@@ -184,4 +184,62 @@ is
    function Is_Valid_Sound_Speed (C : Long_Float) return Boolean is
      (C >= Min_Sound_Speed and C <= Max_Sound_Speed);
 
+   ---------------------------------------------------------------------------
+   -- Safe Arithmetic Operations (Overflow-Checked)
+   ---------------------------------------------------------------------------
+
+   -- Safe depth addition with saturation
+   function Safe_Add_Depth
+     (D1, D2 : Depth_Meters) return Depth_Meters
+     with Pre  => True,
+          Post => Safe_Add_Depth'Result <= Max_Depth_Meters;
+
+   -- Safe depth subtraction
+   function Safe_Sub_Depth
+     (D1, D2 : Depth_Meters) return Depth_Delta
+     with Post => Safe_Sub_Depth'Result >= -Max_Depth_Meters and
+                  Safe_Sub_Depth'Result <= Max_Depth_Meters;
+
+   -- Safe range addition with saturation
+   function Safe_Add_Range
+     (R1, R2 : Range_Meters) return Range_Meters
+     with Post => Safe_Add_Range'Result <= Max_Range_Meters;
+
+   ---------------------------------------------------------------------------
+   -- Coordinate Transformation Preconditions
+   ---------------------------------------------------------------------------
+
+   -- Check if ENU coordinates are valid for transformation
+   function Valid_ENU_Position
+     (East, North : Position_Meters;
+      Depth       : Depth_Meters) return Boolean is
+     (East  >= -Max_Range_Meters and East  <= Max_Range_Meters and
+      North >= -Max_Range_Meters and North <= Max_Range_Meters and
+      Depth >= 0.0 and Depth <= Max_Depth_Meters);
+
+   -- Check if spherical coordinates are valid
+   function Valid_Spherical_Position
+     (Range_M  : Range_Meters;
+      Bearing  : Bearing_Radians;
+      Elev     : Elevation_Radians) return Boolean is
+     (Range_M >= 0.0 and Range_M <= Max_Range_Meters and
+      Bearing >= 0.0 and Bearing <= 6.283185307179586 and
+      Elev >= -1.570796326794897 and Elev <= 1.570796326794897);
+
+   -- Compute slant range from horizontal range and depth difference
+   -- Pre: Inputs must not cause overflow when squared and summed
+   function Compute_Slant_Range
+     (Horizontal_Range : Range_Meters;
+      Depth_Diff       : Depth_Delta) return Slant_Range
+     with Pre  => Horizontal_Range <= 100_000.0 and
+                  Depth_Diff >= -11_000.0 and Depth_Diff <= 11_000.0,
+          Post => Compute_Slant_Range'Result >= 0.0;
+
+   -- Compute acoustic travel time
+   function Compute_Travel_Time
+     (Range_M     : Range_Meters;
+      Sound_Speed : Sound_Speed_MPS) return Travel_Time_Seconds
+     with Pre  => Sound_Speed >= Min_Sound_Speed,
+          Post => Compute_Travel_Time'Result >= 0.0;
+
 end Stone_Soup.Undersea_Types;

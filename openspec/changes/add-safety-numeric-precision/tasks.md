@@ -16,10 +16,10 @@
 - [x] 2.4 Create domain-specific type packages (Undersea_Types, Orbital_Types, etc.)
 
 ## 3. SPARK Proofs
-- [ ] 3.1 Add SPARK contracts for numeric overflow prevention
+- [x] 3.1 Add SPARK contracts for numeric overflow prevention
 - [ ] 3.2 Prove range safety with GNATprove
 - [ ] 3.3 Document numeric assumptions and constraints
-- [ ] 3.4 Add preconditions for coordinate transformation inputs
+- [x] 3.4 Add preconditions for coordinate transformation inputs
 
 ## 4. C Library Support
 - [x] 4.1 Add compile-time domain selection for numeric types
