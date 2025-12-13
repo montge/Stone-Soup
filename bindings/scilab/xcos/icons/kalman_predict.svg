@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="50" height="50" xmlns="http://www.w3.org/2000/svg">
+  <rect x="2" y="2" width="46" height="46" rx="4" fill="#4A90D9" stroke="#2C5F8A" stroke-width="2"/>
+  <text x="25" y="20" text-anchor="middle" font-family="Arial" font-size="10" font-weight="bold" fill="white">Kalman</text>
+  <text x="25" y="35" text-anchor="middle" font-family="Arial" font-size="10" font-weight="bold" fill="white">Predict</text>
+  <path d="M 10 42 L 20 38 L 30 40 L 40 35" stroke="white" stroke-width="2" fill="none"/>
+  <circle cx="40" cy="35" r="3" fill="white"/>
+</svg>

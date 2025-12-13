@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Stone Soup Xcos Palette Definition
+
+  This file defines the Xcos palette for Stone Soup tracking blocks.
+  Load with: xcosPal = xcosPalExport("stonesoup_palette.xml")
+-->
+<palette name="Stone Soup" xmlns="http://www.scilab.org/xmlns/xcos">
+    <category name="Tracking">
+        <block name="STONESOUP_KALMAN_PREDICT">
+            <description>Kalman filter prediction step. Computes x_pred = F*x and P_pred = F*P*F' + Q</description>
+            <icon>icons/kalman_predict.svg</icon>
+        </block>
+        <block name="STONESOUP_KALMAN_UPDATE">
+            <description>Kalman filter update step with Joseph form covariance. Outputs posterior state and innovation.</description>
+            <icon>icons/kalman_update.svg</icon>
+        </block>
+    </category>
+    <category name="Motion Models">
+        <block name="STONESOUP_CONSTANT_VELOCITY">
+            <description>Generates transition matrix F and process noise Q for constant velocity motion model.</description>
+            <icon>icons/constant_velocity.svg</icon>
+        </block>
+    </category>
+</palette>

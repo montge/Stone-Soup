@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="50" height="50" xmlns="http://www.w3.org/2000/svg">
+  <rect x="2" y="2" width="46" height="46" rx="4" fill="#5CB85C" stroke="#3E8C3E" stroke-width="2"/>
+  <text x="25" y="20" text-anchor="middle" font-family="Arial" font-size="10" font-weight="bold" fill="white">Kalman</text>
+  <text x="25" y="35" text-anchor="middle" font-family="Arial" font-size="10" font-weight="bold" fill="white">Update</text>
+  <circle cx="38" cy="40" r="4" fill="none" stroke="white" stroke-width="2"/>
+  <line x1="35" y1="40" x2="41" y2="40" stroke="white" stroke-width="2"/>
+  <line x1="38" y1="37" x2="38" y2="43" stroke="white" stroke-width="2"/>
+</svg>
