@@ -1,0 +1,154 @@
+name: Upstream Sync
+
+on:
+  schedule:
+    # Run at 3 AM UTC daily
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  sync:
+    name: Sync with Upstream
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/dstl/Stone-Soup.git || true
+          git fetch upstream
+
+      - name: Check for upstream changes
+        id: check
+        run: |
+          # Get the merge base between our main and upstream main
+          MERGE_BASE=$(git merge-base origin/main upstream/main)
+          UPSTREAM_HEAD=$(git rev-parse upstream/main)
+
+          if [ "$MERGE_BASE" = "$UPSTREAM_HEAD" ]; then
+            echo "No new upstream changes"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            COMMIT_COUNT=$(git rev-list --count ${MERGE_BASE}..upstream/main)
+            echo "Found $COMMIT_COUNT new upstream commits"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "commit_count=$COMMIT_COUNT" >> $GITHUB_OUTPUT
+
+            # Get commit summary
+            git log --oneline ${MERGE_BASE}..upstream/main > /tmp/upstream_commits.txt
+            echo "commits<<EOF" >> $GITHUB_OUTPUT
+            cat /tmp/upstream_commits.txt >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create sync branch
+        if: steps.check.outputs.has_changes == 'true'
+        id: branch
+        run: |
+          BRANCH_NAME="upstream-sync/$(date +%Y-%m-%d)"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+          # Create branch from main
+          git checkout -b $BRANCH_NAME origin/main
+
+      - name: Attempt merge
+        if: steps.check.outputs.has_changes == 'true'
+        id: merge
+        run: |
+          if git merge upstream/main --no-edit; then
+            echo "merge_status=success" >> $GITHUB_OUTPUT
+          else
+            echo "merge_status=conflict" >> $GITHUB_OUTPUT
+            # Abort the merge to leave clean state
+            git merge --abort
+          fi
+
+      - name: Push sync branch
+        if: steps.check.outputs.has_changes == 'true' && steps.merge.outputs.merge_status == 'success'
+        run: |
+          git push origin ${{ steps.branch.outputs.branch_name }}
+
+      - name: Create PR for successful merge
+        if: steps.check.outputs.has_changes == 'true' && steps.merge.outputs.merge_status == 'success'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ steps.branch.outputs.branch_name }}
+          base: main
+          title: "⬆️ Sync with upstream Stone Soup"
+          body: |
+            ## Upstream Sync
+
+            This PR merges ${{ steps.check.outputs.commit_count }} new commits from [upstream Stone Soup](https://github.com/dstl/Stone-Soup).
+
+            ### Upstream Changes
+            ```
+            ${{ steps.check.outputs.commits }}
+            ```
+
+            ### Review Checklist
+            - [ ] Verify no breaking changes to SDK extensions
+            - [ ] Run full test suite
+            - [ ] Check for API compatibility
+
+            ---
+            🤖 This PR was automatically created by the upstream sync workflow.
+          labels: |
+            upstream-sync
+            automated
+
+      - name: Create issue for merge conflicts
+        if: steps.check.outputs.has_changes == 'true' && steps.merge.outputs.merge_status == 'conflict'
+        uses: peter-evans/create-issue-from-file@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: "⚠️ Upstream sync requires manual resolution"
+          content-filepath: /dev/stdin
+          labels: |
+            upstream-sync
+            needs-attention
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Notify about conflicts
+        if: steps.check.outputs.has_changes == 'true' && steps.merge.outputs.merge_status == 'conflict'
+        run: |
+          echo "::warning::Merge conflicts detected when syncing with upstream"
+          echo "Manual intervention required to resolve conflicts"
+          echo ""
+          echo "To resolve manually:"
+          echo "  git fetch upstream"
+          echo "  git checkout -b upstream-sync/manual origin/main"
+          echo "  git merge upstream/main"
+          echo "  # Resolve conflicts"
+          echo "  git push origin upstream-sync/manual"
+
+      - name: Summary
+        run: |
+          echo "## Upstream Sync Summary" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check.outputs.has_changes }}" == "true" ]; then
+            echo "- **New upstream commits:** ${{ steps.check.outputs.commit_count }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Merge status:** ${{ steps.merge.outputs.merge_status }}" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ steps.merge.outputs.merge_status }}" == "success" ]; then
+              echo "- **PR created:** Yes" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- **Action required:** Manual conflict resolution" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "- **Status:** Already up to date with upstream" >> $GITHUB_STEP_SUMMARY
+          fi
