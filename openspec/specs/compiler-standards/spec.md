@@ -1,7 +1,7 @@
 # compiler-standards Specification
 
 ## Purpose
-TBD - created by archiving change add-multi-language-sdk. Update Purpose after archive.
+Defines the compiler and language standard requirements for Stone Soup. This includes Python version support (3.10-3.14), C17 standard for libstonesoup, C++17/20/23/26 for C++ bindings, and Rust edition 2021.
 ## Requirements
 ### Requirement: Python Version Support
 The system SHALL support Python versions 3.10 through 3.14 with LTS focus.
@@ -215,4 +215,3 @@ The system SHALL support SIMD optimizations for vector operations.
 #### Scenario: NEON optimization
 - **WHEN** ARM target is built
 - **THEN** NEON instructions are used for vector ops
-

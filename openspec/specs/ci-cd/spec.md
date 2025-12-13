@@ -1,7 +1,7 @@
 # ci-cd Specification
 
 ## Purpose
-TBD - created by archiving change add-multi-language-sdk. Update Purpose after archive.
+Defines the continuous integration and continuous deployment pipeline requirements for Stone Soup. This includes build matrices, test execution, security scanning, code quality gates, release automation, and integration with external services like SonarCloud and Codecov.
 ## Requirements
 ### Requirement: Multi-Language Build Matrix
 The system SHALL build and test all language bindings in CI using a matrix strategy.
@@ -241,4 +241,3 @@ The system SHALL maintain alignment with upstream Stone Soup while supporting in
 #### Scenario: Changelog tracking
 - **WHEN** release is prepared
 - **THEN** changes from both upstream and fork are documented
-

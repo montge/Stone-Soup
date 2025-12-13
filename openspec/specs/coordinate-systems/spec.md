@@ -1,7 +1,7 @@
 # coordinate-systems Specification
 
 ## Purpose
-TBD - created by archiving change add-voxel-viterbi-coordinates. Update Purpose after archive.
+Defines coordinate system transformations and reference frame support for Stone Soup. This includes geodetic reference ellipsoids (WGS84, ITRF), ECEF/ECI transformations, topocentric frames (ENU, NED, SEZ), inertial reference frames (GCRS, J2000, ICRS), interplanetary coordinate systems, and time system conversions for multi-domain tracking applications.
 ## Requirements
 ### Requirement: Reference Ellipsoid Support
 The system SHALL support multiple geodetic reference ellipsoids for coordinate transformations.
@@ -293,4 +293,3 @@ The system SHALL integrate with standard ephemeris sources.
 #### Scenario: Custom ephemeris
 - **WHEN** custom ephemeris data is provided
 - **THEN** interpolation provides positions at arbitrary times
-

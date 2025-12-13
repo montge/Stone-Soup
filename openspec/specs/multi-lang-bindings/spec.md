@@ -1,7 +1,7 @@
 # multi-lang-bindings Specification
 
 ## Purpose
-TBD - created by archiving change add-multi-language-sdk. Update Purpose after archive.
+Defines the multi-language SDK bindings for Stone Soup. This includes the core C library (libstonesoup) and bindings for Rust, Python (PyO3), Java, Ada, C++, Go, Node.js, MATLAB, GNU Octave, and Scilab.
 ## Requirements
 ### Requirement: Core C Library
 The system SHALL provide a C library (libstonesoup) that implements core tracking algorithms with a stable ABI.
@@ -171,4 +171,3 @@ The system SHALL provide Scilab bindings via gateway interface.
 #### Scenario: Scilab ATOMS package
 - **WHEN** atomsInstall stonesoup is run
 - **THEN** stonesoup module is installed
-

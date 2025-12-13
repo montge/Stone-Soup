@@ -1,7 +1,7 @@
 # requirements-traceability Specification
 
 ## Purpose
-TBD - created by archiving change add-multi-language-sdk. Update Purpose after archive.
+Defines requirements traceability using sphinx-needs for documentation. This includes requirement definitions, test case linking, traceability matrix generation, and coverage visualization for tracking system development.
 ## Requirements
 ### Requirement: Sphinx-Needs Integration
 The system SHALL use sphinx-needs to document and manage requirements with full traceability.
@@ -213,4 +213,3 @@ The system SHALL support OSLC (Open Services for Lifecycle Collaboration) for to
 #### Scenario: OSLC change events
 - **WHEN** requirements are modified
 - **THEN** OSLC change events are published
-

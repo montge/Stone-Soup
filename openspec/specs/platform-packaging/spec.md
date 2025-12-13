@@ -1,7 +1,7 @@
 # platform-packaging Specification
 
 ## Purpose
-TBD - created by archiving change add-multi-language-sdk. Update Purpose after archive.
+Defines the platform support and packaging requirements for Stone Soup. This includes Windows, Linux, macOS support, POSIX/RTOS compatibility, cross-compilation for embedded targets, and package distribution via PyPI, crates.io, npm, and Maven Central.
 ## Requirements
 ### Requirement: Windows Platform Support
 The system SHALL support Windows 10, Windows 11, and Windows Server LTS versions.
@@ -230,4 +230,3 @@ The system SHALL sign all distributed packages.
 #### Scenario: Apple notarization
 - **WHEN** macOS packages are distributed
 - **THEN** Apple notarization allows Gatekeeper passage
-

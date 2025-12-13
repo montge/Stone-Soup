@@ -1,7 +1,7 @@
 # security-tooling Specification
 
 ## Purpose
-TBD - created by archiving change add-multi-language-sdk. Update Purpose after archive.
+Defines the security tooling and static analysis requirements for Stone Soup. This includes Python linting (Ruff, Black, Bandit), polyglot SAST (Semgrep), MISRA C compliance, Rust security (Clippy, cargo-audit), dependency scanning, and pre-commit hook configuration.
 ## Requirements
 ### Requirement: Python Linting with Ruff
 The system SHALL use ruff as the primary Python linter for fast, comprehensive code analysis.
@@ -129,4 +129,3 @@ The system SHALL provide pre-commit hooks for all linting and formatting tools.
 #### Scenario: Pre-commit CI validation
 - **WHEN** CI pipeline runs
 - **THEN** pre-commit hooks are validated to ensure they would pass
-

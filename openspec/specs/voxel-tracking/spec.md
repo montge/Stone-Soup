@@ -1,7 +1,7 @@
 # voxel-tracking Specification
 
 ## Purpose
-TBD - created by archiving change add-voxel-viterbi-coordinates. Update Purpose after archive.
+Defines voxel-based tracking capabilities for Stone Soup. This includes 3D spatial discretization with adaptive resolution, VoxelState types compatible with the type system, voxel-continuous state conversions, predictors and updaters for voxel-based filtering, and 3D visualization of occupancy probability distributions.
 ## Requirements
 ### Requirement: Voxel Grid Data Structure
 The system SHALL provide a voxel grid data structure for 3D spatial discretization with adaptive resolution.
@@ -88,4 +88,3 @@ The system SHALL support visualization of voxel states.
 #### Scenario: Cross-section view
 - **WHEN** 2D slice of voxel grid is requested
 - **THEN** planar cross-section displays occupancy as heatmap
-

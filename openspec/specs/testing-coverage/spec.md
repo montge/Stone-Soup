@@ -1,7 +1,7 @@
 # testing-coverage Specification
 
 ## Purpose
-TBD - created by archiving change add-multi-language-sdk. Update Purpose after archive.
+Defines the testing strategy and coverage requirements for Stone Soup. This includes coverage targets, unit testing, integration testing, end-to-end testing, property-based testing, fuzzing, and performance benchmarking across all supported programming languages.
 ## Requirements
 ### Requirement: Overall Coverage Target
 The system SHALL maintain 90% or higher overall test coverage across the codebase.
@@ -148,4 +148,3 @@ The system SHALL maintain performance benchmarks for critical operations.
 #### Scenario: Cross-language benchmarks
 - **WHEN** benchmarks compare language bindings
 - **THEN** relative performance is documented
-

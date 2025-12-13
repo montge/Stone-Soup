@@ -1,7 +1,7 @@
 # viterbi-algorithms Specification
 
 ## Purpose
-TBD - created by archiving change add-voxel-viterbi-coordinates. Update Purpose after archive.
+Defines Viterbi algorithm implementations for Stone Soup tracking systems. This includes Viterbi smoothers for optimal state sequence estimation, track-before-detect initiators, graph-constrained tracking for road/rail networks, multi-hypothesis tracking with N-best paths, and HMM-based state space definitions.
 ## Requirements
 ### Requirement: Viterbi Smoother
 The system SHALL provide a Viterbi smoother for optimal state sequence estimation in HMM-based tracking.
@@ -104,4 +104,3 @@ The system SHALL support flexible state space definition for HMM-based tracking.
 #### Scenario: Hybrid state space
 - **WHEN** state has discrete and continuous components
 - **THEN** both components are handled in Viterbi computation
-
