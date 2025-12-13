@@ -34,7 +34,7 @@
 - [ ] 5.4 Add cross-domain coordinate transfer with precision management
 
 ## 6. Testing and Validation
-- [ ] 6.1 Add boundary value tests for each numeric type
-- [ ] 6.2 Add overflow/underflow detection tests
+- [x] 6.1 Add boundary value tests for each numeric type
+- [x] 6.2 Add overflow/underflow detection tests
 - [ ] 6.3 Validate precision preservation across transformations
 - [ ] 6.4 Test multi-scale transitions (e.g., LEO to lunar transfer)
