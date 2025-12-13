@@ -64,7 +64,7 @@ The system SHALL provide Java bindings using Panama FFI (JEP 454) with JNI fallb
 - **THEN** type-safe operations are available with proper null handling
 
 ### Requirement: Ada Bindings
-The system SHALL provide Ada bindings with SPARK subset support for formal verification.
+The system SHALL provide Ada bindings with SPARK subset support for formal verification and explicit numeric range constraints.
 
 #### Scenario: Ada specification files
 - **WHEN** an Ada program withs Stone_Soup package
@@ -77,6 +77,22 @@ The system SHALL provide Ada bindings with SPARK subset support for formal verif
 #### Scenario: Ada tasking safety
 - **WHEN** multiple Ada tasks use Stone_Soup concurrently
 - **THEN** no data races occur with proper protected object usage
+
+#### Scenario: Explicit numeric ranges
+- **WHEN** Ada types are defined for state vectors
+- **THEN** explicit range constraints match tracking domain requirements
+
+#### Scenario: Domain-specific type packages
+- **WHEN** tracking in specific domain (undersea, orbital, interplanetary)
+- **THEN** domain-specific Ada type packages with appropriate ranges are available
+
+#### Scenario: Fixed-point arithmetic
+- **WHEN** deterministic arithmetic is required for certification
+- **THEN** fixed-point type variants are available for critical calculations
+
+#### Scenario: Overflow prevention proofs
+- **WHEN** SPARK analysis runs on numeric operations
+- **THEN** range overflow/underflow is proven impossible within domain constraints
 
 ### Requirement: C++ Bindings
 The system SHALL provide C++ header-only wrappers with RAII semantics for libstonesoup.
@@ -171,3 +187,42 @@ The system SHALL provide Scilab bindings via gateway interface.
 #### Scenario: Scilab ATOMS package
 - **WHEN** atomsInstall stonesoup is run
 - **THEN** stonesoup module is installed
+
+#### Scenario: StateVector creation in Scilab
+- **WHEN** Scilab code calls `stonesoup_state_vector_create(dim)`
+- **THEN** a state vector of specified dimension is returned as a Scilab column vector
+
+#### Scenario: Kalman filter operations in Scilab
+- **WHEN** Scilab code calls `stonesoup_kalman_predict` or `stonesoup_kalman_update`
+- **THEN** Kalman filter operations execute via libstonesoup with Scilab-native data types
+
+#### Scenario: Error handling in Scilab
+- **WHEN** a gateway function encounters an error
+- **THEN** a descriptive Scilab error is raised with error code and message
+
+#### Scenario: Scilab 6.x compatibility
+- **WHEN** Scilab bindings are loaded in Scilab 6.0 or later
+- **THEN** all gateway functions and macros work correctly
+
+#### Scenario: Xcos Kalman Predictor block
+- **WHEN** Xcos model includes Kalman Predictor block
+- **THEN** block performs Kalman prediction with configurable parameters
+
+#### Scenario: Xcos Kalman Updater block
+- **WHEN** Xcos model includes Kalman Updater block
+- **THEN** block performs Kalman update with measurement input
+
+### Requirement: Multi-Scale Numeric Handling
+The system SHALL support tracking across multiple spatial scales without precision loss.
+
+#### Scenario: Scale transition
+- **WHEN** object transitions between tracking domains (e.g., LEO to lunar)
+- **THEN** coordinate system switches with appropriate precision for each domain
+
+#### Scenario: Precision documentation
+- **WHEN** API documentation is generated
+- **THEN** numeric precision and range limits are clearly documented per domain
+
+#### Scenario: Compile-time domain selection
+- **WHEN** library is compiled for specific domain
+- **THEN** numeric types are optimized for that domain's range requirements

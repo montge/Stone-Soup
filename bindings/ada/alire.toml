@@ -1,0 +1,13 @@
+name = "stonesoup_ada"
+description = "Ada bindings for Stone Soup tracking framework"
+version = "0.1.0-dev"
+
+authors = ["Evan Montgomery-Recht"]
+maintainers = ["Evan Montgomery-Recht <montge@mianetworks.net>"]
+maintainers-logins = ["montge"]
+licenses = "MIT OR Apache-2.0 WITH LLVM-exception"
+website = ""
+tags = ["tracking", "kalman"]
+
+[[depends-on]]
+gnatprove = "^13.2.1"

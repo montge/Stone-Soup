@@ -1,0 +1,232 @@
+V "GNAT Lib v13"
+A -gnat2022
+P ZX
+
+RN
+RV NO_DIRECT_BOOLEAN_OPERATORS
+RV NO_FLOATING_POINT
+RV NO_IO
+RV NO_DYNAMIC_SIZED_OBJECTS
+
+U test_unit_scaling%b	test_unit_scaling.adb	1bc63745 NE OO PK
+W ada%s			ada.ads			ada.ali
+Z ada.strings.text_buffers%s  a-sttebu.adb	a-sttebu.ali
+W ada.text_io%s		a-textio.adb		a-textio.ali
+W stone_soup%s		stone_soup.adb		stone_soup.ali
+W stone_soup.unit_scaling%s  stone_soup-unit_scaling.adb  stone_soup-unit_scaling.ali
+Z system.concat_2%s	s-conca2.adb		s-conca2.ali
+Z system.img_int%s	s-imgint.ads		s-imgint.ali
+
+U test_unit_scaling%s	test_unit_scaling.ads	0df590a6 EE NE OO PK
+Z ada.strings.text_buffers%s  a-sttebu.adb	a-sttebu.ali
+
+D ada.ads		20240521074738 76789da1 ada%s
+D a-assert.ads		20240521074737 ba465f5c ada.assertions%s
+D a-except.ads		20240521074738 2a7d8d70 ada.exceptions%s
+D a-ioexce.ads		20240521074738 40018c65 ada.io_exceptions%s
+D a-numeri.ads		20240521074738 84bea7a3 ada.numerics%s
+D a-nubinu.ads		20240521074738 93f1f3d1 ada.numerics.big_numbers%s
+D a-nbnbig.ads		20240521074738 711e0174 ada.numerics.big_numbers.big_integers_ghost%s
+D a-stream.ads		20240521074738 119b8fb3 ada.streams%s
+D a-string.ads		20240521074738 90ac6797 ada.strings%s
+D a-sttebu.ads		20240521074738 f1ad67a2 ada.strings.text_buffers%s
+D a-stuten.ads		20240521074738 c6ced0ae ada.strings.utf_encoding%s
+D a-tags.ads		20240521074738 9eaa38c6 ada.tags%s
+D a-textio.ads		20240521074738 5c2c6153 ada.text_io%s
+D a-unccon.ads		20240521074738 0e9b276f ada.unchecked_conversion%s
+D interfac.ads		20240521074738 15f799c2 interfaces%s
+D i-c.ads		20240521074738 5c5a6c17 interfaces.c%s
+D i-cstrin.ads		20240521074738 f40c8db4 interfaces.c.strings%s
+D i-cstrea.ads		20240521074738 e53d8b8e interfaces.c_streams%s
+D stone_soup.ads	20251213175559 0a21e04c stone_soup%s
+D stone_soup-unit_scaling.ads  20251213182301 fd2375e0 stone_soup.unit_scaling%s
+D system.ads		20240521074738 426dafb8 system%s
+D s-assert.ads		20240521074738 9c4520c7 system.assertions%s
+D s-casuti.ads		20240521074738 cf13d755 system.case_util%s
+D s-conca2.ads		20240521074738 b5fb73f7 system.concat_2%s
+D s-crtl.ads		20240521074738 8a0692f8 system.crtl%s
+D s-exctab.ads		20240521074738 91bef6ef system.exception_table%s
+D s-ficobl.ads		20240521074738 dc5161d4 system.file_control_block%s
+D s-imagei.ads		20240521074738 c707dfd0 system.image_i%s
+D s-imgint.ads		20240521074738 d4a52a9b system.img_int%s
+D s-parame.ads		20240904144414 1f39ba92 system.parameters%s
+D s-putima.ads		20240521074738 17291fe4 system.put_images%s
+D s-secsta.ads		20240521074738 578279f5 system.secondary_stack%s
+D s-soflin.ads		20240521074738 df77073e system.soft_links%s
+D s-stache.ads		20240521074738 0b81c1fe system.stack_checking%s
+D s-stalib.ads		20240521074738 1c9580f6 system.standard_library%s
+D s-stoele.ads		20240521074738 ab5468e4 system.storage_elements%s
+D s-stoele.adb		20240521074738 8f5a9db6 system.storage_elements%b
+D s-traent.ads		20240521074738 c81cbf8c system.traceback_entries%s
+D s-unstyp.ads		20240521074738 fa2a7f59 system.unsigned_types%s
+D s-valint.ads		20240521074738 1f610d7a system.val_int%s
+D s-valuns.ads		20240521074738 e8a1f424 system.val_uns%s
+D s-valuti.ads		20240521074738 fcd603d8 system.val_util%s
+D s-valuei.ads		20240521074738 11081e09 system.value_i%s
+D s-vaispe.ads		20240521074738 44130d39 system.value_i_spec%s
+D s-valueu.ads		20240521074738 18770347 system.value_u%s
+D s-vauspe.ads		20240521074738 a67b2f28 system.value_u_spec%s
+D s-wchcon.ads		20240521074738 d9032363 system.wch_con%s
+D s-widuns.ads		20240521074738 866a5800 system.wid_uns%s
+D s-widthu.ads		20240521074738 b32f15e2 system.width_u%s
+D test_unit_scaling.ads	20251213182514 0df590a6 test_unit_scaling%s
+D test_unit_scaling.adb	20251213182554 b73cb350 test_unit_scaling%b
+G a e
+G c Z s b [run_all_tests test_unit_scaling 9 14 none]
+G c Z b b [assert test_unit_scaling 13 14 none]
+G c Z b b [test_scale_multipliers test_unit_scaling 27 14 none]
+G c Z b b [test_auto_scaling_distance test_unit_scaling 39 14 none]
+G c Z b b [test_to_base_units test_unit_scaling 66 14 none]
+G c Z b b [test_scale_conversion test_unit_scaling 89 14 none]
+G c Z b b [test_convenience_functions test_unit_scaling 114 14 none]
+G c Z b b [test_arithmetic_operations test_unit_scaling 150 14 none]
+G c Z b b [test_domain_specific_scaling test_unit_scaling 183 14 none]
+G c Z b b [test_precision_preservation test_unit_scaling 210 14 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [scale_multiplier stone_soup__unit_scaling 41 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [auto_scale stone_soup__unit_scaling 118 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [create_scaled stone_soup__unit_scaling 151 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [to_base_units stone_soup__unit_scaling 127 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [convert_scale stone_soup__unit_scaling 135 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [from_kilometers stone_soup__unit_scaling 166 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [to_meters stone_soup__unit_scaling 195 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [from_meters stone_soup__unit_scaling 163 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [to_kilometers stone_soup__unit_scaling 198 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [from_kilometers_per_second stone_soup__unit_scaling 172 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [to_meters_per_second stone_soup__unit_scaling 201 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [from_hours stone_soup__unit_scaling 181 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [to_seconds stone_soup__unit_scaling 207 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [from_minutes stone_soup__unit_scaling 178 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [Oadd stone_soup__unit_scaling 224 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [Osubtract stone_soup__unit_scaling 229 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [Omultiply stone_soup__unit_scaling 234 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [Odivide stone_soup__unit_scaling 239 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [scale_for_undersea stone_soup__unit_scaling 249 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [scale_for_orbital stone_soup__unit_scaling 254 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [scale_for_cislunar stone_soup__unit_scaling 259 13 none]
+G r c none [run_all_tests test_unit_scaling 9 14 none] [scale_for_interplanetary stone_soup__unit_scaling 264 13 none]
+G r c none [test_scale_multipliers test_unit_scaling 27 14 none] [scale_multiplier stone_soup__unit_scaling 41 13 none]
+G r c none [test_auto_scaling_distance test_unit_scaling 39 14 none] [auto_scale stone_soup__unit_scaling 118 13 none]
+G r c none [test_to_base_units test_unit_scaling 66 14 none] [create_scaled stone_soup__unit_scaling 151 13 none]
+G r c none [test_to_base_units test_unit_scaling 66 14 none] [to_base_units stone_soup__unit_scaling 127 13 none]
+G r c none [test_scale_conversion test_unit_scaling 89 14 none] [create_scaled stone_soup__unit_scaling 151 13 none]
+G r c none [test_scale_conversion test_unit_scaling 89 14 none] [convert_scale stone_soup__unit_scaling 135 13 none]
+G r c none [test_convenience_functions test_unit_scaling 114 14 none] [from_kilometers stone_soup__unit_scaling 166 13 none]
+G r c none [test_convenience_functions test_unit_scaling 114 14 none] [to_meters stone_soup__unit_scaling 195 13 none]
+G r c none [test_convenience_functions test_unit_scaling 114 14 none] [from_meters stone_soup__unit_scaling 163 13 none]
+G r c none [test_convenience_functions test_unit_scaling 114 14 none] [to_kilometers stone_soup__unit_scaling 198 13 none]
+G r c none [test_convenience_functions test_unit_scaling 114 14 none] [from_kilometers_per_second stone_soup__unit_scaling 172 13 none]
+G r c none [test_convenience_functions test_unit_scaling 114 14 none] [to_meters_per_second stone_soup__unit_scaling 201 13 none]
+G r c none [test_convenience_functions test_unit_scaling 114 14 none] [from_hours stone_soup__unit_scaling 181 13 none]
+G r c none [test_convenience_functions test_unit_scaling 114 14 none] [to_seconds stone_soup__unit_scaling 207 13 none]
+G r c none [test_convenience_functions test_unit_scaling 114 14 none] [from_minutes stone_soup__unit_scaling 178 13 none]
+G r c none [test_arithmetic_operations test_unit_scaling 150 14 none] [create_scaled stone_soup__unit_scaling 151 13 none]
+G r c none [test_arithmetic_operations test_unit_scaling 150 14 none] [Oadd stone_soup__unit_scaling 224 13 none]
+G r c none [test_arithmetic_operations test_unit_scaling 150 14 none] [to_base_units stone_soup__unit_scaling 127 13 none]
+G r c none [test_arithmetic_operations test_unit_scaling 150 14 none] [Osubtract stone_soup__unit_scaling 229 13 none]
+G r c none [test_arithmetic_operations test_unit_scaling 150 14 none] [Omultiply stone_soup__unit_scaling 234 13 none]
+G r c none [test_arithmetic_operations test_unit_scaling 150 14 none] [Odivide stone_soup__unit_scaling 239 13 none]
+G r c none [test_domain_specific_scaling test_unit_scaling 183 14 none] [scale_for_undersea stone_soup__unit_scaling 249 13 none]
+G r c none [test_domain_specific_scaling test_unit_scaling 183 14 none] [scale_for_orbital stone_soup__unit_scaling 254 13 none]
+G r c none [test_domain_specific_scaling test_unit_scaling 183 14 none] [scale_for_cislunar stone_soup__unit_scaling 259 13 none]
+G r c none [test_domain_specific_scaling test_unit_scaling 183 14 none] [scale_for_interplanetary stone_soup__unit_scaling 264 13 none]
+G r c none [test_precision_preservation test_unit_scaling 210 14 none] [auto_scale stone_soup__unit_scaling 118 13 none]
+G r c none [test_precision_preservation test_unit_scaling 210 14 none] [to_base_units stone_soup__unit_scaling 127 13 none]
+G r c none [test_precision_preservation test_unit_scaling 210 14 none] [create_scaled stone_soup__unit_scaling 151 13 none]
+G r c none [test_precision_preservation test_unit_scaling 210 14 none] [convert_scale stone_soup__unit_scaling 135 13 none]
+X 1 ada.ads
+16K9*Ada 20e8 51|5r6 5r23
+X 13 a-textio.ads
+58K13*Text_IO 787e16 51|5w10 5r27
+282U14*New_Line 51|236s7 239s7 242s7 245s7 248s7 251s7 254s7 257s7 260s7
+566U14*Put_Line 51|20s10 23s10 29s7 43s7 71s7 93s7 119s7 154s7 187s7 215s7
+. 233s7 234s7 235s7 262s7 263s7 264s7 265s7 268s10 270s10 272s7
+X 19 stone_soup.ads
+16K9*Stone_Soup 325e15 51|6r6 6r35
+X 20 stone_soup-unit_scaling.ads
+19K20*Unit_Scaling 270e28 51|6w17 6r46
+28n27*Distance{28E9} 51|46r32 51r31 56r33 61r38 73r39 78r42 83r39 96r40 102r44
+. 108r40 157r40 158r43 164r41 165r43 171r40 177r41 219r36 225r40
+32n7*Nano{31E9} 51|30r33
+33n7*Micro{31E9} 51|31r33
+34n7*Milli{31E9} 51|32r33 47r26 78r35 102r37 109r34 110r27
+35n7*Base{31E9} 51|33r33 52r26 97r34 98r27 103r34 104r27 158r37 165r37 191r26
+. 226r34
+36n7*Kilo{31E9} 51|34r33 57r26 73r33 96r34 108r34 157r34 164r35 171r34 177r35
+. 196r26 225r34
+37n7*Mega{31E9} 51|35r33 62r26 83r33 201r26
+38n7*Giga{31E9} 51|36r33 206r26
+41V13*Scale_Multiplier{long_float} 51|30s15 31s15 32s15 33s15 34s15 35s15
+. 36s15
+103R9*Scaled_Value 107e14 51|40r12 67r12 90r18 115r12 151r23 184r12 211r18
+104f7*Value{long_float} 51|47r44 52r43 57r43 62r43 98r45 104r45 110r46 191r43
+. 196r43 201r43 206r43
+105e7*Scale{31E9} 51|47r18 52r18 57r18 62r18 98r19 104r19 110r19 191r18 196r18
+. 201r18 206r18
+118V13*Auto_Scale{103R9} 51|46s13 51s13 56s13 61s13 219s14
+127V13*To_Base_Units{long_float} 51|74s21 79s21 84s21 160s20 167s20 173s20
+. 179s20 220s20 227s20 227s42
+135V13*Convert_Scale{103R9} 51|97s14 103s14 109s14 226s14
+151V13*Create_Scaled{103R9} 51|73s13 78s13 83s13 96s14 102s14 108s14 157s14
+. 158s14 164s14 165s14 171s14 177s14 225s14
+163V13*From_Meters{103R9} 51|127s13
+166V13*From_Kilometers{103R9} 51|122s13
+172V13*From_Kilometers_Per_Second{103R9} 51|133s13
+178V13*From_Minutes{103R9} 51|144s13
+181V13*From_Hours{103R9} 51|139s13
+195V13*To_Meters{long_float} 51|123s16
+198V13*To_Kilometers{long_float} 51|128s16
+201V13*To_Meters_Per_Second{long_float} 51|134s16
+207V13*To_Seconds{long_float} 51|140s16 145s16
+224V14*"+"{103R9} 51|159s18
+229V14*"-"{103R9} 51|166s18
+234V14*"*"{103R9} 51|172s18
+239V14*"/"{103R9} 51|178s18
+249V13*Scale_For_Undersea{103R9} 51|190s13
+254V13*Scale_For_Orbital{103R9} 51|195s13
+259V13*Scale_For_Cislunar{103R9} 51|200s13
+264V13*Scale_For_Interplanetary{103R9} 51|205s13
+X 50 test_unit_scaling.ads
+7K9*Test_Unit_Scaling 11l5 11e22 51|8b14 275l5 275t22
+9U14*Run_All_Tests 51|231b14 273l8 273t21
+X 51 test_unit_scaling.adb
+10i4 Test_Count{natural} 18m7 18r21 263r50 265r50
+11i4 Failed_Count{natural} 21m10 21r26 264r50 265r63 267r10
+13U14 Assert 13b14 14>7 15>7 25l8 25t14 30s7 31s7 32s7 33s7 34s7 35s7 36s7
+. 47s7 52s7 57s7 62s7 75s7 80s7 85s7 98s7 104s7 110s7 124s7 129s7 135s7 141s7
+. 146s7 160s7 167s7 173s7 179s7 191s7 196s7 201s7 206s7 221s7 227s7
+14b7 Condition{boolean} 19r14
+15a7 Message{string} 20r34 23r34
+27U14 Test_Scale_Multipliers 27b14 37l8 37t30 238s7
+39U14 Test_Auto_Scaling_Distance 39b14 64l8 64t34 241s7
+40r7 SV{20|103R9} 46m7 47r15 47r41 51m7 52r15 52r40 56m7 57r15 57r40 61m7
+. 62r15 62r40
+41f7 Epsilon{long_float} 47r59 52r59 57r58 62r58
+66U14 Test_To_Base_Units 66b14 87l8 87t26 244s7
+67r7 SV{20|103R9} 73m7 74r36 78m7 79r36 83m7 84r36
+68f7 Base_Value{long_float} 74m7 75r20 79m7 80r20 84m7 85r20
+69f7 Epsilon{long_float} 75r43 80r40 85r48
+89U14 Test_Scale_Conversion 89b14 112l8 112t29 247s7
+90r7 SV1{20|103R9} 96m7 97r29 102m7 103r29 108m7 109r29
+90r12 SV2{20|103R9} 97m7 98r15 98r41 103m7 104r15 104r41 109m7 110r15 110r42
+91f7 Epsilon{long_float} 98r63 104r60 110r67
+114U14 Test_Convenience_Functions 114b14 148l8 148t34 250s7
+115r7 SV{20|103R9} 122m7 123r27 127m7 128r31 133m7 134r38 139m7 140r28 144m7
+. 145r28
+116f7 Value{long_float} 123m7 124r20 128m7 129r20 134m7 135r20 140m7 141r20
+. 145m7 146r20
+117f7 Epsilon{long_float} 124r38 129r35 135r38 141r38 146r38
+150U14 Test_Arithmetic_Operations 150b14 181l8 181t34 253s7
+151r7 SV1{20|103R9} 157m7 159r14 164m7 166r14 171m7 172r20 177m7 178r14
+151r12 SV2{20|103R9} 158m7 159r20 165m7 166r20 172m7 173r35 178m7 179r35
+151r17 SV3{20|103R9} 159m7 160r35 166m7 167r35
+152f7 Epsilon{long_float} 160r52 167r52 173r53 179r52
+183U14 Test_Domain_Specific_Scaling 183b14 208l8 208t36 256s7
+184r7 SV{20|103R9} 190m7 191r15 191r40 195m7 196r15 196r40 200m7 201r15 201r40
+. 205m7 206r15 206r40
+185f7 Epsilon{long_float} 191r60 196r60 201r60 206r58
+210U14 Test_Precision_Preservation 210b14 229l8 229t35 259s7
+211r7 SV1{20|103R9} 219m7 220r35 225m7 226r29 227r35
+211r12 SV2{20|103R9} 226m7 227r57
+212f7 Original{long_float} 218m7 219r26 221r32 221r48
+212f17 Recovered{long_float} 220m7 221r20
+213f7 Epsilon{long_float} 221r59 227r65
