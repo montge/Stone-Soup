@@ -1067,6 +1067,775 @@ def compute_sound_speed_gradient(profile, depth):
 
 
 # =============================================================================
+# Ray Tracing for Acoustic Propagation
+# =============================================================================
+
+
+def trace_ray(
+    source_depth,
+    launch_angle,
+    svp,
+    max_range=50000.0,
+    max_bounces=10,
+    step_size=10.0,
+    surface_depth=0.0,
+    bottom_depth=None,
+):
+    """Trace a single acoustic ray through a sound speed profile.
+
+    Uses Snell's law to trace the path of a sound ray through layers of
+    varying sound speed. The ray bends toward regions of lower sound speed.
+
+    Parameters
+    ----------
+    source_depth : float
+        Source depth in meters (positive downward)
+    launch_angle : float
+        Initial ray angle in radians (positive = downward)
+    svp : dict
+        Sound velocity profile with 'depth' and 'sound_speed' arrays
+    max_range : float, optional
+        Maximum horizontal range to trace in meters (default 50km)
+    max_bounces : int, optional
+        Maximum number of surface/bottom reflections (default 10)
+    step_size : float, optional
+        Integration step size in meters (default 10m)
+    surface_depth : float, optional
+        Depth of water surface in meters (default 0)
+    bottom_depth : float, optional
+        Depth of ocean bottom in meters (default: max depth in SVP)
+
+    Returns
+    -------
+    dict
+        Ray trace results containing:
+        - 'range': array of horizontal range values
+        - 'depth': array of depth values
+        - 'travel_time': array of cumulative travel times
+        - 'angle': array of ray angles at each point
+        - 'bounces': number of reflections
+    """
+    if bottom_depth is None:
+        bottom_depth = np.max(svp["depth"])
+
+    # Get sound speed at source depth
+    c0 = np.interp(source_depth, svp["depth"], svp["sound_speed"])
+
+    # Snell's law constant: cos(theta) / c = constant
+    snell_constant = np.cos(launch_angle) / c0
+
+    # Initialize ray path
+    ranges = [0.0]
+    depths = [source_depth]
+    times = [0.0]
+    angles = [launch_angle]
+
+    current_range = 0.0
+    current_depth = source_depth
+    current_angle = launch_angle
+    current_time = 0.0
+    bounces = 0
+
+    while current_range < max_range and bounces < max_bounces:
+        # Get sound speed at current depth
+        c = np.interp(current_depth, svp["depth"], svp["sound_speed"])
+
+        # Calculate angle using Snell's law
+        cos_angle = snell_constant * c
+        if np.abs(cos_angle) >= 1.0:
+            # Total internal reflection - ray turns back
+            cos_angle = np.sign(cos_angle) * 0.9999
+            current_angle = -current_angle  # Reflect
+
+        current_angle = np.arccos(np.abs(cos_angle)) * np.sign(current_angle)
+
+        # Step along the ray
+        dr = step_size * np.cos(current_angle)
+        dz = step_size * np.sin(current_angle)
+        dt = step_size / c
+
+        new_range = current_range + np.abs(dr)
+        new_depth = current_depth + dz
+        current_time += dt
+
+        # Check for surface reflection
+        if new_depth < surface_depth:
+            # Interpolate to find exact surface intersection
+            t = (surface_depth - current_depth) / dz
+            new_range = current_range + np.abs(dr * t)
+            new_depth = surface_depth
+            current_time = times[-1] + (dt * t)
+            current_angle = -current_angle  # Reflect
+            bounces += 1
+
+        # Check for bottom reflection
+        elif new_depth > bottom_depth:
+            # Interpolate to find exact bottom intersection
+            t = (bottom_depth - current_depth) / dz
+            new_range = current_range + np.abs(dr * t)
+            new_depth = bottom_depth
+            current_time = times[-1] + (dt * t)
+            current_angle = -current_angle  # Reflect
+            bounces += 1
+
+        current_range = new_range
+        current_depth = new_depth
+
+        ranges.append(current_range)
+        depths.append(current_depth)
+        times.append(current_time)
+        angles.append(current_angle)
+
+    return {
+        "range": np.array(ranges),
+        "depth": np.array(depths),
+        "travel_time": np.array(times),
+        "angle": np.array(angles),
+        "bounces": bounces,
+    }
+
+
+def trace_ray_fan(
+    source_depth,
+    svp,
+    num_rays=21,
+    min_angle=-np.pi / 3,
+    max_angle=np.pi / 3,
+    **kwargs,
+):
+    """Trace a fan of rays for acoustic propagation analysis.
+
+    Parameters
+    ----------
+    source_depth : float
+        Source depth in meters
+    svp : dict
+        Sound velocity profile
+    num_rays : int, optional
+        Number of rays in the fan (default 21)
+    min_angle : float, optional
+        Minimum launch angle in radians (default -60 degrees)
+    max_angle : float, optional
+        Maximum launch angle in radians (default +60 degrees)
+    **kwargs : dict
+        Additional arguments passed to trace_ray()
+
+    Returns
+    -------
+    list
+        List of ray trace results, one per ray
+    """
+    angles = np.linspace(min_angle, max_angle, num_rays)
+    rays = []
+    for angle in angles:
+        ray = trace_ray(source_depth, angle, svp, **kwargs)
+        rays.append(ray)
+    return rays
+
+
+def find_ray_arrivals(rays, target_range, target_depth, tolerance=50.0):
+    """Find ray arrivals near a target location.
+
+    Parameters
+    ----------
+    rays : list
+        List of ray trace results from trace_ray_fan()
+    target_range : float
+        Target horizontal range in meters
+    target_depth : float
+        Target depth in meters
+    tolerance : float, optional
+        Distance tolerance for considering a ray as an arrival (default 50m)
+
+    Returns
+    -------
+    list
+        List of arrivals, each containing:
+        - 'ray_index': index of the ray in the input list
+        - 'travel_time': arrival travel time
+        - 'range_error': horizontal distance from target
+        - 'depth_error': vertical distance from target
+        - 'launch_angle': initial ray angle
+    """
+    arrivals = []
+
+    for i, ray in enumerate(rays):
+        ranges = ray["range"]
+        depths = ray["depth"]
+        times = ray["travel_time"]
+        launch_angle = ray["angle"][0]
+
+        # Find points near target range
+        for j in range(len(ranges)):
+            range_error = np.abs(ranges[j] - target_range)
+            depth_error = np.abs(depths[j] - target_depth)
+
+            if range_error < tolerance and depth_error < tolerance:
+                arrivals.append(
+                    {
+                        "ray_index": i,
+                        "travel_time": times[j],
+                        "range_error": range_error,
+                        "depth_error": depth_error,
+                        "launch_angle": launch_angle,
+                    }
+                )
+                break  # Only record first arrival from each ray
+
+    # Sort by travel time
+    arrivals.sort(key=lambda x: x["travel_time"])
+    return arrivals
+
+
+def compute_eigenrays(
+    source_depth,
+    target_range,
+    target_depth,
+    svp,
+    num_initial_rays=51,
+    max_iterations=5,
+    tolerance=10.0,
+    **kwargs,
+):
+    """Find eigenrays connecting source and receiver.
+
+    Eigenrays are the actual acoustic paths that connect a source to
+    a receiver. This function uses an iterative approach to find them.
+
+    Parameters
+    ----------
+    source_depth : float
+        Source depth in meters
+    target_range : float
+        Target horizontal range in meters
+    target_depth : float
+        Target depth in meters
+    svp : dict
+        Sound velocity profile
+    num_initial_rays : int, optional
+        Number of initial rays to trace (default 51)
+    max_iterations : int, optional
+        Maximum refinement iterations (default 5)
+    tolerance : float, optional
+        Required accuracy in meters (default 10m)
+    **kwargs : dict
+        Additional arguments passed to trace_ray()
+
+    Returns
+    -------
+    list
+        List of eigenray results with travel times and paths
+    """
+    # Initial fan of rays
+    rays = trace_ray_fan(source_depth, svp, num_rays=num_initial_rays, **kwargs)
+    arrivals = find_ray_arrivals(rays, target_range, target_depth, tolerance=100.0)
+
+    if len(arrivals) == 0:
+        # Try with wider angle range
+        rays = trace_ray_fan(
+            source_depth,
+            svp,
+            num_rays=num_initial_rays,
+            min_angle=-np.pi / 2 + 0.1,
+            max_angle=np.pi / 2 - 0.1,
+            **kwargs,
+        )
+        arrivals = find_ray_arrivals(rays, target_range, target_depth, tolerance=200.0)
+
+    eigenrays = []
+
+    for arrival in arrivals:
+        launch_angle = arrival["launch_angle"]
+        best_ray = rays[arrival["ray_index"]]
+        best_error = np.sqrt(arrival["range_error"] ** 2 + arrival["depth_error"] ** 2)
+
+        # Refine the angle
+        angle_step = 0.01  # radians
+        for _ in range(max_iterations):
+            if best_error < tolerance:
+                break
+
+            # Try small adjustments
+            for delta in [-angle_step, angle_step]:
+                test_angle = launch_angle + delta
+                test_ray = trace_ray(source_depth, test_angle, svp, **kwargs)
+
+                test_arrivals = find_ray_arrivals(
+                    [test_ray], target_range, target_depth, tolerance=200.0
+                )
+                if test_arrivals:
+                    test_error = np.sqrt(
+                        test_arrivals[0]["range_error"] ** 2 + test_arrivals[0]["depth_error"] ** 2
+                    )
+                    if test_error < best_error:
+                        best_error = test_error
+                        best_ray = test_ray
+                        launch_angle = test_angle
+
+            angle_step /= 2
+
+        if best_error < tolerance * 2:
+            eigenrays.append(
+                {
+                    "ray": best_ray,
+                    "launch_angle": launch_angle,
+                    "travel_time": best_ray["travel_time"][-1],
+                    "error": best_error,
+                    "bounces": best_ray["bounces"],
+                }
+            )
+
+    return eigenrays
+
+
+def propagation_loss_ray(eigenrays, source_level=0.0):
+    """Estimate propagation loss from eigenrays.
+
+    Combines geometric spreading and the number of ray paths.
+    This is a simplified estimate; accurate TL requires full
+    wave theory or more sophisticated ray methods.
+
+    Parameters
+    ----------
+    eigenrays : list
+        List of eigenrays from compute_eigenrays()
+    source_level : float, optional
+        Source level in dB (default 0)
+
+    Returns
+    -------
+    float
+        Estimated received level in dB (relative to source)
+    """
+    if len(eigenrays) == 0:
+        return -np.inf  # No paths, no signal
+
+    # Sum intensities from all paths
+    total_intensity = 0.0
+    for er in eigenrays:
+        # Simple geometric spreading
+        # More bounces = more loss
+        bounce_loss = 3.0 * er["bounces"]  # ~3dB loss per reflection
+
+        # Range-based spreading (cylindrical)
+        range_val = er["ray"]["range"][-1]
+        spreading_loss = 10 * np.log10(range_val) if range_val > 1.0 else 0.0
+
+        path_loss = spreading_loss + bounce_loss
+        total_intensity += 10 ** (-path_loss / 10)
+
+    if total_intensity > 0:
+        return source_level + 10 * np.log10(total_intensity)
+    return -np.inf
+
+
+# =============================================================================
+# Acoustic Shadow Zone Modeling
+# =============================================================================
+
+
+def compute_shadow_zone(svp, source_depth, bottom_depth=None, num_rays=101):
+    """Identify acoustic shadow zones based on ray tracing.
+
+    Shadow zones are regions where sound rays cannot directly reach due
+    to refraction effects. They occur when downward-refracting conditions
+    bend rays away from certain depth/range combinations.
+
+    Parameters
+    ----------
+    svp : dict
+        Sound velocity profile with 'depth' and 'sound_speed' arrays
+    source_depth : float
+        Source depth in meters
+    bottom_depth : float, optional
+        Ocean bottom depth (default: max depth in SVP)
+    num_rays : int, optional
+        Number of rays to trace (default 101)
+
+    Returns
+    -------
+    dict
+        Shadow zone information containing:
+        - 'shadow_ranges': list of (min_range, max_range) tuples for each depth
+        - 'illuminated_ranges': list of (min_range, max_range) tuples
+        - 'critical_depth': depth where shadow zone starts
+        - 'svp_gradient': sound speed gradient profile
+    """
+    if bottom_depth is None:
+        bottom_depth = np.max(svp["depth"])
+
+    # Trace rays
+    rays = trace_ray_fan(
+        source_depth,
+        svp,
+        num_rays=num_rays,
+        min_angle=-np.pi / 2 + 0.1,
+        max_angle=np.pi / 2 - 0.1,
+        max_range=30000.0,
+        bottom_depth=bottom_depth,
+    )
+
+    # Build coverage map - which depths/ranges are illuminated
+    depth_bins = np.linspace(0, bottom_depth, 50)
+    range_bins = np.linspace(0, 30000, 100)
+    coverage = np.zeros((len(depth_bins) - 1, len(range_bins) - 1), dtype=bool)
+
+    for ray in rays:
+        for r, d in zip(ray["range"], ray["depth"], strict=False):
+            r_idx = np.searchsorted(range_bins, r) - 1
+            d_idx = np.searchsorted(depth_bins, d) - 1
+            if 0 <= r_idx < len(range_bins) - 1 and 0 <= d_idx < len(depth_bins) - 1:
+                coverage[d_idx, r_idx] = True
+
+    # Find shadow zones for each depth
+    shadow_ranges = []
+    for d_idx in range(len(depth_bins) - 1):
+        row = coverage[d_idx, :]
+        shadow_start = None
+        for r_idx in range(len(row)):
+            if not row[r_idx] and shadow_start is None:
+                shadow_start = range_bins[r_idx]
+            elif row[r_idx] and shadow_start is not None:
+                shadow_ranges.append(
+                    {
+                        "depth": (depth_bins[d_idx] + depth_bins[d_idx + 1]) / 2,
+                        "range": (shadow_start, range_bins[r_idx]),
+                    }
+                )
+                shadow_start = None
+
+    # Compute sound speed gradient
+    gradients = []
+    for i in range(len(svp["depth"]) - 1):
+        dc = svp["sound_speed"][i + 1] - svp["sound_speed"][i]
+        dz = svp["depth"][i + 1] - svp["depth"][i]
+        if dz > 0:
+            gradients.append(dc / dz)
+        else:
+            gradients.append(0.0)
+
+    # Find critical depth (where gradient changes sign)
+    critical_depth = None
+    for i in range(len(gradients) - 1):
+        if gradients[i] < 0 < gradients[i + 1]:
+            critical_depth = svp["depth"][i + 1]
+            break
+
+    return {
+        "shadow_zones": shadow_ranges,
+        "coverage": coverage,
+        "depth_bins": depth_bins,
+        "range_bins": range_bins,
+        "critical_depth": critical_depth,
+        "gradients": np.array(gradients),
+    }
+
+
+def is_in_shadow(target_range, target_depth, shadow_info):
+    """Check if a target location is in an acoustic shadow zone.
+
+    Parameters
+    ----------
+    target_range : float
+        Target horizontal range in meters
+    target_depth : float
+        Target depth in meters
+    shadow_info : dict
+        Shadow zone information from compute_shadow_zone()
+
+    Returns
+    -------
+    bool
+        True if target is in a shadow zone
+    """
+    for sz in shadow_info["shadow_zones"]:
+        if (
+            np.abs(sz["depth"] - target_depth) < 100
+            and sz["range"][0] <= target_range <= sz["range"][1]
+        ):
+            return True
+    return False
+
+
+# =============================================================================
+# Shallow vs Deep Water Propagation Modes
+# =============================================================================
+
+
+def classify_water_depth(depth, frequency, bottom_type="sand"):
+    """Classify water as shallow, intermediate, or deep water.
+
+    The classification depends on the ratio of water depth to acoustic
+    wavelength. In shallow water, propagation is characterized by
+    normal modes; in deep water, ray theory applies.
+
+    Parameters
+    ----------
+    depth : float
+        Water depth in meters
+    frequency : float
+        Acoustic frequency in kHz
+    bottom_type : str, optional
+        Bottom type affecting cutoff ('sand', 'mud', 'rock')
+
+    Returns
+    -------
+    str
+        'shallow', 'intermediate', or 'deep'
+    """
+    # Sound speed in water (approximate)
+    c = 1500.0
+
+    # Wavelength
+    wavelength = c / (frequency * 1000)
+
+    # Depth to wavelength ratio
+    ratio = depth / wavelength
+
+    # Bottom type affects the critical depth
+    # (harder bottoms reflect more, supporting modes at shallower depths)
+    if bottom_type == "rock":
+        shallow_threshold = 5
+        deep_threshold = 20
+    elif bottom_type == "sand":
+        shallow_threshold = 10
+        deep_threshold = 50
+    else:  # mud - absorbs more
+        shallow_threshold = 15
+        deep_threshold = 80
+
+    if ratio < shallow_threshold:
+        return "shallow"
+    elif ratio > deep_threshold:
+        return "deep"
+    else:
+        return "intermediate"
+
+
+def shallow_water_modes(depth, frequency, svp=None, num_modes=5):
+    """Calculate normal modes for shallow water propagation.
+
+    In shallow water, sound propagates as discrete modes that depend
+    on the water depth and sound speed profile.
+
+    Parameters
+    ----------
+    depth : float
+        Water depth in meters
+    frequency : float
+        Acoustic frequency in kHz
+    svp : dict, optional
+        Sound velocity profile. If None, uses isospeed at 1500 m/s.
+    num_modes : int, optional
+        Maximum number of modes to compute (default 5)
+
+    Returns
+    -------
+    dict
+        Mode information containing:
+        - 'mode_numbers': array of mode numbers
+        - 'cutoff_frequencies': cutoff frequency for each mode in kHz
+        - 'horizontal_wavenumbers': array of kn values
+        - 'phase_velocities': phase velocity for each mode
+        - 'group_velocities': group velocity for each mode
+    """
+    # Average sound speed
+    c = np.mean(svp["sound_speed"]) if svp is not None else 1500.0
+
+    omega = 2 * np.pi * frequency * 1000
+
+    modes = []
+    cutoff_freqs = []
+    wavenumbers = []
+    phase_velocities = []
+    group_velocities = []
+
+    for n in range(1, num_modes + 1):
+        # Cutoff frequency for mode n
+        # fc = (n * c) / (2 * depth) for isospeed
+        fc = (n * c) / (2 * depth) / 1000  # in kHz
+
+        if fc >= frequency:
+            # Mode is evanescent (below cutoff)
+            continue
+
+        cutoff_freqs.append(fc)
+        modes.append(n)
+
+        # Vertical wavenumber
+        kz = n * np.pi / depth
+
+        # Total wavenumber
+        k = omega / c
+
+        # Horizontal wavenumber (for propagating mode)
+        k_squared = k**2 - kz**2
+        kn = np.sqrt(k_squared) if k_squared > 0 else 0.0
+
+        wavenumbers.append(kn)
+
+        # Phase velocity
+        cp = omega / kn if kn > 0 else np.inf
+        phase_velocities.append(cp)
+
+        # Group velocity (approximate for isospeed)
+        cg = c * np.sqrt(1 - (kz / k) ** 2) if k > 0 else 0.0
+        group_velocities.append(cg)
+
+    return {
+        "mode_numbers": np.array(modes),
+        "cutoff_frequencies": np.array(cutoff_freqs),
+        "horizontal_wavenumbers": np.array(wavenumbers),
+        "phase_velocities": np.array(phase_velocities),
+        "group_velocities": np.array(group_velocities),
+    }
+
+
+def transmission_loss_shallow(distance, depth, frequency, source_depth=None, svp=None):
+    """Calculate transmission loss in shallow water using modal theory.
+
+    Parameters
+    ----------
+    distance : float
+        Horizontal range in meters
+    depth : float
+        Water depth in meters
+    frequency : float
+        Acoustic frequency in kHz
+    source_depth : float, optional
+        Source depth in meters (default: mid-water)
+    svp : dict, optional
+        Sound velocity profile
+
+    Returns
+    -------
+    float
+        Transmission loss in dB
+    """
+    if source_depth is None:
+        source_depth = depth / 2
+
+    modes = shallow_water_modes(depth, frequency, svp)
+
+    if len(modes["mode_numbers"]) == 0:
+        # No propagating modes - very high loss
+        return 100.0
+
+    # Sum modal contributions
+    total_intensity = 0.0
+    for n, kn in zip(modes["mode_numbers"], modes["horizontal_wavenumbers"], strict=False):
+        if kn > 0:
+            # Mode amplitude (simplified - assumes uniform excitation)
+            # Mode shape: sin(n*pi*z/H)
+            mode_amp = np.sin(n * np.pi * source_depth / depth)
+
+            # Cylindrical spreading with mode-dependent attenuation
+            intensity = mode_amp**2 / (kn * distance) if distance > 1.0 else mode_amp**2
+
+            total_intensity += intensity
+
+    # Convert to dB (referenced to spherical spreading at 1m)
+    tl = -10 * np.log10(total_intensity) if total_intensity > 0 else 100.0
+
+    return max(tl, 0.0)
+
+
+def transmission_loss_deep(distance, frequency, svp=None, source_depth=100.0):
+    """Calculate transmission loss in deep water using ray-based approach.
+
+    Parameters
+    ----------
+    distance : float
+        Horizontal range in meters
+    frequency : float
+        Acoustic frequency in kHz
+    svp : dict, optional
+        Sound velocity profile
+    source_depth : float, optional
+        Source depth in meters (default: 100m)
+
+    Returns
+    -------
+    float
+        Transmission loss in dB
+    """
+    # Simple geometric spreading with absorption
+    if distance <= 0:
+        return 0.0
+
+    # Spherical spreading at short range, cylindrical at long range
+    transition_range = 1000.0  # meters
+
+    if distance <= transition_range:
+        # Spherical spreading
+        spreading_loss = 20 * np.log10(distance)
+    else:
+        # Mixed: spherical out to transition, cylindrical beyond
+        spreading_loss = 20 * np.log10(transition_range) + 10 * np.log10(
+            distance / transition_range
+        )
+
+    # Absorption loss
+    alpha = acoustic_attenuation(frequency)
+    absorption_loss = alpha * distance / 1000
+
+    return spreading_loss + absorption_loss
+
+
+def compute_propagation_loss(
+    distance, depth, frequency, source_depth=None, svp=None, bottom_type="sand"
+):
+    """Automatically select and compute propagation loss.
+
+    This function chooses the appropriate propagation model based on
+    water depth classification.
+
+    Parameters
+    ----------
+    distance : float
+        Horizontal range in meters
+    depth : float
+        Water depth in meters
+    frequency : float
+        Acoustic frequency in kHz
+    source_depth : float, optional
+        Source depth in meters
+    svp : dict, optional
+        Sound velocity profile
+    bottom_type : str, optional
+        Bottom type ('sand', 'mud', 'rock')
+
+    Returns
+    -------
+    dict
+        Propagation loss results containing:
+        - 'transmission_loss': TL in dB
+        - 'water_type': 'shallow', 'intermediate', or 'deep'
+        - 'method': propagation model used
+    """
+    water_type = classify_water_depth(depth, frequency, bottom_type)
+
+    if water_type == "shallow":
+        tl = transmission_loss_shallow(distance, depth, frequency, source_depth, svp)
+        method = "modal"
+    elif water_type == "deep":
+        tl = transmission_loss_deep(distance, frequency, svp, source_depth or 100.0)
+        method = "ray"
+    else:
+        # Intermediate - average both methods
+        tl_shallow = transmission_loss_shallow(distance, depth, frequency, source_depth, svp)
+        tl_deep = transmission_loss_deep(distance, frequency, svp, source_depth or 100.0)
+        tl = (tl_shallow + tl_deep) / 2
+        method = "hybrid"
+
+    return {
+        "transmission_loss": tl,
+        "water_type": water_type,
+        "method": method,
+    }
+
+
+# =============================================================================
 # Ocean Current Models
 # =============================================================================
 

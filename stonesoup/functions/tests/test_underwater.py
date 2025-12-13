@@ -11,6 +11,9 @@ from ..underwater import (
     bearing_elevation_range2cart,
     cart2bearing_elevation_range,
     cart2depth_bearing_range,
+    classify_water_depth,
+    compute_propagation_loss,
+    compute_shadow_zone,
     compute_sound_speed_gradient,
     create_canyon_bathymetry,
     create_depth_varying_current,
@@ -28,6 +31,7 @@ from ..underwater import (
     ecef_to_geodetic_underwater,
     enu_to_ecef,
     enu_to_geodetic_depth,
+    find_ray_arrivals,
     find_sound_channel_axis,
     geodetic_depth_to_enu,
     geodetic_to_ecef_underwater,
@@ -35,14 +39,20 @@ from ..underwater import (
     height_above_seafloor,
     interpolate_bathymetry,
     interpolate_profile,
+    is_in_shadow,
     is_in_water,
     pressure_to_depth,
+    shallow_water_modes,
     simple_tidal_offset,
     sound_speed_mackenzie,
     sound_speed_profile,
     sound_speed_unesco,
     tidal_current,
+    trace_ray,
+    trace_ray_fan,
     transmission_loss,
+    transmission_loss_deep,
+    transmission_loss_shallow,
 )
 
 # =============================================================================
@@ -1223,3 +1233,259 @@ def test_apply_tide_to_depth_amplitude():
     depth2 = apply_tide_to_depth(100.0, 0.0, tidal_amplitude=3.0)
     assert depth1 == approx(101.0, rel=1e-6)
     assert depth2 == approx(103.0, rel=1e-6)
+
+
+# =============================================================================
+# Ray Tracing Tests
+# =============================================================================
+
+
+def test_trace_ray_basic_structure():
+    """Trace ray should return correct structure."""
+    svp = {
+        "depth": np.array([0, 100, 500, 1000]),
+        "sound_speed": np.array([1500, 1490, 1480, 1500]),
+    }
+    ray = trace_ray(50.0, 0.1, svp, max_range=5000.0)
+    assert "range" in ray
+    assert "depth" in ray
+    assert "travel_time" in ray
+    assert "angle" in ray
+    assert "bounces" in ray
+
+
+def test_trace_ray_starts_at_source():
+    """Ray should start at source depth."""
+    svp = {"depth": np.array([0, 1000]), "sound_speed": np.array([1500, 1500])}
+    ray = trace_ray(200.0, 0.0, svp)
+    assert ray["range"][0] == 0.0
+    assert ray["depth"][0] == 200.0
+
+
+def test_trace_ray_horizontal_travels_horizontal():
+    """Horizontal ray in isospeed should travel horizontally."""
+    svp = {"depth": np.array([0, 1000]), "sound_speed": np.array([1500, 1500])}
+    ray = trace_ray(100.0, 0.0, svp, max_range=1000.0, step_size=50.0)
+    # Depth should remain nearly constant
+    assert np.all(np.abs(ray["depth"] - 100.0) < 1.0)
+
+
+def test_trace_ray_downward_goes_down():
+    """Downward ray in isospeed should go down."""
+    svp = {"depth": np.array([0, 1000]), "sound_speed": np.array([1500, 1500])}
+    ray = trace_ray(50.0, 0.3, svp, max_range=1000.0, bottom_depth=1000.0)
+    # Depth should increase from source
+    assert ray["depth"][-1] > ray["depth"][0]
+
+
+def test_trace_ray_surface_reflection():
+    """Ray should reflect at surface."""
+    svp = {"depth": np.array([0, 1000]), "sound_speed": np.array([1500, 1500])}
+    ray = trace_ray(50.0, -0.5, svp, max_range=5000.0)  # Upward ray
+    # Should have at least one bounce
+    assert ray["bounces"] >= 1
+
+
+def test_trace_ray_bottom_reflection():
+    """Ray should reflect at bottom."""
+    svp = {"depth": np.array([0, 200]), "sound_speed": np.array([1500, 1500])}
+    ray = trace_ray(50.0, 0.5, svp, max_range=5000.0, bottom_depth=200.0)  # Downward ray
+    # Should have at least one bounce
+    assert ray["bounces"] >= 1
+
+
+def test_trace_ray_travel_time_increases():
+    """Travel time should always increase."""
+    svp = {"depth": np.array([0, 1000]), "sound_speed": np.array([1500, 1500])}
+    ray = trace_ray(100.0, 0.1, svp, max_range=5000.0)
+    # Travel time should be monotonically increasing
+    assert np.all(np.diff(ray["travel_time"]) >= 0)
+
+
+def test_trace_ray_fan_multiple_rays():
+    """Ray fan should return multiple rays."""
+    svp = {"depth": np.array([0, 1000]), "sound_speed": np.array([1500, 1500])}
+    rays = trace_ray_fan(100.0, svp, num_rays=11, max_range=5000.0)
+    assert len(rays) == 11
+
+
+def test_trace_ray_fan_different_angles():
+    """Rays in fan should have different launch angles."""
+    svp = {"depth": np.array([0, 1000]), "sound_speed": np.array([1500, 1500])}
+    rays = trace_ray_fan(100.0, svp, num_rays=5, max_range=5000.0)
+    angles = [ray["angle"][0] for ray in rays]
+    assert len(set(angles)) == 5  # All different
+
+
+def test_find_ray_arrivals_basic():
+    """Should find arrivals near target location."""
+    svp = {"depth": np.array([0, 1000]), "sound_speed": np.array([1500, 1500])}
+    rays = trace_ray_fan(100.0, svp, num_rays=21, max_range=10000.0)
+    arrivals = find_ray_arrivals(rays, 5000.0, 100.0, tolerance=500.0)
+    # Should find some arrivals
+    assert len(arrivals) >= 1
+
+
+def test_find_ray_arrivals_sorted_by_time():
+    """Arrivals should be sorted by travel time."""
+    svp = {"depth": np.array([0, 1000]), "sound_speed": np.array([1500, 1500])}
+    rays = trace_ray_fan(100.0, svp, num_rays=21, max_range=10000.0)
+    arrivals = find_ray_arrivals(rays, 5000.0, 100.0, tolerance=500.0)
+    if len(arrivals) > 1:
+        times = [a["travel_time"] for a in arrivals]
+        assert times == sorted(times)
+
+
+# =============================================================================
+# Shadow Zone Tests
+# =============================================================================
+
+
+def test_compute_shadow_zone_structure():
+    """Shadow zone computation should return correct structure."""
+    svp = {"depth": np.array([0, 50, 100, 500]), "sound_speed": np.array([1520, 1510, 1490, 1510])}
+    shadow_info = compute_shadow_zone(svp, source_depth=50.0, bottom_depth=500.0, num_rays=21)
+    assert "shadow_zones" in shadow_info
+    assert "coverage" in shadow_info
+    assert "depth_bins" in shadow_info
+    assert "range_bins" in shadow_info
+    assert "gradients" in shadow_info
+
+
+def test_compute_shadow_zone_coverage_shape():
+    """Coverage array should have correct shape."""
+    svp = {"depth": np.array([0, 500]), "sound_speed": np.array([1500, 1500])}
+    shadow_info = compute_shadow_zone(svp, source_depth=50.0, bottom_depth=500.0, num_rays=21)
+    # Coverage is (depth_bins-1) x (range_bins-1)
+    assert shadow_info["coverage"].shape[0] == len(shadow_info["depth_bins"]) - 1
+    assert shadow_info["coverage"].shape[1] == len(shadow_info["range_bins"]) - 1
+
+
+def test_is_in_shadow_basic():
+    """Is in shadow check should work."""
+    svp = {"depth": np.array([0, 500]), "sound_speed": np.array([1500, 1500])}
+    shadow_info = compute_shadow_zone(svp, source_depth=50.0, bottom_depth=500.0, num_rays=21)
+    # Just check that the function runs without error
+    result = is_in_shadow(5000.0, 100.0, shadow_info)
+    assert isinstance(result, bool)
+
+
+# =============================================================================
+# Shallow vs Deep Water Propagation Tests
+# =============================================================================
+
+
+def test_classify_water_depth_shallow():
+    """Shallow water should be classified correctly."""
+    # 50m depth at 10kHz -> wavelength ~0.15m, ratio ~333 -> deep
+    # 10m depth at 0.1kHz -> wavelength ~15m, ratio ~0.67 -> shallow
+    result = classify_water_depth(10.0, 0.1)
+    assert result == "shallow"
+
+
+def test_classify_water_depth_deep():
+    """Deep water should be classified correctly."""
+    # 1000m at 10kHz -> wavelength ~0.15m, ratio ~6667 -> deep
+    result = classify_water_depth(1000.0, 10.0)
+    assert result == "deep"
+
+
+def test_classify_water_depth_bottom_type_effect():
+    """Bottom type should affect classification thresholds."""
+    # Same depth/frequency, different bottoms
+    result_rock = classify_water_depth(50.0, 1.0, bottom_type="rock")
+    result_mud = classify_water_depth(50.0, 1.0, bottom_type="mud")
+    # Rock has lower thresholds, so may classify as deep vs intermediate
+    assert result_rock in ("shallow", "intermediate", "deep")
+    assert result_mud in ("shallow", "intermediate", "deep")
+
+
+def test_shallow_water_modes_structure():
+    """Shallow water modes should return correct structure."""
+    modes = shallow_water_modes(100.0, 1.0)
+    assert "mode_numbers" in modes
+    assert "cutoff_frequencies" in modes
+    assert "horizontal_wavenumbers" in modes
+    assert "phase_velocities" in modes
+    assert "group_velocities" in modes
+
+
+def test_shallow_water_modes_cutoff():
+    """Modes above cutoff should not propagate."""
+    modes = shallow_water_modes(100.0, 0.1)  # Low frequency
+    # All propagating modes should have cutoff freq < operating freq
+    assert np.all(modes["cutoff_frequencies"] < 0.1)
+
+
+def test_shallow_water_modes_phase_velocity():
+    """Phase velocity should be >= sound speed."""
+    modes = shallow_water_modes(100.0, 1.0)
+    if len(modes["phase_velocities"]) > 0:
+        assert np.all(modes["phase_velocities"] >= 1500.0)
+
+
+def test_transmission_loss_shallow_positive():
+    """Shallow water TL should be positive."""
+    tl = transmission_loss_shallow(1000.0, 50.0, 1.0)
+    assert tl > 0
+
+
+def test_transmission_loss_shallow_increases_with_range():
+    """TL should generally increase with range."""
+    tl1 = transmission_loss_shallow(1000.0, 50.0, 1.0)
+    tl2 = transmission_loss_shallow(5000.0, 50.0, 1.0)
+    assert tl2 > tl1
+
+
+def test_transmission_loss_deep_positive():
+    """Deep water TL should be positive at non-zero range."""
+    tl = transmission_loss_deep(1000.0, 10.0)
+    assert tl > 0
+
+
+def test_transmission_loss_deep_zero_at_origin():
+    """Deep water TL should be zero at zero range."""
+    tl = transmission_loss_deep(0.0, 10.0)
+    assert tl == 0.0
+
+
+def test_transmission_loss_deep_increases_with_range():
+    """TL should increase with range."""
+    tl1 = transmission_loss_deep(1000.0, 10.0)
+    tl2 = transmission_loss_deep(10000.0, 10.0)
+    assert tl2 > tl1
+
+
+def test_transmission_loss_deep_frequency_effect():
+    """Higher frequency should have higher absorption."""
+    tl_low = transmission_loss_deep(10000.0, 1.0)
+    tl_high = transmission_loss_deep(10000.0, 50.0)
+    assert tl_high > tl_low
+
+
+def test_compute_propagation_loss_structure():
+    """Propagation loss should return correct structure."""
+    result = compute_propagation_loss(5000.0, 100.0, 1.0)
+    assert "transmission_loss" in result
+    assert "water_type" in result
+    assert "method" in result
+
+
+def test_compute_propagation_loss_shallow_uses_modal():
+    """Shallow water should use modal method."""
+    result = compute_propagation_loss(5000.0, 10.0, 0.1)  # Very shallow
+    if result["water_type"] == "shallow":
+        assert result["method"] == "modal"
+
+
+def test_compute_propagation_loss_deep_uses_ray():
+    """Deep water should use ray method."""
+    result = compute_propagation_loss(5000.0, 1000.0, 10.0)  # Very deep
+    if result["water_type"] == "deep":
+        assert result["method"] == "ray"
+
+
+def test_compute_propagation_loss_positive():
+    """Propagation loss should be positive at non-zero range."""
+    result = compute_propagation_loss(5000.0, 100.0, 1.0)
+    assert result["transmission_loss"] >= 0

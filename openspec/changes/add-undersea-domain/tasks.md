@@ -6,9 +6,9 @@
 
 ## 2. Underwater Propagation Models
 - [x] 2.1 Add sound velocity profile (SVP) support
-- [ ] 2.2 Implement ray-tracing for acoustic propagation
-- [ ] 2.3 Add acoustic shadow zone modeling
-- [ ] 2.4 Support shallow water vs deep water propagation modes
+- [x] 2.2 Implement ray-tracing for acoustic propagation
+- [x] 2.3 Add acoustic shadow zone modeling
+- [x] 2.4 Support shallow water vs deep water propagation modes
 
 ## 3. Sonar Measurement Models
 - [x] 3.1 Add passive sonar bearing-only measurement model
