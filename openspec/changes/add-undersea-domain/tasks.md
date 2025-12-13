@@ -17,8 +17,8 @@
 - [x] 3.4 Add Doppler shift measurement model
 
 ## 4. Environmental Models
-- [ ] 4.1 Add ocean current models (3D velocity fields)
-- [ ] 4.2 Add temperature/salinity profiles
+- [x] 4.1 Add ocean current models (3D velocity fields)
+- [x] 4.2 Add temperature/salinity profiles
 - [ ] 4.3 Add bathymetry grid support
 - [ ] 4.4 Add tidal effect models
 

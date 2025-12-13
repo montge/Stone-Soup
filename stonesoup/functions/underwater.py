@@ -782,3 +782,399 @@ def haversine_distance(lat1, lon1, lat2, lon2, depth1=0.0, depth2=0.0):
     distance = np.sqrt(horizontal_dist**2 + depth_diff**2)
 
     return distance
+
+
+# =============================================================================
+# Temperature/Salinity Profile Functions
+# =============================================================================
+
+
+def create_isothermal_profile(temperature, salinity, max_depth=1000.0, num_points=100):
+    """Create an isothermal (constant temperature) water column profile.
+
+    Parameters
+    ----------
+    temperature : float
+        Constant temperature in degrees Celsius
+    salinity : float
+        Constant salinity in PSU
+    max_depth : float, optional
+        Maximum depth in meters (default 1000m)
+    num_points : int, optional
+        Number of depth points (default 100)
+
+    Returns
+    -------
+    dict
+        Profile dictionary with 'depth', 'temperature', 'salinity' arrays
+    """
+    depths = np.linspace(0, max_depth, num_points)
+    temperatures = np.full(num_points, temperature)
+    salinities = np.full(num_points, salinity)
+
+    return {
+        "depth": depths,
+        "temperature": temperatures,
+        "salinity": salinities,
+    }
+
+
+def create_thermocline_profile(
+    surface_temp,
+    deep_temp,
+    thermocline_depth,
+    thermocline_thickness,
+    salinity=35.0,
+    max_depth=1000.0,
+    num_points=100,
+):
+    """Create a water column profile with a thermocline layer.
+
+    The thermocline is modeled as a hyperbolic tangent transition between
+    surface and deep water temperatures.
+
+    Parameters
+    ----------
+    surface_temp : float
+        Surface layer temperature in degrees Celsius
+    deep_temp : float
+        Deep water temperature in degrees Celsius
+    thermocline_depth : float
+        Center depth of thermocline in meters
+    thermocline_thickness : float
+        Thickness of thermocline transition in meters
+    salinity : float, optional
+        Constant salinity in PSU (default 35)
+    max_depth : float, optional
+        Maximum depth in meters (default 1000m)
+    num_points : int, optional
+        Number of depth points (default 100)
+
+    Returns
+    -------
+    dict
+        Profile dictionary with 'depth', 'temperature', 'salinity' arrays
+
+    Notes
+    -----
+    The temperature profile uses a tanh function:
+        T(z) = (T_surface + T_deep)/2 - (T_surface - T_deep)/2 * tanh((z - z_therm) / thickness)
+    """
+    depths = np.linspace(0, max_depth, num_points)
+
+    # Tanh transition for temperature
+    temp_mean = (surface_temp + deep_temp) / 2
+    temp_range = (surface_temp - deep_temp) / 2
+    temperatures = temp_mean - temp_range * np.tanh(
+        (depths - thermocline_depth) / thermocline_thickness
+    )
+
+    salinities = np.full(num_points, salinity)
+
+    return {
+        "depth": depths,
+        "temperature": temperatures,
+        "salinity": salinities,
+    }
+
+
+def create_mixed_layer_profile(
+    mixed_layer_temp,
+    mixed_layer_depth,
+    thermocline_gradient,
+    deep_temp,
+    salinity=35.0,
+    max_depth=1000.0,
+    num_points=100,
+):
+    """Create a profile with a mixed surface layer and thermocline.
+
+    This models a typical ocean structure with:
+    - Warm, well-mixed surface layer
+    - Sharp thermocline below mixed layer
+    - Cold deep water
+
+    Parameters
+    ----------
+    mixed_layer_temp : float
+        Temperature of mixed layer in degrees Celsius
+    mixed_layer_depth : float
+        Depth of mixed layer in meters
+    thermocline_gradient : float
+        Temperature gradient in thermocline (deg C per meter, negative)
+    deep_temp : float
+        Deep water temperature in degrees Celsius
+    salinity : float, optional
+        Constant salinity in PSU (default 35)
+    max_depth : float, optional
+        Maximum depth in meters (default 1000m)
+    num_points : int, optional
+        Number of depth points (default 100)
+
+    Returns
+    -------
+    dict
+        Profile dictionary with 'depth', 'temperature', 'salinity' arrays
+    """
+    depths = np.linspace(0, max_depth, num_points)
+    temperatures = np.zeros(num_points)
+
+    for i, d in enumerate(depths):
+        if d <= mixed_layer_depth:
+            # Mixed layer - constant temperature
+            temperatures[i] = mixed_layer_temp
+        else:
+            # Below mixed layer - linear decrease until reaching deep temp
+            temp = mixed_layer_temp + thermocline_gradient * (d - mixed_layer_depth)
+            temperatures[i] = max(temp, deep_temp)
+
+    salinities = np.full(num_points, salinity)
+
+    return {
+        "depth": depths,
+        "temperature": temperatures,
+        "salinity": salinities,
+    }
+
+
+def interpolate_profile(profile, depth):
+    """Interpolate temperature and salinity at a given depth.
+
+    Parameters
+    ----------
+    profile : dict
+        Profile dictionary with 'depth', 'temperature', 'salinity' arrays
+    depth : float or array_like
+        Depth(s) at which to interpolate
+
+    Returns
+    -------
+    tuple
+        (temperature, salinity) at the requested depth(s)
+    """
+    depth = np.asarray(depth)
+    scalar_input = depth.ndim == 0
+    depth = np.atleast_1d(depth)
+
+    # Linear interpolation
+    temperature = np.interp(depth, profile["depth"], profile["temperature"])
+    salinity = np.interp(depth, profile["depth"], profile["salinity"])
+
+    if scalar_input:
+        return float(temperature[0]), float(salinity[0])
+    return temperature, salinity
+
+
+def sound_speed_profile(profile, depths=None):
+    """Calculate sound speed profile from temperature/salinity profile.
+
+    Parameters
+    ----------
+    profile : dict
+        Profile dictionary with 'depth', 'temperature', 'salinity' arrays
+    depths : array_like, optional
+        Depths at which to calculate sound speed. If None, uses profile depths.
+
+    Returns
+    -------
+    dict
+        Profile dictionary with 'depth' and 'sound_speed' arrays
+    """
+    depths = profile["depth"] if depths is None else np.asarray(depths)
+
+    temperatures, salinities = interpolate_profile(profile, depths)
+
+    # Calculate sound speed at each depth
+    sound_speeds = np.array(
+        [
+            sound_speed_mackenzie(t, s, d)
+            for t, s, d in zip(temperatures, salinities, depths, strict=False)
+        ]
+    )
+
+    return {
+        "depth": depths,
+        "sound_speed": sound_speeds,
+    }
+
+
+def find_sound_channel_axis(profile):
+    """Find the depth of the SOFAR channel axis (sound speed minimum).
+
+    The SOFAR (Sound Fixing and Ranging) channel is a horizontal layer
+    in the ocean where sound speed reaches a minimum. Sound waves
+    trapped in this channel can travel very long distances.
+
+    Parameters
+    ----------
+    profile : dict
+        Profile dictionary with 'depth', 'temperature', 'salinity' arrays
+
+    Returns
+    -------
+    float
+        Depth of sound speed minimum in meters, or None if no minimum found
+    """
+    svp = sound_speed_profile(profile)
+    speeds = svp["sound_speed"]
+    depths = svp["depth"]
+
+    # Find minimum (excluding surface and bottom)
+    if len(speeds) < 3:
+        return None
+
+    min_idx = np.argmin(speeds[1:-1]) + 1
+    # Check if it's a true local minimum
+    if speeds[min_idx] < speeds[min_idx - 1] and speeds[min_idx] < speeds[min_idx + 1]:
+        return depths[min_idx]
+
+    return None
+
+
+def compute_sound_speed_gradient(profile, depth):
+    """Compute the vertical gradient of sound speed at a given depth.
+
+    Parameters
+    ----------
+    profile : dict
+        Profile dictionary with 'depth', 'temperature', 'salinity' arrays
+    depth : float
+        Depth at which to compute gradient
+
+    Returns
+    -------
+    float
+        Sound speed gradient in (m/s)/m (positive = increasing with depth)
+    """
+    svp = sound_speed_profile(profile)
+
+    # Find bracketing depths
+    depths = svp["depth"]
+    speeds = svp["sound_speed"]
+
+    # Use central difference where possible
+    idx = np.searchsorted(depths, depth)
+
+    if idx == 0:
+        idx = 1
+    elif idx >= len(depths) - 1:
+        idx = len(depths) - 2
+
+    dz = depths[idx + 1] - depths[idx - 1]
+    dc = speeds[idx + 1] - speeds[idx - 1]
+
+    return dc / dz if dz != 0 else 0.0
+
+
+# =============================================================================
+# Ocean Current Models
+# =============================================================================
+
+
+def create_uniform_current(velocity_east, velocity_north, velocity_down=0.0):
+    """Create a uniform (constant) ocean current field.
+
+    Parameters
+    ----------
+    velocity_east : float
+        Eastward velocity component in m/s
+    velocity_north : float
+        Northward velocity component in m/s
+    velocity_down : float, optional
+        Downward velocity component in m/s (default 0)
+
+    Returns
+    -------
+    callable
+        Function that returns (vx, vy, vz) at any position
+    """
+
+    def current_field(x, y, z):
+        return velocity_east, velocity_north, velocity_down
+
+    return current_field
+
+
+def create_depth_varying_current(surface_velocity, decay_depth, direction_rad):
+    """Create an exponentially decaying current with depth.
+
+    Models wind-driven currents that are strongest at the surface
+    and decay exponentially with depth (Ekman-like behavior).
+
+    Parameters
+    ----------
+    surface_velocity : float
+        Current speed at surface in m/s
+    decay_depth : float
+        e-folding depth in meters (depth at which velocity = surface/e)
+    direction_rad : float
+        Current direction in radians (0 = north, pi/2 = east)
+
+    Returns
+    -------
+    callable
+        Function that returns (vx, vy, vz) at any position
+    """
+
+    def current_field(x, y, z):
+        # z is up, so depth = -z for underwater
+        depth = max(-z, 0)
+        speed = surface_velocity * np.exp(-depth / decay_depth)
+        vx = speed * np.sin(direction_rad)
+        vy = speed * np.cos(direction_rad)
+        return vx, vy, 0.0
+
+    return current_field
+
+
+def create_shear_current(surface_velocity, shear_rate, direction_rad, max_depth=1000.0):
+    """Create a current with linear velocity shear.
+
+    Parameters
+    ----------
+    surface_velocity : float
+        Current speed at surface in m/s
+    shear_rate : float
+        Rate of velocity decrease with depth in (m/s)/m
+    direction_rad : float
+        Current direction in radians (0 = north, pi/2 = east)
+    max_depth : float, optional
+        Depth below which current is zero (default 1000m)
+
+    Returns
+    -------
+    callable
+        Function that returns (vx, vy, vz) at any position
+    """
+
+    def current_field(x, y, z):
+        depth = max(-z, 0)
+        if depth >= max_depth:
+            return 0.0, 0.0, 0.0
+        speed = max(surface_velocity - shear_rate * depth, 0.0)
+        vx = speed * np.sin(direction_rad)
+        vy = speed * np.cos(direction_rad)
+        return vx, vy, 0.0
+
+    return current_field
+
+
+def apply_current_to_velocity(vx, vy, vz, current_field, x, y, z):
+    """Add ocean current to a velocity vector.
+
+    Parameters
+    ----------
+    vx, vy, vz : float
+        Velocity components in m/s (object velocity in still water)
+    current_field : callable
+        Current field function returning (vx, vy, vz) at position
+    x, y, z : float
+        Position in meters
+
+    Returns
+    -------
+    tuple
+        (vx_total, vy_total, vz_total) velocity relative to fixed frame
+    """
+    cx, cy, cz = current_field(x, y, z)
+    return vx + cx, vy + cy, vz + cz

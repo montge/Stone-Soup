@@ -6,20 +6,31 @@ from pytest import approx
 
 from ..underwater import (
     acoustic_attenuation,
+    apply_current_to_velocity,
     bearing_elevation_range2cart,
     cart2bearing_elevation_range,
     cart2depth_bearing_range,
+    compute_sound_speed_gradient,
+    create_depth_varying_current,
+    create_isothermal_profile,
+    create_mixed_layer_profile,
+    create_shear_current,
+    create_thermocline_profile,
+    create_uniform_current,
     depth_bearing_range2cart,
     depth_to_pressure,
     ecef_to_enu,
     ecef_to_geodetic_underwater,
     enu_to_ecef,
     enu_to_geodetic_depth,
+    find_sound_channel_axis,
     geodetic_depth_to_enu,
     geodetic_to_ecef_underwater,
     haversine_distance,
+    interpolate_profile,
     pressure_to_depth,
     sound_speed_mackenzie,
+    sound_speed_profile,
     sound_speed_unesco,
     transmission_loss,
 )
@@ -607,3 +618,257 @@ def test_haversine_distance_3d():
     assert dist > horiz_dist
     assert dist > 500.0
     assert dist < horiz_dist + 500.0  # Triangle inequality
+
+
+# =============================================================================
+# Temperature/Salinity Profile Tests
+# =============================================================================
+
+
+def test_isothermal_profile_structure():
+    """Isothermal profile should have correct structure."""
+    profile = create_isothermal_profile(15.0, 35.0, max_depth=500.0, num_points=50)
+    assert "depth" in profile
+    assert "temperature" in profile
+    assert "salinity" in profile
+    assert len(profile["depth"]) == 50
+    assert profile["depth"][0] == 0.0
+    assert profile["depth"][-1] == 500.0
+
+
+def test_isothermal_profile_constant():
+    """Isothermal profile should have constant T and S."""
+    profile = create_isothermal_profile(18.0, 36.0)
+    assert np.all(profile["temperature"] == 18.0)
+    assert np.all(profile["salinity"] == 36.0)
+
+
+def test_thermocline_profile_surface_temp():
+    """Thermocline profile should have correct surface temperature."""
+    profile = create_thermocline_profile(
+        surface_temp=25.0,
+        deep_temp=5.0,
+        thermocline_depth=100.0,
+        thermocline_thickness=30.0,
+    )
+    # Near surface should be close to surface temp
+    assert profile["temperature"][0] == approx(25.0, rel=0.1)
+
+
+def test_thermocline_profile_deep_temp():
+    """Thermocline profile should approach deep temperature."""
+    profile = create_thermocline_profile(
+        surface_temp=25.0,
+        deep_temp=5.0,
+        thermocline_depth=100.0,
+        thermocline_thickness=30.0,
+        max_depth=1000.0,
+    )
+    # Deep water should be close to deep temp
+    assert profile["temperature"][-1] == approx(5.0, rel=0.1)
+
+
+def test_thermocline_profile_transition():
+    """Temperature should decrease through thermocline."""
+    profile = create_thermocline_profile(
+        surface_temp=25.0,
+        deep_temp=5.0,
+        thermocline_depth=100.0,
+        thermocline_thickness=30.0,
+    )
+    # Temperature should monotonically decrease
+    for i in range(1, len(profile["temperature"])):
+        assert profile["temperature"][i] <= profile["temperature"][i - 1]
+
+
+def test_mixed_layer_profile_constant_surface():
+    """Mixed layer should have constant temperature."""
+    profile = create_mixed_layer_profile(
+        mixed_layer_temp=20.0,
+        mixed_layer_depth=50.0,
+        thermocline_gradient=-0.1,
+        deep_temp=4.0,
+    )
+    # Find points in mixed layer
+    in_mixed = profile["depth"] <= 50.0
+    mixed_temps = profile["temperature"][in_mixed]
+    assert np.all(mixed_temps == 20.0)
+
+
+def test_mixed_layer_profile_thermocline():
+    """Temperature should decrease below mixed layer."""
+    profile = create_mixed_layer_profile(
+        mixed_layer_temp=20.0,
+        mixed_layer_depth=50.0,
+        thermocline_gradient=-0.1,
+        deep_temp=4.0,
+    )
+    # Below mixed layer, temperature should decrease
+    below_mixed = profile["depth"] > 50.0
+    below_temps = profile["temperature"][below_mixed]
+    assert below_temps[0] < 20.0
+    assert below_temps[-1] == approx(4.0, rel=0.01)
+
+
+def test_interpolate_profile_scalar():
+    """Profile interpolation should work for scalar depth."""
+    profile = create_isothermal_profile(15.0, 35.0, max_depth=1000.0)
+    temp, sal = interpolate_profile(profile, 500.0)
+    assert temp == 15.0
+    assert sal == 35.0
+
+
+def test_interpolate_profile_array():
+    """Profile interpolation should work for array of depths."""
+    profile = create_isothermal_profile(15.0, 35.0, max_depth=1000.0)
+    depths = np.array([100.0, 200.0, 300.0])
+    temps, sals = interpolate_profile(profile, depths)
+    assert len(temps) == 3
+    assert np.all(temps == 15.0)
+
+
+def test_interpolate_profile_thermocline():
+    """Interpolation should work in thermocline."""
+    profile = create_thermocline_profile(
+        surface_temp=25.0,
+        deep_temp=5.0,
+        thermocline_depth=100.0,
+        thermocline_thickness=30.0,
+    )
+    temp, _ = interpolate_profile(profile, 100.0)
+    # At thermocline center, temp should be mean
+    assert temp == approx(15.0, rel=0.1)
+
+
+def test_sound_speed_profile_shape():
+    """Sound speed profile should have correct shape."""
+    profile = create_isothermal_profile(15.0, 35.0, max_depth=500.0, num_points=50)
+    svp = sound_speed_profile(profile)
+    assert len(svp["depth"]) == 50
+    assert len(svp["sound_speed"]) == 50
+
+
+def test_sound_speed_profile_reasonable_values():
+    """Sound speeds should be in reasonable range."""
+    profile = create_thermocline_profile(
+        surface_temp=20.0,
+        deep_temp=4.0,
+        thermocline_depth=100.0,
+        thermocline_thickness=30.0,
+    )
+    svp = sound_speed_profile(profile)
+    # All sound speeds should be between 1400 and 1600 m/s
+    assert np.all(svp["sound_speed"] > 1400)
+    assert np.all(svp["sound_speed"] < 1600)
+
+
+def test_sound_speed_gradient_sign():
+    """Gradient should be negative in thermocline (temp effect dominates)."""
+    profile = create_thermocline_profile(
+        surface_temp=25.0,
+        deep_temp=5.0,
+        thermocline_depth=100.0,
+        thermocline_thickness=30.0,
+    )
+    gradient = compute_sound_speed_gradient(profile, 100.0)
+    # In strong thermocline, temperature effect dominates -> negative gradient
+    assert gradient < 0
+
+
+def test_sound_speed_gradient_deep():
+    """Gradient should be positive in deep water (pressure effect)."""
+    profile = create_isothermal_profile(4.0, 35.0, max_depth=5000.0)
+    gradient = compute_sound_speed_gradient(profile, 3000.0)
+    # In isothermal water, pressure effect dominates -> positive gradient
+    assert gradient > 0
+
+
+def test_find_sound_channel_no_minimum():
+    """Isothermal profile should not have sound channel."""
+    profile = create_isothermal_profile(4.0, 35.0, max_depth=1000.0)
+    axis = find_sound_channel_axis(profile)
+    # No minimum in isothermal water (sound speed increases with depth)
+    assert axis is None
+
+
+# =============================================================================
+# Ocean Current Model Tests
+# =============================================================================
+
+
+def test_uniform_current_constant():
+    """Uniform current should be constant everywhere."""
+    current = create_uniform_current(1.0, 0.5, 0.0)
+    vx1, vy1, vz1 = current(0, 0, 0)
+    vx2, vy2, vz2 = current(1000, 2000, -500)
+    assert vx1 == vx2 == 1.0
+    assert vy1 == vy2 == 0.5
+    assert vz1 == vz2 == 0.0
+
+
+def test_depth_varying_current_surface():
+    """Depth-varying current should be strongest at surface."""
+    current = create_depth_varying_current(2.0, 100.0, np.pi / 2)  # East
+    vx, vy, vz = current(0, 0, 0)  # Surface
+    assert vx == approx(2.0, rel=1e-6)
+    assert vy == approx(0.0, abs=1e-10)
+
+
+def test_depth_varying_current_decay():
+    """Current should decay exponentially with depth."""
+    current = create_depth_varying_current(2.0, 100.0, np.pi / 2)
+    vx_surface, _, _ = current(0, 0, 0)
+    vx_deep, _, _ = current(0, 0, -100.0)  # 100m depth
+    # At e-folding depth, velocity should be 1/e of surface
+    assert vx_deep == approx(vx_surface / np.e, rel=0.01)
+
+
+def test_shear_current_surface():
+    """Shear current should have maximum at surface."""
+    current = create_shear_current(1.5, 0.001, 0.0)  # North
+    vx, vy, vz = current(0, 0, 0)
+    assert vx == approx(0.0, abs=1e-10)
+    assert vy == approx(1.5, rel=1e-6)
+
+
+def test_shear_current_linear_decrease():
+    """Shear current should decrease linearly."""
+    current = create_shear_current(1.0, 0.001, 0.0)
+    _, vy1, _ = current(0, 0, 0)
+    _, vy2, _ = current(0, 0, -500.0)  # 500m depth
+    # Velocity should decrease by 0.001 * 500 = 0.5
+    assert vy2 == approx(0.5, rel=0.01)
+
+
+def test_shear_current_zero_at_max_depth():
+    """Shear current should be zero at max depth."""
+    current = create_shear_current(1.0, 0.001, 0.0, max_depth=500.0)
+    vx, vy, vz = current(0, 0, -600.0)  # Below max depth
+    assert vx == 0.0
+    assert vy == 0.0
+    assert vz == 0.0
+
+
+def test_apply_current_to_velocity():
+    """Apply current should add velocity components."""
+    current = create_uniform_current(1.0, 2.0, 0.0)
+    vx, vy, vz = apply_current_to_velocity(3.0, 4.0, -1.0, current, 0, 0, 0)
+    assert vx == 4.0  # 3.0 + 1.0
+    assert vy == 6.0  # 4.0 + 2.0
+    assert vz == -1.0  # -1.0 + 0.0
+
+
+def test_current_direction_north():
+    """Current with direction=0 should flow north."""
+    current = create_depth_varying_current(1.0, 100.0, 0.0)
+    vx, vy, vz = current(0, 0, 0)
+    assert vx == approx(0.0, abs=1e-10)
+    assert vy == approx(1.0, rel=1e-6)
+
+
+def test_current_direction_east():
+    """Current with direction=pi/2 should flow east."""
+    current = create_depth_varying_current(1.0, 100.0, np.pi / 2)
+    vx, vy, vz = current(0, 0, 0)
+    assert vx == approx(1.0, rel=1e-6)
+    assert vy == approx(0.0, abs=1e-10)
