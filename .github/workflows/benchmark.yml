@@ -47,9 +47,6 @@ jobs:
         run: |
           cd bindings/python/benchmarks
           python benchmark_pyo3.py --iterations 500 --warmup 50 --output benchmark_results.md
-          echo "results<<EOF" >> $GITHUB_OUTPUT
-          cat benchmark_results.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4

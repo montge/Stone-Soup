@@ -286,9 +286,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 }
 
 /**
- * @brief Main entry point for AFL
+ * @brief Main entry point for AFL or standalone testing
+ *
+ * When compiled with libFuzzer (-fsanitize=fuzzer), libFuzzer provides main().
+ * This main() is only compiled for AFL or standalone testing.
  */
-#ifndef __AFL_FUZZ_TESTCASE_LEN
+#if !defined(__AFL_FUZZ_TESTCASE_LEN) && !defined(FUZZING_BUILD_MODE_LIBFUZZER)
 int main(int argc, char **argv) {
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <input_file>\n", argv[0]);

@@ -35,6 +35,7 @@ if(ENABLE_FUZZING)
 
     # Add fuzzer and sanitizer flags
     if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
+        target_compile_definitions(fuzz_kalman PRIVATE FUZZING_BUILD_MODE_LIBFUZZER)
         target_compile_options(fuzz_kalman PRIVATE
             -g -O1
             -fsanitize=fuzzer${SANITIZER_FLAGS}
