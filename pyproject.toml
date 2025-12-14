@@ -227,6 +227,7 @@ ignore = [
     "B028",   # stacklevel in warnings - existing pattern
     "B905",   # zip without strict - existing pattern
     "RUF100", # Unused noqa directives - may be needed for other linters
+    "UP038",  # Use X | Y in isinstance - existing codebase pattern
 ]
 
 [tool.ruff.lint.per-file-ignores]
