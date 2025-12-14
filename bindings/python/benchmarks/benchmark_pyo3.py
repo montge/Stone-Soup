@@ -16,6 +16,7 @@ import statistics
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 import numpy as np
 
@@ -89,14 +90,17 @@ class PythonKalmanBenchmark:
         self.predictor = KalmanPredictor(self.transition_model)
         self.updater = KalmanUpdater(self.measurement_model)
 
-        # Create initial state
+        # Create initial state with timestamp
+        self.start_time = datetime.now()
         self.prior = GaussianState(
-            state_vector=StateVector([0, 1, 0, 1]), covar=CovarianceMatrix(np.eye(state_dim))
+            state_vector=StateVector([0, 1, 0, 1]),
+            covar=CovarianceMatrix(np.eye(state_dim)),
+            timestamp=self.start_time,
         )
 
     def predict(self):
         """Run prediction step"""
-        return self.predictor.predict(self.prior, timestamp=1.0)
+        return self.predictor.predict(self.prior, timestamp=self.start_time + timedelta(seconds=1))
 
     def update(self, predicted):
         """Run update step"""
