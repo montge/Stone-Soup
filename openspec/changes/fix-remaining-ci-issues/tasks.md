@@ -38,6 +38,11 @@
 ## 8. Verification
 - [x] 8.1 Fuzzing workflow passes
 - [x] 8.2 Performance Benchmarks workflow passes
-- [ ] 8.3 Ada bindings tests pass
-- [ ] 8.4 Java bindings tests pass
-- [ ] 8.5 Documentation build passes
+- [x] 8.3 Ada bindings tests pass
+- [x] 8.4 Java bindings tests pass
+- [x] 8.5 Documentation build passes
+
+## 9. Additional Fixes
+- [x] 9.1 Update SonarCloud action from @master to @v4
+- [x] 9.2 Remove redundant Dynamic_Predicate in Ada stone_soup.ads (Dim > 0 check)
+- [x] 9.3 Add pragma Warnings suppression in Ada test file for known-true assertions

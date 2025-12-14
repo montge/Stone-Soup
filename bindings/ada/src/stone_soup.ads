@@ -45,8 +45,7 @@ is
    -- State vector with known dimension
    type State_Vector (Dim : Dimension_Range) is record
       Data : State_Vector_Array (1 .. Dim) := (others => 0.0);
-   end record
-     with Dynamic_Predicate => Dim > 0;
+   end record;
 
    -- Create a zero state vector
    function Zeros (Dim : Dimension_Range) return State_Vector
@@ -108,8 +107,7 @@ is
    -- Covariance matrix with known dimension
    type Covariance_Matrix (Dim : Dimension_Range) is record
       Data : Matrix_Array (1 .. Dim, 1 .. Dim) := (others => (others => 0.0));
-   end record
-     with Dynamic_Predicate => Dim > 0;
+   end record;
 
    -- Create an identity matrix
    function Identity (Dim : Dimension_Range) return Covariance_Matrix

@@ -18,6 +18,11 @@ package body Test_Stone_Soup is
    use AUnit.Assertions;
    use Stone_Soup;
 
+   -- Suppress warnings about conditions that compiler proves always true/false
+   -- These are intentional test assertions checking constructor behavior
+   pragma Warnings (Off, "condition can only be*");
+   pragma Warnings (Off, "condition is always*");
+
    Epsilon : constant Long_Float := 1.0e-10;
 
    ---------------------------------------------------------------------------
