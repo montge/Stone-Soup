@@ -21,29 +21,22 @@ package body Test_Stone_Soup is
    Epsilon : constant Long_Float := 1.0e-10;
 
    ---------------------------------------------------------------------------
-   -- Required AUnit Overrides
+   -- Test Fixture Set_Up
    ---------------------------------------------------------------------------
 
    overriding
-   function Name (T : Test_Case) return AUnit.Message_String is
+   procedure Set_Up (T : in Out Test_Case) is
       pragma Unreferenced (T);
    begin
-      return AUnit.Format ("Stone Soup Ada Tests");
-   end Name;
-
-   overriding
-   procedure Register_Tests (T : in Out Test_Case) is
-      pragma Unreferenced (T);
-   begin
-      -- Tests are registered in Suite function using Test_Caller
+      -- Called before each test; no setup needed currently
       null;
-   end Register_Tests;
+   end Set_Up;
 
    ---------------------------------------------------------------------------
    -- State Vector Tests
    ---------------------------------------------------------------------------
 
-   procedure Test_State_Vector_Zeros (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_State_Vector_Zeros (T : in out Test_Case) is
       pragma Unreferenced (T);
       SV : State_Vector := Zeros (3);
    begin
@@ -53,7 +46,7 @@ package body Test_Stone_Soup is
       Assert (abs (Get (SV, 3)) < Epsilon, "Element 3 should be 0");
    end Test_State_Vector_Zeros;
 
-   procedure Test_State_Vector_Fill (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_State_Vector_Fill (T : in out Test_Case) is
       pragma Unreferenced (T);
       SV : State_Vector := Fill (2, 5.0);
    begin
@@ -62,7 +55,7 @@ package body Test_Stone_Soup is
       Assert (abs (Get (SV, 2) - 5.0) < Epsilon, "Element 2 should be 5");
    end Test_State_Vector_Fill;
 
-   procedure Test_State_Vector_Set_Get (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_State_Vector_Set_Get (T : in out Test_Case) is
       pragma Unreferenced (T);
       SV : State_Vector := Zeros (3);
    begin
@@ -75,7 +68,7 @@ package body Test_Stone_Soup is
       Assert (abs (Get (SV, 3) - 3.0) < Epsilon, "Element 3 should be 3");
    end Test_State_Vector_Set_Get;
 
-   procedure Test_State_Vector_Norm (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_State_Vector_Norm (T : in out Test_Case) is
       pragma Unreferenced (T);
       SV : State_Vector := Zeros (2);
    begin
@@ -86,7 +79,7 @@ package body Test_Stone_Soup is
       Assert (abs (Norm (SV) - 5.0) < Epsilon, "Norm of [3,4] should be 5");
    end Test_State_Vector_Norm;
 
-   procedure Test_State_Vector_Add (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_State_Vector_Add (T : in out Test_Case) is
       pragma Unreferenced (T);
       A, B, Sum : State_Vector := Zeros (2);
    begin
@@ -101,7 +94,7 @@ package body Test_Stone_Soup is
       Assert (abs (Get (Sum, 2) - 6.0) < Epsilon, "Sum(2) should be 6");
    end Test_State_Vector_Add;
 
-   procedure Test_State_Vector_Subtract (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_State_Vector_Subtract (T : in out Test_Case) is
       pragma Unreferenced (T);
       A, B, Diff : State_Vector := Zeros (2);
    begin
@@ -116,7 +109,7 @@ package body Test_Stone_Soup is
       Assert (abs (Get (Diff, 2) - 5.0) < Epsilon, "Diff(2) should be 5");
    end Test_State_Vector_Subtract;
 
-   procedure Test_State_Vector_Scale (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_State_Vector_Scale (T : in out Test_Case) is
       pragma Unreferenced (T);
       SV, Scaled : State_Vector := Zeros (2);
    begin
@@ -133,7 +126,7 @@ package body Test_Stone_Soup is
    -- Covariance Matrix Tests
    ---------------------------------------------------------------------------
 
-   procedure Test_Covariance_Identity (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_Covariance_Identity (T : in out Test_Case) is
       pragma Unreferenced (T);
       M : Covariance_Matrix := Identity (3);
    begin
@@ -145,14 +138,14 @@ package body Test_Stone_Soup is
       Assert (abs (Get (M, 2, 1)) < Epsilon, "(2,1) should be 0");
    end Test_Covariance_Identity;
 
-   procedure Test_Covariance_Trace (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_Covariance_Trace (T : in out Test_Case) is
       pragma Unreferenced (T);
       M : Covariance_Matrix := Identity (4);
    begin
       Assert (abs (Trace (M) - 4.0) < Epsilon, "Trace of 4x4 identity should be 4");
    end Test_Covariance_Trace;
 
-   procedure Test_Covariance_Multiply (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_Covariance_Multiply (T : in out Test_Case) is
       pragma Unreferenced (T);
       A, B, C : Covariance_Matrix := Zero_Matrix (2);
    begin
@@ -180,7 +173,7 @@ package body Test_Stone_Soup is
       Assert (abs (Get (C, 2, 2) - 50.0) < Epsilon, "C(2,2) should be 50");
    end Test_Covariance_Multiply;
 
-   procedure Test_Matrix_Vector_Multiply (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_Matrix_Vector_Multiply (T : in out Test_Case) is
       pragma Unreferenced (T);
       M : Covariance_Matrix := Zero_Matrix (2);
       V, Result : State_Vector := Zeros (2);
@@ -202,7 +195,7 @@ package body Test_Stone_Soup is
       Assert (abs (Get (Result, 2) - 11.0) < Epsilon, "Result(2) should be 11");
    end Test_Matrix_Vector_Multiply;
 
-   procedure Test_Covariance_Transpose (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_Covariance_Transpose (T : in out Test_Case) is
       pragma Unreferenced (T);
       M, Trans : Covariance_Matrix := Zero_Matrix (2);
    begin
@@ -223,7 +216,7 @@ package body Test_Stone_Soup is
    -- Gaussian State Tests
    ---------------------------------------------------------------------------
 
-   procedure Test_Gaussian_State_Create (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_Gaussian_State_Create (T : in out Test_Case) is
       pragma Unreferenced (T);
       SV    : State_Vector := Zeros (2);
       Covar : Covariance_Matrix := Identity (2);
@@ -244,7 +237,7 @@ package body Test_Stone_Soup is
    -- Kalman Filter Tests
    ---------------------------------------------------------------------------
 
-   procedure Test_Kalman_Predict (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_Kalman_Predict (T : in out Test_Case) is
       pragma Unreferenced (T);
       SV        : State_Vector := Zeros (4);
       Covar     : Covariance_Matrix := Identity (4);
@@ -276,7 +269,7 @@ package body Test_Stone_Soup is
               "Predicted vy should be 1");
    end Test_Kalman_Predict;
 
-   procedure Test_Constant_Velocity_Transition (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_Constant_Velocity_Transition (T : in out Test_Case) is
       pragma Unreferenced (T);
       F : Covariance_Matrix := Constant_Velocity_Transition (2, 0.5);
    begin
@@ -295,7 +288,7 @@ package body Test_Stone_Soup is
       Assert (abs (Get (F, 4, 4) - 1.0) < Epsilon, "F(4,4) should be 1");
    end Test_Constant_Velocity_Transition;
 
-   procedure Test_Position_Measurement (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_Position_Measurement (T : in out Test_Case) is
       pragma Unreferenced (T);
       H : Covariance_Matrix := Position_Measurement (2);
    begin
@@ -312,7 +305,7 @@ package body Test_Stone_Soup is
    -- Detection Tests
    ---------------------------------------------------------------------------
 
-   procedure Test_Detection_Create (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_Detection_Create (T : in out Test_Case) is
       pragma Unreferenced (T);
       Meas : State_Vector := Zeros (2);
       D    : Detection (2);
@@ -332,7 +325,7 @@ package body Test_Stone_Soup is
    -- Track Tests
    ---------------------------------------------------------------------------
 
-   procedure Test_Track_Create (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_Track_Create (T : in out Test_Case) is
       pragma Unreferenced (T);
       Trk : Track := Create_Track ("test-track", 4, 100);
    begin
@@ -345,7 +338,7 @@ package body Test_Stone_Soup is
    -- Library Initialization Tests
    ---------------------------------------------------------------------------
 
-   procedure Test_Initialize (T : in out AUnit.Test_Cases.Test_Case'Class) is
+   procedure Test_Initialize (T : in out Test_Case) is
       pragma Unreferenced (T);
    begin
       Initialize;

@@ -185,10 +185,10 @@ public class Matrix {
      * @throws IllegalArgumentException if dimensions don't match
      */
     public StateVector multiply(StateVector vector) {
-        if (this.cols != vector.getDimension()) {
+        if (this.cols != vector.getDim()) {
             throw new IllegalArgumentException(
                     "Matrix columns must match vector dimension: " +
-                            this.cols + " != " + vector.getDimension());
+                            this.cols + " != " + vector.getDim());
         }
         double[] result = new double[this.rows];
         for (int i = 0; i < this.rows; i++) {

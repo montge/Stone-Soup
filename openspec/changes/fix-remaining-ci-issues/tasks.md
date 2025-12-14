@@ -19,6 +19,8 @@
 
 ## 5. Fix Ada Bindings
 - [x] 5.1 Change `libaunit23-dev` to `libaunit-dev` (correct Ubuntu 24.04 package)
+- [x] 5.2 Fix test fixture inheritance (use Test_Fixtures.Test_Fixture instead of Test_Cases.Test_Case)
+- [x] 5.3 Update test_stone_soup.adb to use Test_Caller pattern
 
 ## 6. Fix Java Bindings
 - [x] 6.1 Create Matrix class for non-square matrices
@@ -26,10 +28,12 @@
 - [x] 6.3 Update KalmanFilter.positionMeasurement() to return Matrix
 - [x] 6.4 Update KalmanFilter.innovation() to accept Matrix
 - [x] 6.5 Update all tests to use Matrix instead of CovarianceMatrix for H
+- [x] 6.6 Fix Matrix.multiply(StateVector) to use getDim() instead of getDimension()
 
 ## 7. Fix Documentation
 - [x] 7.1 Disable needs_build_needumls (sphinx-needs compatibility issue)
 - [x] 7.2 Fix PTH100 lint: use Path.resolve() instead of os.path.abspath()
+- [x] 7.3 Handle Python 3.10+ UnionType in autodoc declarative_class
 
 ## 8. Verification
 - [x] 8.1 Fuzzing workflow passes

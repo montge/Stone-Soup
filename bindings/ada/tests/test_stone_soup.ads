@@ -6,20 +6,16 @@
 -------------------------------------------------------------------------------
 
 with AUnit.Test_Suites;
-with AUnit.Test_Cases;
+with AUnit.Test_Fixtures;
 
 package Test_Stone_Soup is
 
-   -- Test case type
-   type Test_Case is new AUnit.Test_Cases.Test_Case with null record;
+   -- Test fixture type (for use with Test_Caller)
+   type Test_Case is new AUnit.Test_Fixtures.Test_Fixture with null record;
 
-   -- Required override for AUnit abstract function
+   -- Set_Up is called before each test
    overriding
-   function Name (T : Test_Case) return AUnit.Message_String;
-
-   -- Required override for registering test routines
-   overriding
-   procedure Register_Tests (T : in out Test_Case);
+   procedure Set_Up (T : in out Test_Case);
 
    -- Return the test suite
    function Suite return AUnit.Test_Suites.Access_Test_Suite;
