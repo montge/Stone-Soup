@@ -86,18 +86,16 @@ def test_random_choose_actions():
             UncertaintyRewardFunction,  # reward_function_obj
             GaussianState(
                 [[1], [1], [1], [1]],
-                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([1.5, 0.25, 1.5, 0.25]),
             ),  # track1_state1
             GaussianState(
                 [[2], [1.5], [2], [1.5]],
-                np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([3, 0.5, 3, 0.5]),
             ),  # track1_state2
-            GaussianState(
-                [[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)])
-            ),  # track2_state1
+            GaussianState([[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5])),  # track2_state1
             GaussianState(
                 [[2], [1.5], [2], [1.5]],
-                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),  # track2_state2
+                np.diag([1.5, 0.25, 1.5, 0.25]),  # track2_state2
             ),
             False,  # error_flag
             None,  # associator_obj
@@ -235,18 +233,16 @@ def test_random_choose_actions():
             ExpectedKLDivergence,  # reward_function_obj
             GaussianState(
                 [[1], [1], [1], [1]],
-                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([1.5, 0.25, 1.5, 0.25]),
             ),  # track1_state1
             GaussianState(
                 [[2], [1.5], [2], [1.5]],
-                np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([3, 0.5, 3, 0.5]),
             ),  # track1_state2
-            GaussianState(
-                [[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)])
-            ),  # track2_state1
+            GaussianState([[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5])),  # track2_state1
             GaussianState(
                 [[2], [1.5], [2], [1.5]],
-                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([1.5, 0.25, 1.5, 0.25]),
             ),  # track2_state2
             False,  # error_flag
             None,  # associator_obj
@@ -258,18 +254,16 @@ def test_random_choose_actions():
             MultiUpdateExpectedKLDivergence,  # reward_function_obj
             GaussianState(
                 [[1], [1], [1], [1]],
-                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([1.5, 0.25, 1.5, 0.25]),
             ),  # track1_state1
             GaussianState(
                 [[2], [1.5], [2], [1.5]],
-                np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([3, 0.5, 3, 0.5]),
             ),  # track1_state2
-            GaussianState(
-                [[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)])
-            ),  # track2_state1
+            GaussianState([[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5])),  # track2_state1
             GaussianState(
                 [[2], [1.5], [2], [1.5]],
-                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([1.5, 0.25, 1.5, 0.25]),
             ),  # track2_state2
             True,  # error_flag
             None,  # associator_obj
@@ -323,18 +317,16 @@ def test_random_choose_actions():
             ExpectedKLDivergence,  # reward_function_obj
             GaussianState(
                 [[1], [1], [1], [1]],
-                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([1.5, 0.25, 1.5, 0.25]),
             ),  # track1_state1
             GaussianState(
                 [[2], [1.5], [2], [1.5]],
-                np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([3, 0.5, 3, 0.5]),
             ),  # track1_state2
-            GaussianState(
-                [[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)])
-            ),  # track2_state1
+            GaussianState([[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5])),  # track2_state1
             GaussianState(
                 [[2], [1.5], [2], [1.5]],
-                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([1.5, 0.25, 1.5, 0.25]),
             ),  # track2_state2
             False,  # error_flag
             GNNWith2DAssignment,  # associator_obj
@@ -764,18 +756,16 @@ def test_sensor_manager_with_platform(params):
             ExpectedKLDivergence,  # reward_function_obj
             GaussianState(
                 [[1], [1], [1], [1]],
-                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([1.5, 0.25, 1.5, 0.25]),
             ),  # track1_state1
             GaussianState(
                 [[2], [1.5], [2], [1.5]],
-                np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([3, 0.5, 3, 0.5]),
             ),  # track1_state2
-            GaussianState(
-                [[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)])
-            ),  # track2_state1
+            GaussianState([[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5])),  # track2_state1
             GaussianState(
                 [[2], [1.5], [2], [1.5]],
-                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([1.5, 0.25, 1.5, 0.25]),
             ),  # track2_state2
             "max_cumulative_reward",  # best_child_policy
             3,  # rollout_depth
@@ -789,18 +779,16 @@ def test_sensor_manager_with_platform(params):
             ExpectedKLDivergence,  # reward_function_obj
             GaussianState(
                 [[1], [1], [1], [1]],
-                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([1.5, 0.25, 1.5, 0.25]),
             ),  # track1_state1
             GaussianState(
                 [[2], [1.5], [2], [1.5]],
-                np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([3, 0.5, 3, 0.5]),
             ),  # track1_state2
-            GaussianState(
-                [[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)])
-            ),  # track2_state1
+            GaussianState([[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5])),  # track2_state1
             GaussianState(
                 [[2], [1.5], [2], [1.5]],
-                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([1.5, 0.25, 1.5, 0.25]),
             ),  # track2_state2
             "max_average_reward",  # best_child_policy
             3,  # rollout_depth
@@ -814,18 +802,16 @@ def test_sensor_manager_with_platform(params):
             ExpectedKLDivergence,  # reward_function_obj
             GaussianState(
                 [[1], [1], [1], [1]],
-                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([1.5, 0.25, 1.5, 0.25]),
             ),  # track1_state1
             GaussianState(
                 [[2], [1.5], [2], [1.5]],
-                np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([3, 0.5, 3, 0.5]),
             ),  # track1_state2
-            GaussianState(
-                [[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)])
-            ),  # track2_state1
+            GaussianState([[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5])),  # track2_state1
             GaussianState(
                 [[2], [1.5], [2], [1.5]],
-                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([1.5, 0.25, 1.5, 0.25]),
             ),  # track2_state2
             "max_cumulative_reward",  # best_child_policy
             3,  # rollout_depth
@@ -839,18 +825,16 @@ def test_sensor_manager_with_platform(params):
             ExpectedKLDivergence,  # reward_function_obj
             GaussianState(
                 [[1], [1], [1], [1]],
-                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([1.5, 0.25, 1.5, 0.25]),
             ),  # track1_state1
             GaussianState(
                 [[2], [1.5], [2], [1.5]],
-                np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([3, 0.5, 3, 0.5]),
             ),  # track1_state2
-            GaussianState(
-                [[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)])
-            ),  # track2_state1
+            GaussianState([[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5])),  # track2_state1
             GaussianState(
                 [[2], [1.5], [2], [1.5]],
-                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+                np.diag([1.5, 0.25, 1.5, 0.25]),
             ),  # track2_state2
             MCTSBestChildPolicyEnum.MAXCREWARD,  # best_child_policy
             3,  # rollout_depth

@@ -227,6 +227,7 @@ ignore = [
     "B028",   # stacklevel in warnings - existing pattern
     "B905",   # zip without strict - existing pattern
     "RUF100", # Unused noqa directives - may be needed for other linters
+    # Newer ruff rules (0.14+) - ignored for compatibility with CI
     "RUF059", # Unused unpacked variables - often intentional in tests
     "RUF015", # Prefer next(iter()) - breaks yaml parsing in serialise.py
     "RUF043", # Raw string for regex match patterns - existing pattern
