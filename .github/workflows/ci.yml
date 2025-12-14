@@ -328,15 +328,29 @@ jobs:
       - name: Generate coverage report
         run: |
           cd libstonesoup/build
+          # Generate LCOV report for human-readable coverage
           lcov --capture --directory . --output-file coverage.info
           lcov --remove coverage.info '/usr/*' --output-file coverage.info
           lcov --list coverage.info
+          # Generate .gcov files for SonarCloud
+          mkdir -p gcov_reports
+          find . -name '*.gcda' | while read gcda; do
+            dir=$(dirname "$gcda")
+            gcno="${gcda%.gcda}.gcno"
+            if [ -f "$gcno" ]; then
+              gcov --preserve-paths -o "$dir" "$gcda" 2>/dev/null || true
+            fi
+          done
+          # Move all .gcov files to gcov_reports
+          find . -name '*.gcov' -exec mv {} gcov_reports/ \; 2>/dev/null || true
 
       - name: Upload C coverage
         uses: actions/upload-artifact@v4
         with:
           name: c-coverage
-          path: libstonesoup/build/coverage.info
+          path: |
+            libstonesoup/build/coverage.info
+            libstonesoup/build/gcov_reports/
 
   # MISRA C:2012 Compliance Check
   misra:
@@ -695,10 +709,14 @@ jobs:
           if [ -f coverage-reports/coverage.xml ]; then
             cp coverage-reports/coverage.xml coverage.xml
           fi
-          # C coverage
+          # C coverage - copy both LCOV and gcov reports
+          mkdir -p libstonesoup/build/gcov_reports
           if [ -f c-coverage/coverage.info ]; then
-            mkdir -p libstonesoup/build
             cp c-coverage/coverage.info libstonesoup/build/coverage.info
+          fi
+          # Copy gcov reports for SonarCloud
+          if [ -d c-coverage/gcov_reports ]; then
+            cp -r c-coverage/gcov_reports/* libstonesoup/build/gcov_reports/ 2>/dev/null || true
           fi
           # Rust coverage
           if [ -f rust-coverage/lcov.info ]; then
