@@ -41,11 +41,23 @@ jobs:
       - name: Check package
         run: twine check dist/*
 
+      - name: Generate Python SBOM
+        run: |
+          pip install cyclonedx-bom
+          cyclonedx-py environment -o sbom-python.json --format json
+          cyclonedx-py environment -o sbom-python.xml --format xml
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
+
+      - name: Upload Python SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-python
+          path: sbom-python.*
 
   test-install:
     name: Test Installation
@@ -119,6 +131,19 @@ jobs:
         working-directory: bindings/rust
         run: |
           sed -i 's/^version = ".*"/version = "${{ steps.version.outputs.version }}"/' Cargo.toml
+
+      - name: Generate Rust SBOM
+        working-directory: bindings/rust
+        run: |
+          cargo install cargo-sbom
+          cargo sbom --output-format cyclonedx-json > ../../sbom-rust.json || true
+
+      - name: Upload Rust SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-rust
+          path: sbom-rust.json
+        continue-on-error: true
 
       - name: Publish to crates.io
         working-directory: bindings/rust
@@ -222,6 +247,33 @@ jobs:
           name: dist
           path: dist/
 
+      - name: Download Python SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom-python
+          path: sbom/
+        continue-on-error: true
+
+      - name: Download Rust SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom-rust
+          path: sbom/
+        continue-on-error: true
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+          cd ../sbom
+          sha256sum * >> ../dist/SHA256SUMS.txt 2>/dev/null || true
+
+      - name: Sign with Sigstore
+        uses: sigstore/gh-action-sigstore-python@v2.1.1
+        with:
+          inputs: dist/*.whl dist/*.tar.gz
+        continue-on-error: true
+
       - name: Generate changelog
         id: changelog
         run: |
@@ -246,7 +298,9 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/*
+          files: |
+            dist/*
+            sbom/*
           body: |
             ## Changes in this Release
 

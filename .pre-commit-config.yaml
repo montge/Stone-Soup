@@ -26,14 +26,21 @@ repos:
         name: Check for large files
         args: ['--maxkb=1000']
 
-  # Secret detection
+  # Secret detection (multiple tools for comprehensive coverage)
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0
     hooks:
       - id: detect-secrets
-        name: Detect secrets
+        name: Detect secrets (detect-secrets)
         args: ['--baseline', '.secrets.baseline']
         exclude: package.lock.json
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+        name: Detect secrets (gitleaks)
+        args: ['--config', '.gitleaks.toml']
 
   # Code formatting (run before linting)
   - repo: https://github.com/psf/black

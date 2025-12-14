@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<refentry xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink"
+          xmlns:svg="http://www.w3.org/2000/svg" xmlns:ns3="http://www.w3.org/1999/xhtml"
+          xmlns:mml="http://www.w3.org/1998/Math/MathML" xmlns:db="http://docbook.org/ns/docbook"
+          version="5.0-subset Scilab" xml:id="StateVector" xml:lang="en">
+    <refnamediv>
+        <refname>StateVector</refname>
+        <refpurpose>Create a state vector for tracking applications</refpurpose>
+    </refnamediv>
+    <refsynopsisdiv>
+        <title>Syntax</title>
+        <synopsis>
+            sv = StateVector(dim)
+            sv = StateVector(dim, fill_value)
+            sv = StateVector(data)
+        </synopsis>
+    </refsynopsisdiv>
+    <refsection>
+        <title>Arguments</title>
+        <variablelist>
+            <varlistentry>
+                <term>dim</term>
+                <listitem>
+                    <para>Integer, dimension of the state vector</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>fill_value</term>
+                <listitem>
+                    <para>Scalar, value to fill the state vector (default: 0)</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>data</term>
+                <listitem>
+                    <para>Column vector, initial data for the state vector</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>sv</term>
+                <listitem>
+                    <para>Column vector, the created state vector</para>
+                </listitem>
+            </varlistentry>
+        </variablelist>
+    </refsection>
+    <refsection>
+        <title>Description</title>
+        <para>
+            <literal>StateVector</literal> creates a state vector suitable for use with
+            Stone Soup tracking algorithms. State vectors represent the estimated state
+            of a tracked object, typically containing position and velocity components.
+        </para>
+        <para>
+            The function provides three calling conventions:
+        </para>
+        <itemizedlist>
+            <listitem><para><literal>StateVector(dim)</literal> - Creates a zero-filled vector of dimension <literal>dim</literal></para></listitem>
+            <listitem><para><literal>StateVector(dim, fill_value)</literal> - Creates a vector filled with <literal>fill_value</literal></para></listitem>
+            <listitem><para><literal>StateVector(data)</literal> - Creates a vector from existing data</para></listitem>
+        </itemizedlist>
+    </refsection>
+    <refsection>
+        <title>Examples</title>
+        <programlisting role="example"><![CDATA[
+// Create a 4-dimensional zero state vector
+sv = StateVector(4);
+disp(sv);
+
+// Create a state vector filled with 1.5
+sv = StateVector(3, 1.5);
+disp(sv);
+
+// Create from existing data
+sv = StateVector([10; 5; 0; -2]);
+disp(sv);
+        ]]></programlisting>
+    </refsection>
+    <refsection role="see also">
+        <title>See also</title>
+        <simplelist type="inline">
+            <member><link linkend="GaussianState">GaussianState</link></member>
+            <member><link linkend="kalman_predict">kalman_predict</link></member>
+            <member><link linkend="kalman_update">kalman_update</link></member>
+        </simplelist>
+    </refsection>
+</refentry>

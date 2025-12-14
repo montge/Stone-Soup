@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<refentry xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink"
+          xmlns:svg="http://www.w3.org/2000/svg" xmlns:ns3="http://www.w3.org/1999/xhtml"
+          xmlns:mml="http://www.w3.org/1998/Math/MathML" xmlns:db="http://docbook.org/ns/docbook"
+          version="5.0-subset Scilab" xml:id="kalman_update" xml:lang="en">
+    <refnamediv>
+        <refname>kalman_update</refname>
+        <refpurpose>Perform Kalman filter update step with measurement</refpurpose>
+    </refnamediv>
+    <refsynopsisdiv>
+        <title>Syntax</title>
+        <synopsis>
+            [x_upd, P_upd] = kalman_update(x, P, z, H, R)
+            gs_upd = kalman_update(gs, z, H, R)
+        </synopsis>
+    </refsynopsisdiv>
+    <refsection>
+        <title>Arguments</title>
+        <variablelist>
+            <varlistentry>
+                <term>x</term>
+                <listitem>
+                    <para>Column vector (n x 1), predicted state estimate</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>P</term>
+                <listitem>
+                    <para>Matrix (n x n), predicted state covariance</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>gs</term>
+                <listitem>
+                    <para>GaussianState struct, predicted Gaussian state</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>z</term>
+                <listitem>
+                    <para>Column vector (m x 1), measurement vector</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>H</term>
+                <listitem>
+                    <para>Matrix (m x n), measurement model matrix</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>R</term>
+                <listitem>
+                    <para>Matrix (m x m), measurement noise covariance</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>x_upd</term>
+                <listitem>
+                    <para>Column vector (n x 1), updated state estimate</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>P_upd</term>
+                <listitem>
+                    <para>Matrix (n x n), updated state covariance</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>gs_upd</term>
+                <listitem>
+                    <para>GaussianState struct, updated Gaussian state</para>
+                </listitem>
+            </varlistentry>
+        </variablelist>
+    </refsection>
+    <refsection>
+        <title>Description</title>
+        <para>
+            <literal>kalman_update</literal> performs the update (correction) step of the
+            Kalman filter, incorporating a new measurement to improve the state estimate.
+        </para>
+        <para>
+            The update equations are:
+        </para>
+        <programlisting><![CDATA[
+y = z - H * x                    // innovation
+S = H * P * H' + R               // innovation covariance
+K = P * H' * inv(S)              // Kalman gain
+x_upd = x + K * y                // updated state
+P_upd = (I - K * H) * P          // updated covariance
+        ]]></programlisting>
+    </refsection>
+    <refsection>
+        <title>Examples</title>
+        <programlisting role="example"><![CDATA[
+// Position tracking with position-only measurements
+// State: [position; velocity]
+x = [10; 5];  // predicted state
+P = [2, 0.5; 0.5, 1];  // predicted covariance
+
+z = [10.5];  // measured position
+H = [1, 0];  // measure position only
+R = [0.5];   // measurement noise
+
+[x_upd, P_upd] = kalman_update(x, P, z, H, R);
+disp("Updated position: " + string(x_upd(1)));
+disp("Updated velocity: " + string(x_upd(2)));
+disp("Updated covariance:");
+disp(P_upd);
+
+// Using GaussianState
+gs = GaussianState(x, P);
+gs_upd = kalman_update(gs, z, H, R);
+        ]]></programlisting>
+    </refsection>
+    <refsection role="see also">
+        <title>See also</title>
+        <simplelist type="inline">
+            <member><link linkend="kalman_predict">kalman_predict</link></member>
+            <member><link linkend="GaussianState">GaussianState</link></member>
+        </simplelist>
+    </refsection>
+</refentry>

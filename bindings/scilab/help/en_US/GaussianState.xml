@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<refentry xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink"
+          xmlns:svg="http://www.w3.org/2000/svg" xmlns:ns3="http://www.w3.org/1999/xhtml"
+          xmlns:mml="http://www.w3.org/1998/Math/MathML" xmlns:db="http://docbook.org/ns/docbook"
+          version="5.0-subset Scilab" xml:id="GaussianState" xml:lang="en">
+    <refnamediv>
+        <refname>GaussianState</refname>
+        <refpurpose>Create a Gaussian state with mean and covariance</refpurpose>
+    </refnamediv>
+    <refsynopsisdiv>
+        <title>Syntax</title>
+        <synopsis>
+            gs = GaussianState(mean, covar)
+        </synopsis>
+    </refsynopsisdiv>
+    <refsection>
+        <title>Arguments</title>
+        <variablelist>
+            <varlistentry>
+                <term>mean</term>
+                <listitem>
+                    <para>Column vector (n x 1), mean of the Gaussian distribution</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>covar</term>
+                <listitem>
+                    <para>Matrix (n x n), covariance matrix (must be symmetric positive semi-definite)</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>gs</term>
+                <listitem>
+                    <para>Struct with fields: mean, covar</para>
+                </listitem>
+            </varlistentry>
+        </variablelist>
+    </refsection>
+    <refsection>
+        <title>Description</title>
+        <para>
+            <literal>GaussianState</literal> creates a Gaussian state representation used
+            in Kalman filtering and other Gaussian-based estimation algorithms. The state
+            encapsulates both the estimated mean and the uncertainty (covariance) of the estimate.
+        </para>
+        <para>
+            The Gaussian state is fundamental to:
+        </para>
+        <itemizedlist>
+            <listitem><para>Kalman filter prediction and update operations</para></listitem>
+            <listitem><para>Track state representation</para></listitem>
+            <listitem><para>Uncertainty propagation</para></listitem>
+        </itemizedlist>
+    </refsection>
+    <refsection>
+        <title>Examples</title>
+        <programlisting role="example"><![CDATA[
+// Create a 2D Gaussian state for position tracking
+mean = [100; 50];  // position x=100, y=50
+covar = [10, 0; 0, 10];  // 10 units uncertainty in each dimension
+gs = GaussianState(mean, covar);
+
+disp("Mean:");
+disp(gs.mean);
+disp("Covariance:");
+disp(gs.covar);
+
+// Create a 4D state for position and velocity
+mean = [0; 0; 10; 5];  // [x, y, vx, vy]
+covar = diag([100, 100, 10, 10]);
+gs = GaussianState(mean, covar);
+        ]]></programlisting>
+    </refsection>
+    <refsection role="see also">
+        <title>See also</title>
+        <simplelist type="inline">
+            <member><link linkend="StateVector">StateVector</link></member>
+            <member><link linkend="kalman_predict">kalman_predict</link></member>
+            <member><link linkend="kalman_update">kalman_update</link></member>
+        </simplelist>
+    </refsection>
+</refentry>

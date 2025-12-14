@@ -205,6 +205,68 @@ const state = new GaussianState({
 const predicted = kalmanPredict(state, transitionMatrix, processNoise);
 ```
 
+### MATLAB (`matlab/`)
+
+MATLAB bindings via MEX interface with Simulink S-function blocks for model-based design.
+
+**Requirements:** MATLAB R2019b+, MEX compiler, libstonesoup
+
+**Build:**
+```matlab
+cd mex
+make  % or make('all')
+```
+
+**Example:**
+```matlab
+% Add Stone Soup to path
+addpath(genpath('path/to/bindings/matlab'));
+
+% Create Gaussian state
+state = stonesoup.GaussianState([0; 1; 0; 1], eye(4));
+
+% Constant velocity model
+dt = 0.1;
+F = [1 dt 0 0; 0 1 0 0; 0 0 1 dt; 0 0 0 1];
+Q = 0.01 * eye(4);
+
+% Kalman prediction
+[x_pred, P_pred] = stonesoup.kalman_predict(state.mean, state.covar, F, Q);
+
+% Measurement update
+z = [1.1; 1.2];
+H = [1 0 0 0; 0 0 1 0];
+R = 0.1 * eye(2);
+[x_upd, P_upd] = stonesoup.kalman_update(x_pred, P_pred, z, H, R);
+```
+
+#### Simulink Integration
+
+Stone Soup provides S-function blocks for Simulink:
+
+- **Kalman Predictor**: Propagates state estimate forward in time
+- **Kalman Updater**: Incorporates measurements to update estimate
+- **Constant Velocity Model**: Generates transition matrices
+
+**Using Simulink Blocks:**
+1. Add `matlab/simulink` to your MATLAB path
+2. In Simulink, use the S-Function block
+3. Enter the S-function name (e.g., `sfun_kalman_predict`)
+4. Configure parameters in the block mask
+
+### GNU Octave (`matlab/`)
+
+The MATLAB bindings are compatible with GNU Octave using mkoctfile.
+
+**Build for Octave:**
+```bash
+octave --eval "run('make_octave.m')"
+```
+
+**Limitations:**
+- Simulink blocks are not supported (use Xcos instead)
+- Some MATLAB-specific functions may require adaptation
+
 ### Scilab (`scilab/`)
 
 Scilab bindings for numerical computation and Xcos simulation integration.
@@ -216,6 +278,11 @@ Scilab bindings for numerical computation and Xcos simulation integration.
 cd scilab
 # Open Scilab and run:
 exec("builder.sce", -1);
+```
+
+**Clean/Uninstall:**
+```scilab
+exec("cleaner.sce", -1);
 ```
 
 **Example:**
@@ -242,6 +309,20 @@ R = 0.5 * eye(2, 2);
 measurement = [1.1; 1.2];
 gs_post = kalman_update(gs_pred, measurement, H, R);
 ```
+
+#### Xcos Integration
+
+Stone Soup provides Xcos palette blocks for simulation:
+
+- **Kalman Predictor Block**: State prediction with configurable transition model
+- **Kalman Updater Block**: Measurement update with configurable observation model
+- **Constant Velocity Block**: Generates state transitions
+
+**Using Xcos Blocks:**
+1. Load the Stone Soup module: `exec("loader.sce", -1);`
+2. Load the Xcos palette: `exec("xcos/loader.sce", -1);`
+3. Open Xcos and find Stone Soup palette in the block browser
+4. Drag blocks into your model and configure parameters
 
 ### Ada (`ada/`)
 

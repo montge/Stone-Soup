@@ -1,0 +1,50 @@
+# Gitleaks configuration for Stone Soup
+# See https://github.com/gitleaks/gitleaks for documentation
+
+title = "Stone Soup Gitleaks Configuration"
+
+[extend]
+# Use the default gitleaks config as a base
+useDefault = true
+
+# Additional rules for Stone Soup
+[[rules]]
+id = "sonarcloud-token"
+description = "SonarCloud Token"
+regex = '''(?i)sonar[_-]?token\s*[=:]\s*['"]?([a-z0-9]{40})['"]?'''
+tags = ["token", "sonarcloud"]
+
+[[rules]]
+id = "codecov-token"
+description = "Codecov Token"
+regex = '''(?i)codecov[_-]?token\s*[=:]\s*['"]?([a-z0-9-]{36})['"]?'''
+tags = ["token", "codecov"]
+
+# Allowlist for false positives
+[allowlist]
+description = "Global allowlist"
+
+# Paths to exclude from scanning
+paths = [
+    '''\.secrets\.baseline''',
+    '''docs/.*\.rst''',
+    '''docs/.*\.html''',
+    '''.*test.*\.py''',
+    '''.*_test\.go''',
+    '''.*Test\.java''',
+]
+
+# Specific commits to skip (if needed)
+commits = []
+
+# Regex patterns to exclude
+regexes = [
+    # Example placeholder tokens in documentation
+    '''YOUR_API_KEY_HERE''',
+    '''your-token-here''',
+    '''<your-.*>''',
+    # Test/example values
+    '''test[_-]?token''',
+    '''example[_-]?key''',
+    '''dummy[_-]?secret''',
+]

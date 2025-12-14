@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<refentry xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink"
+          xmlns:svg="http://www.w3.org/2000/svg" xmlns:ns3="http://www.w3.org/1999/xhtml"
+          xmlns:mml="http://www.w3.org/1998/Math/MathML" xmlns:db="http://docbook.org/ns/docbook"
+          version="5.0-subset Scilab" xml:id="kalman_predict" xml:lang="en">
+    <refnamediv>
+        <refname>kalman_predict</refname>
+        <refpurpose>Perform Kalman filter prediction step</refpurpose>
+    </refnamediv>
+    <refsynopsisdiv>
+        <title>Syntax</title>
+        <synopsis>
+            [x_pred, P_pred] = kalman_predict(x, P, F, Q)
+            gs_pred = kalman_predict(gs, F, Q)
+        </synopsis>
+    </refsynopsisdiv>
+    <refsection>
+        <title>Arguments</title>
+        <variablelist>
+            <varlistentry>
+                <term>x</term>
+                <listitem>
+                    <para>Column vector (n x 1), current state estimate</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>P</term>
+                <listitem>
+                    <para>Matrix (n x n), current state covariance</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>gs</term>
+                <listitem>
+                    <para>GaussianState struct, current Gaussian state</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>F</term>
+                <listitem>
+                    <para>Matrix (n x n), state transition matrix</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>Q</term>
+                <listitem>
+                    <para>Matrix (n x n), process noise covariance</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>x_pred</term>
+                <listitem>
+                    <para>Column vector (n x 1), predicted state</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>P_pred</term>
+                <listitem>
+                    <para>Matrix (n x n), predicted covariance</para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>gs_pred</term>
+                <listitem>
+                    <para>GaussianState struct, predicted Gaussian state</para>
+                </listitem>
+            </varlistentry>
+        </variablelist>
+    </refsection>
+    <refsection>
+        <title>Description</title>
+        <para>
+            <literal>kalman_predict</literal> performs the prediction step of the Kalman filter,
+            propagating the state estimate forward in time using the state transition model.
+        </para>
+        <para>
+            The prediction equations are:
+        </para>
+        <programlisting><![CDATA[
+x_pred = F * x
+P_pred = F * P * F' + Q
+        ]]></programlisting>
+        <para>
+            where:
+        </para>
+        <itemizedlist>
+            <listitem><para>F is the state transition matrix</para></listitem>
+            <listitem><para>Q is the process noise covariance</para></listitem>
+        </itemizedlist>
+    </refsection>
+    <refsection>
+        <title>Examples</title>
+        <programlisting role="example"><![CDATA[
+// Constant velocity model in 1D
+// State: [position; velocity]
+x = [0; 10];  // at origin, moving at 10 units/sec
+P = [1, 0; 0, 1];  // initial uncertainty
+
+dt = 0.1;  // time step
+F = [1, dt; 0, 1];  // constant velocity transition
+Q = [0.01, 0; 0, 0.01];  // small process noise
+
+// Predict to next time step
+[x_pred, P_pred] = kalman_predict(x, P, F, Q);
+disp("Predicted position: " + string(x_pred(1)));
+disp("Predicted velocity: " + string(x_pred(2)));
+
+// Using GaussianState
+gs = GaussianState(x, P);
+gs_pred = kalman_predict(gs, F, Q);
+        ]]></programlisting>
+    </refsection>
+    <refsection role="see also">
+        <title>See also</title>
+        <simplelist type="inline">
+            <member><link linkend="kalman_update">kalman_update</link></member>
+            <member><link linkend="GaussianState">GaussianState</link></member>
+        </simplelist>
+    </refsection>
+</refentry>
