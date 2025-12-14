@@ -2,20 +2,19 @@ from abc import abstractmethod
 from collections.abc import Collection, Sequence
 from datetime import datetime, timedelta
 from operator import attrgetter
-from typing import Union
 
 import graphviz
-import numpy as np
 import networkx as nx
+import numpy as np
 import pydot
 from ordered_set import OrderedSet
 
-from .edge import Edges, DataPiece, Edge
-from .node import Node, SensorNode, RepeaterNode, FusionNode
-from ._functions import _default_label_gen
 from ..base import Base, Property
-from ..types.detection import TrueDetection, Clutter
+from ..types.detection import Clutter, TrueDetection
 from ..types.groundtruth import GroundTruthPath
+from ._functions import _default_label_gen
+from .edge import DataPiece, Edge, Edges
+from .node import FusionNode, Node, RepeaterNode, SensorNode
 
 
 class Architecture(Base):
@@ -25,26 +24,30 @@ class Architecture(Base):
 
     edges: Edges = Property(
         doc="An Edges object containing all edges. For A to be connected to B we would have an "
-            "Edge with edge_pair=(A, B) in this object.")
+        "Edge with edge_pair=(A, B) in this object."
+    )
     current_time: datetime = Property(
         default_factory=datetime.now,
         doc="The time which the instance is at for the purpose of simulation. "
-            "This is increased by the propagate method. This should be set to the earliest "
-            "timestep from the ground truth")
+        "This is increased by the propagate method. This should be set to the earliest "
+        "timestep from the ground truth",
+    )
     name: str = Property(
         default=None,
         doc="A name for the architecture, to be used to name files and/or title plots. Default is "
-            "the class name")
+        "the class name",
+    )
     force_connected: bool = Property(
         default=True,
         doc="If True, the undirected version of the graph must be connected, ie. all nodes should "
-            "be connected via some path. Set this to False to allow an unconnected architecture. "
-            "Default is True")
+        "be connected via some path. Set this to False to allow an unconnected architecture. "
+        "Default is True",
+    )
     use_arrival_time: bool = Property(
         default=False,
         doc="If True, the timestamp on data passed around the network will not be assigned when "
-            "it is opened by the fusing node - simulating an architecture where time of recording "
-            "is not registered by the sensor nodes"
+        "it is opened by the fusing node - simulating an architecture where time of recording "
+        "is not registered by the sensor nodes",
     )
 
     def __init__(self, *args, **kwargs):
@@ -56,8 +59,10 @@ class Architecture(Base):
         self._viz_graph = None
 
         if self.force_connected and not self.is_connected and len(self) > 0:
-            raise ValueError("The graph is not connected. Use force_connected=False, "
-                             "if you wish to override this requirement")
+            raise ValueError(
+                "The graph is not connected. Use force_connected=False, "
+                "if you wish to override this requirement"
+            )
 
         node_label_gens = {}
         labels = {node.label.replace("\n", " ") for node in self.di_graph.nodes if node.label}
@@ -274,23 +279,30 @@ class Architecture(Base):
     @staticmethod
     def _node_kwargs(node, use_position=True):
         node_kwargs = {
-            'label': node.label,
-            'shape': node.shape,
-            'color': node.colour,
+            "label": node.label,
+            "shape": node.shape,
+            "color": node.colour,
         }
         if node.font_size:
-            node_kwargs['fontsize'] = node.font_size
+            node_kwargs["fontsize"] = node.font_size
         if node.node_dim:
-            node_kwargs['width'] = node.node_dim[0]
-            node_kwargs['height'] = node.node_dim[1]
+            node_kwargs["width"] = node.node_dim[0]
+            node_kwargs["height"] = node.node_dim[1]
         if use_position and node.position:
             if not isinstance(node.position, Sequence):
                 raise TypeError("Node position, must be Sequence of length 2")
             node_kwargs["pos"] = f"{node.position[0]},{node.position[1]}!"
         return node_kwargs
 
-    def plot(self, use_positions=False, plot_title=False,
-             bgcolour="transparent", node_style="filled", font_name='helvetica', plot_style=None):
+    def plot(
+        self,
+        use_positions=False,
+        plot_title=False,
+        bgcolour="transparent",
+        node_style="filled",
+        font_name="helvetica",
+        plot_style=None,
+    ):
         """
         Creates a pdf plot of the directed graph and displays it.
 
@@ -316,7 +328,7 @@ class Architecture(Base):
         graphviz.Source
             The graphviz Source object for the plot.
         """
-        is_hierarchical = self.is_hierarchical or plot_style == 'hierarchical'
+        is_hierarchical = self.is_hierarchical or plot_style == "hierarchical"
         if is_hierarchical:
             # Find top node and assign location
             top_nodes = self.top_level_nodes
@@ -332,7 +344,8 @@ class Architecture(Base):
                 senders = [
                     sender
                     for node in node_layers[-1]
-                    for sender in sorted(self.senders(node), key=attrgetter('label'))]
+                    for sender in sorted(self.senders(node), key=attrgetter("label"))
+                ]
                 if not senders:
                     break
                 else:
@@ -340,11 +353,11 @@ class Architecture(Base):
                     processed_nodes.update(senders)
 
         strict = nx.number_of_selfloops(self.di_graph) == 0 and not self.di_graph.is_multigraph()
-        graph = pydot.Dot(graph_name='', strict=strict, graph_type='digraph', rankdir='BT')
+        graph = pydot.Dot(graph_name="", strict=strict, graph_type="digraph", rankdir="BT")
         if isinstance(plot_title, str):
-            graph.set_graph_defaults(label=plot_title, labelloc='t')
+            graph.set_graph_defaults(label=plot_title, labelloc="t")
         elif isinstance(plot_title, bool) and plot_title:
-            graph.set_graph_defaults(label=self.name, labelloc='t')
+            graph.set_graph_defaults(label=self.name, labelloc="t")
         elif not isinstance(plot_title, bool):
             raise ValueError("Plot title must be a string or bool")
         graph.set_graph_defaults(bgcolor=bgcolour)
@@ -352,31 +365,35 @@ class Architecture(Base):
 
         if is_hierarchical:
             for n, layer_nodes in enumerate(node_layers):
-                subgraph = pydot.Subgraph(rank='max' if n == 0 else 'same')
+                subgraph = pydot.Subgraph(rank="max" if n == 0 else "same")
                 for node in layer_nodes:
                     new_node = pydot.Node(
-                        node.label.replace("\n", " "), **self._node_kwargs(node, use_positions))
+                        node.label.replace("\n", " "), **self._node_kwargs(node, use_positions)
+                    )
                     subgraph.add_node(new_node)
                 graph.add_subgraph(subgraph)
         else:
-            graph.set_overlap('false')
+            graph.set_overlap("false")
             for node in self.all_nodes:
                 new_node = pydot.Node(
-                    node.label.replace("\n", " "), **self._node_kwargs(node, use_positions))
+                    node.label.replace("\n", " "), **self._node_kwargs(node, use_positions)
+                )
                 graph.add_node(new_node)
 
         for edge in self.edges.edge_list:
             new_edge = pydot.Edge(
-                edge[0].label.replace("\n", " "), edge[1].label.replace("\n", " "))
+                edge[0].label.replace("\n", " "), edge[1].label.replace("\n", " ")
+            )
             graph.add_edge(new_edge)
 
         viz_graph = graphviz.Source(
-            graph.to_string(), engine='dot' if is_hierarchical else 'neato')
+            graph.to_string(), engine="dot" if is_hierarchical else "neato"
+        )
         self._viz_graph = viz_graph
         return viz_graph
 
     def _repr_html_(self):
-        if getattr(self, '_viz_graph', None) is None:
+        if getattr(self, "_viz_graph", None) is None:
             self.plot()
         return self._viz_graph._repr_image_svg_xml()
 
@@ -479,15 +496,14 @@ class Architecture(Base):
             Whether all data have begun transfer to recipients.
         """
         for edge in self.edges.edges:
-            if len(edge.unsent_data) != 0:
-                return False
-            elif len(edge.unpassed_data) != 0:
+            if len(edge.unsent_data) != 0 or len(edge.unpassed_data) != 0:
                 return False
 
         return True
 
-    def measure(self, ground_truths: list[GroundTruthPath], noise: Union[bool, np.ndarray] = True,
-                **kwargs) -> dict[SensorNode, set[Union[TrueDetection, Clutter]]]:
+    def measure(
+        self, ground_truths: list[GroundTruthPath], noise: bool | np.ndarray = True, **kwargs
+    ) -> dict[SensorNode, set[TrueDetection | Clutter]]:
         """
         Similar to the method for :class:`~.SensorSuite`. Updates each node.
 
@@ -505,13 +521,14 @@ class Architecture(Base):
         dict
             Dictionary mapping SensorNode to set of TrueDetection or Clutter.
         """
-        all_detections = dict()
+        all_detections = {}
 
         # Filter out only the ground truths that have already happened at self.current_time
         current_ground_truths = OrderedSet()
         for ground_truth_path in ground_truths:
-            available_gtp = GroundTruthPath(ground_truth_path[:self.current_time +
-                                                              timedelta(microseconds=1)])
+            available_gtp = GroundTruthPath(
+                ground_truth_path[: self.current_time + timedelta(microseconds=1)]
+            )
             if len(available_gtp) > 0:
                 current_ground_truths.add(available_gtp)
 
@@ -522,9 +539,12 @@ class Architecture(Base):
 
             for data in all_detections[sensor_node]:
                 # The sensor acquires its own data instantly
-                sensor_node.update(data.timestamp, data.timestamp,
-                                   DataPiece(sensor_node, sensor_node, data, data.timestamp),
-                                   'created')
+                sensor_node.update(
+                    data.timestamp,
+                    data.timestamp,
+                    DataPiece(sensor_node, sensor_node, data, data.timestamp),
+                    "created",
+                )
 
         return all_detections
 
@@ -534,6 +554,7 @@ class NonPropagatingArchitecture(Architecture):
     A simple Architecture class that does not simulate propagation of any data. Can be used for
     performing network operations on an :class:`~.Edges` object.
     """
+
     def propagate(self, time_increment: float):
         """
         Does not simulate propagation of any data.
@@ -556,10 +577,9 @@ class InformationArchitecture(Architecture):
         super().__init__(*args, **kwargs)
 
         if len(self.repeater_nodes) != 0:
-            raise TypeError("Information architecture should not contain any repeater "
-                            "nodes")
+            raise TypeError("Information architecture should not contain any repeater " "nodes")
 
-    def propagate(self, time_increment: float, failed_edges: Collection = None):
+    def propagate(self, time_increment: float, failed_edges: Collection | None = None):
         """
         Performs the propagation of the measurements through the network.
 
@@ -594,7 +614,8 @@ class InformationArchitecture(Architecture):
 
 class NetworkArchitecture(Architecture):
     """The architecture for how data is propagated through the network. Node A is connected
-    to Node B if and only if A sends its data through B. """
+    to Node B if and only if A sends its data through B."""
+
     information_arch: InformationArchitecture = Property(default=None)
     information_architecture_edges: Edges = Property(default=None)
 
@@ -612,13 +633,15 @@ class NetworkArchitecture(Architecture):
                 if len(self.repeater_nodes) > 0:
                     self.information_architecture_edges = Edges(inherit_edges(Edges(self.edges)))
                     self.information_arch = InformationArchitecture(
-                        edges=self.information_architecture_edges, current_time=self.current_time)
+                        edges=self.information_architecture_edges, current_time=self.current_time
+                    )
                 else:
                     self.information_architecture_edges = self.edges
                     self.information_arch = InformationArchitecture(self.edges, self.current_time)
             else:
                 self.information_arch = InformationArchitecture(
-                    edges=self.information_architecture_edges, current_time=self.current_time)
+                    edges=self.information_architecture_edges, current_time=self.current_time
+                )
 
         # Need to reset digraph for info-arch
         self.di_graph = nx.to_networkx_graph(self.edges.edge_list, create_using=nx.DiGraph)
@@ -626,7 +649,7 @@ class NetworkArchitecture(Architecture):
         for node in self.di_graph.nodes:
             self.di_graph.nodes[node].update(self._node_kwargs(node))
 
-    def propagate(self, time_increment: float, failed_edges: Collection = None):
+    def propagate(self, time_increment: float, failed_edges: Collection | None = None):
         """
         Performs the propagation of the measurements through the network.
 
@@ -647,7 +670,8 @@ class NetworkArchitecture(Architecture):
             edge.update_messages(
                 self.current_time,
                 to_network_node=to_network_node,
-                use_arrival_time=self.use_arrival_time)
+                use_arrival_time=self.use_arrival_time,
+            )
 
             # Send available messages from nodes to the edges
             if edge.sender in self.information_arch.all_nodes:
@@ -662,7 +686,8 @@ class NetworkArchitecture(Architecture):
             edge.update_messages(
                 self.current_time,
                 to_network_node=to_network_node,
-                use_arrival_time=self.use_arrival_time)
+                use_arrival_time=self.use_arrival_time,
+            )
 
         for fuse_node in self.fusion_nodes:
             fuse_node.fuse()
@@ -690,15 +715,15 @@ def inherit_edges(network_architecture):
         A list of edges for the InformationArchitecture.
     """
 
-    edges = list()
+    edges = []
     for edge in network_architecture.edges:
         edges.append(edge)
     temp_arch = NonPropagatingArchitecture(edges=Edges(edges))
 
     # Iterate through repeater nodes in the Network Architecture to find edges to remove
     for repeaternode in temp_arch.repeater_nodes:
-        to_replace = list()
-        to_add = list()
+        to_replace = []
+        to_add = []
 
         senders = temp_arch.senders(repeaternode)
         recipients = temp_arch.recipients(repeaternode)
@@ -721,15 +746,17 @@ def inherit_edges(network_architecture):
                 poss_edges_to = temp_arch.edges.get((sender, repeaternode))
                 latency_to = np.inf
                 for edge in poss_edges_to:
-                    latency_to = edge.edge_latency if edge.edge_latency <= latency_to else \
-                        latency_to
+                    latency_to = (
+                        edge.edge_latency if edge.edge_latency <= latency_to else latency_to
+                    )
 
                 # Could be possible edges from node to recipient, choose path of minimum latency
                 poss_edges_from = temp_arch.edges.get((sender, repeaternode))
                 latency_from = np.inf
                 for edge in poss_edges_from:
-                    latency_from = edge.edge_latency if edge.edge_latency <= latency_from else \
-                        latency_from
+                    latency_from = (
+                        edge.edge_latency if edge.edge_latency <= latency_from else latency_from
+                    )
 
                 latency = latency_to + latency_from + repeaternode.latency
                 edge = Edge(nodes=(sender, recipient), edge_latency=latency)

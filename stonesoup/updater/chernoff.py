@@ -1,10 +1,10 @@
 from functools import lru_cache
 
 from ..base import Property
-from .base import Updater
+from ..mixturereducer.gaussianmixture import CovarianceIntersection
 from ..types.prediction import MeasurementPrediction
 from ..types.update import Update
-from ..mixturereducer.gaussianmixture import CovarianceIntersection
+from .base import Updater
 
 
 class ChernoffUpdater(Updater):
@@ -75,13 +75,12 @@ class ChernoffUpdater(Updater):
        Security Symposium 2023.
     """
 
-    omega: float = Property(
-        default=0.5,
-        doc="A weighting parameter in the range :math:`(0,1]`")
+    omega: float = Property(default=0.5, doc="A weighting parameter in the range :math:`(0,1]`")
 
-    @lru_cache()
-    def predict_measurement(self, predicted_state, measurement_model=None, measurement_noise=True,
-                            **kwargs):
+    @lru_cache
+    def predict_measurement(
+        self, predicted_state, measurement_model=None, measurement_noise=True, **kwargs
+    ):
         r"""
         This function predicts the measurement of a state in situations where measurements consist
         of a covariance and state vector.
@@ -108,7 +107,9 @@ class ChernoffUpdater(Updater):
         if measurement_noise:
             # The innovation covariance uses the noise covariance from the measurement model
             state_covar_m = measurement_model.noise_covar
-            innov_covar = 1/(1-self.omega)*state_covar_m + 1/self.omega*predicted_state.covar
+            innov_covar = (
+                1 / (1 - self.omega) * state_covar_m + 1 / self.omega * predicted_state.covar
+            )
         else:
             innov_covar = predicted_state.covar
 
@@ -118,9 +119,13 @@ class ChernoffUpdater(Updater):
         meas_cross_cov = predicted_state.covar
 
         # Combine everything into a GaussianMeasurementPrediction object
-        return MeasurementPrediction.from_state(predicted_state, predicted_meas, innov_covar,
-                                                predicted_state.timestamp,
-                                                cross_covar=meas_cross_cov)
+        return MeasurementPrediction.from_state(
+            predicted_state,
+            predicted_meas,
+            innov_covar,
+            predicted_state.timestamp,
+            cross_covar=meas_cross_cov,
+        )
 
     def update(self, hypothesis, force_symmetric_covariance=False, **kwargs):
         r"""
@@ -148,18 +153,22 @@ class ChernoffUpdater(Updater):
             hypothesis.measurement_prediction = self.predict_measurement(
                 hypothesis.prediction,
                 measurement_model=hypothesis.measurement.measurement_model,
-                **kwargs
+                **kwargs,
             )
 
-        posterior = CovarianceIntersection.merge_components(hypothesis.measurement,
-                                                            hypothesis.prediction,
-                                                            weights=[self.omega, 1-self.omega])
+        posterior = CovarianceIntersection.merge_components(
+            hypothesis.measurement, hypothesis.prediction, weights=[self.omega, 1 - self.omega]
+        )
 
         # Optionally force the posterior covariance to be a symmetric matrix
         if force_symmetric_covariance:
-            posterior.covar = \
-                (posterior.covar + posterior.covar.T)/2
+            posterior.covar = (posterior.covar + posterior.covar.T) / 2
 
         # Return the updated state
-        return Update.from_state(hypothesis.prediction, posterior.state_vector, posterior.covar,
-                                 hypothesis, hypothesis.measurement.timestamp)
+        return Update.from_state(
+            hypothesis.prediction,
+            posterior.state_vector,
+            posterior.covar,
+            hypothesis,
+            hypothesis.measurement.timestamp,
+        )

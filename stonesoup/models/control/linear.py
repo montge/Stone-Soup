@@ -1,9 +1,9 @@
 import numpy as np
 
-from .base import ControlModel
-from ..base import LinearModel, GaussianModel
 from ...base import Property
 from ...types.array import StateVector
+from ..base import GaussianModel, LinearModel
+from .base import ControlModel
 
 
 class LinearControlModel(ControlModel, LinearModel, GaussianModel):
@@ -21,10 +21,11 @@ class LinearControlModel(ControlModel, LinearModel, GaussianModel):
     """
 
     control_matrix: np.ndarray = Property(
-        doc="Control input model matrix at time :math:`k`, :math:`B_k`")
+        doc="Control input model matrix at time :math:`k`, :math:`B_k`"
+    )
     control_noise: np.ndarray = Property(
-        default=None,
-        doc="Control input noise covariance at time :math:`k`")
+        default=None, doc="Control input noise covariance at time :math:`k`"
+    )
 
     def __init__(self, *args, **kwargs):
         """Ensures that the None control noise defaults to a ndimxndim zero matrix"""
@@ -63,9 +64,6 @@ class LinearControlModel(ControlModel, LinearModel, GaussianModel):
             control_vector = control_input.state_vector
 
         if isinstance(noise, bool) or noise is None:
-            if noise:
-                noise = self.rvs(num_samples=control_vector.shape[1], **kwargs)
-            else:
-                noise = 0
+            noise = self.rvs(num_samples=control_vector.shape[1], **kwargs) if noise else 0
 
         return self.matrix(**kwargs) @ (control_vector + noise)

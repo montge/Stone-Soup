@@ -1,5 +1,5 @@
-from .base import Gater
 from ..base import Property
+from .base import Gater
 
 
 class FilteredDetectionsGater(Gater):
@@ -10,10 +10,11 @@ class FilteredDetectionsGater(Gater):
     """
 
     metadata_filter: str = Property(
-        doc="Metadata attribute used to filter which detections tracks are valid for association.")
+        doc="Metadata attribute used to filter which detections tracks are valid for association."
+    )
     match_missing: bool = Property(
-        default=True,
-        doc="Match detections with missing metadata. Default 'True'.")
+        default=True, doc="Match detections with missing metadata. Default 'True'."
+    )
 
     def hypothesise(self, track, detections, *args, **kwargs):
         """
@@ -44,9 +45,9 @@ class FilteredDetectionsGater(Gater):
                 match_metadata.append(None)
 
             match_detections = {
-                detection for detection in detections
-                if detection.metadata.get(
-                        self.metadata_filter) in match_metadata}
+                detection
+                for detection in detections
+                if detection.metadata.get(self.metadata_filter) in match_metadata
+            }
 
-        return self.hypothesiser.hypothesise(
-            track, match_detections, *args, **kwargs)
+        return self.hypothesiser.hypothesise(track, match_detections, *args, **kwargs)

@@ -7,8 +7,8 @@ except ImportError as error:  # pragma: no cover
         "Kafka Writers require the dependency 'confluent-kafka' to be installed."
     ) from error
 
-from .base import Writer
 from ..base import Property
+from .base import Writer
 
 
 class KafkaWriter(Writer):
@@ -17,10 +17,12 @@ class KafkaWriter(Writer):
     Parameters
     ----------
     """
+
     kafka_config: dict[str, str] = Property(
         doc="Configuration properties for the underlying kafka consumer. See the "
-            "`confluent-kafka documentation <https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#kafka-client-configuration>`_ " # noqa
-            "for more details.")
+        "`confluent-kafka documentation <https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#kafka-client-configuration>`_ "
+        "for more details."
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

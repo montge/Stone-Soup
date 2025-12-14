@@ -82,14 +82,17 @@ References
 .. [4] McCarthy, D.D., Petit, G., 2004, "IERS Conventions (2003)"
 
 """
-import numpy as np
+
 from datetime import datetime
+
+import numpy as np
 
 from ..types.coordinates import WGS84, ReferenceEllipsoid
 
 
-def geodetic_to_ecef(lat: float, lon: float, alt: float,
-                     ellipsoid: ReferenceEllipsoid = WGS84) -> np.ndarray:
+def geodetic_to_ecef(
+    lat: float, lon: float, alt: float, ellipsoid: ReferenceEllipsoid = WGS84
+) -> np.ndarray:
     r"""Convert geodetic coordinates to ECEF (Earth-Centered Earth-Fixed) coordinates.
 
     This function uses the standard geodetic transformation formula. The ECEF frame is a
@@ -158,7 +161,7 @@ def geodetic_to_ecef(lat: float, lon: float, alt: float,
     # Compute the prime vertical radius of curvature
     sin_lat = np.sin(lat)
     cos_lat = np.cos(lat)
-    N = a / np.sqrt(1.0 - e2 * sin_lat ** 2)
+    N = a / np.sqrt(1.0 - e2 * sin_lat**2)
 
     # Convert to ECEF
     x = (N + alt) * cos_lat * np.cos(lon)
@@ -168,10 +171,14 @@ def geodetic_to_ecef(lat: float, lon: float, alt: float,
     return np.array([x, y, z])
 
 
-def ecef_to_geodetic(x: float, y: float, z: float,
-                     ellipsoid: ReferenceEllipsoid = WGS84,
-                     tolerance: float = 1e-12,
-                     max_iterations: int = 10) -> tuple[float, float, float]:
+def ecef_to_geodetic(
+    x: float,
+    y: float,
+    z: float,
+    ellipsoid: ReferenceEllipsoid = WGS84,
+    tolerance: float = 1e-12,
+    max_iterations: int = 10,
+) -> tuple[float, float, float]:
     r"""Convert ECEF (Earth-Centered Earth-Fixed) coordinates to geodetic coordinates.
 
     This function uses Bowring's iterative method (1985) which converges rapidly
@@ -254,7 +261,7 @@ def ecef_to_geodetic(x: float, y: float, z: float,
     lon = np.arctan2(y, x)
 
     # Compute distance from Z-axis
-    p = np.sqrt(x ** 2 + y ** 2)
+    p = np.sqrt(x**2 + y**2)
 
     # Handle special case of point on or near Z-axis
     if p < 1e-10:  # Within 10 micrometers of Z-axis
@@ -272,10 +279,7 @@ def ecef_to_geodetic(x: float, y: float, z: float,
         cos_theta = np.cos(theta)
 
         # Update latitude estimate
-        lat_new = np.arctan2(
-            z + e_prime2 * b * sin_theta ** 3,
-            p - e2 * a * cos_theta ** 3
-        )
+        lat_new = np.arctan2(z + e_prime2 * b * sin_theta**3, p - e2 * a * cos_theta**3)
 
         # Check convergence
         if np.abs(lat_new - lat) < tolerance:
@@ -283,13 +287,12 @@ def ecef_to_geodetic(x: float, y: float, z: float,
             break
 
         lat = lat_new
-        theta = np.arctan2(z * (1.0 + e_prime2 * np.sin(lat)),
-                           p * (1.0 - e2 * np.sin(lat)))
+        theta = np.arctan2(z * (1.0 + e_prime2 * np.sin(lat)), p * (1.0 - e2 * np.sin(lat)))
 
     # Compute altitude
     sin_lat = np.sin(lat)
     cos_lat = np.cos(lat)
-    N = a / np.sqrt(1.0 - e2 * sin_lat ** 2)
+    N = a / np.sqrt(1.0 - e2 * sin_lat**2)
 
     # Choose altitude formula based on latitude (for numerical stability)
     if np.abs(lat) < np.pi / 4:  # Use horizontal distance if not near poles
@@ -382,11 +385,9 @@ def eci_to_ecef(eci_coords: np.ndarray, timestamp: datetime) -> np.ndarray:
     cos_era = np.cos(era)
     sin_era = np.sin(era)
 
-    rotation_matrix = np.array([
-        [cos_era, sin_era, 0.0],
-        [-sin_era, cos_era, 0.0],
-        [0.0, 0.0, 1.0]
-    ])
+    rotation_matrix = np.array(
+        [[cos_era, sin_era, 0.0], [-sin_era, cos_era, 0.0], [0.0, 0.0, 1.0]]
+    )
 
     # Transform ECI to ECEF
     ecef_coords = rotation_matrix @ eci_coords
@@ -461,11 +462,9 @@ def ecef_to_eci(ecef_coords: np.ndarray, timestamp: datetime) -> np.ndarray:
     cos_era = np.cos(era)
     sin_era = np.sin(era)
 
-    rotation_matrix = np.array([
-        [cos_era, -sin_era, 0.0],
-        [sin_era, cos_era, 0.0],
-        [0.0, 0.0, 1.0]
-    ])
+    rotation_matrix = np.array(
+        [[cos_era, -sin_era, 0.0], [sin_era, cos_era, 0.0], [0.0, 0.0, 1.0]]
+    )
 
     # Transform ECEF to ECI
     eci_coords = rotation_matrix @ ecef_coords
@@ -473,9 +472,9 @@ def ecef_to_eci(ecef_coords: np.ndarray, timestamp: datetime) -> np.ndarray:
     return eci_coords
 
 
-def geodetic_to_eci(lat: float, lon: float, alt: float,
-                    timestamp: datetime,
-                    ellipsoid: ReferenceEllipsoid = WGS84) -> np.ndarray:
+def geodetic_to_eci(
+    lat: float, lon: float, alt: float, timestamp: datetime, ellipsoid: ReferenceEllipsoid = WGS84
+) -> np.ndarray:
     """Convert geodetic coordinates directly to ECI coordinates.
 
     This is a convenience function that combines geodetic_to_ecef and ecef_to_eci.
@@ -514,11 +513,15 @@ def geodetic_to_eci(lat: float, lon: float, alt: float,
     return ecef_to_eci(ecef, timestamp)
 
 
-def eci_to_geodetic(x: float, y: float, z: float,
-                    timestamp: datetime,
-                    ellipsoid: ReferenceEllipsoid = WGS84,
-                    tolerance: float = 1e-12,
-                    max_iterations: int = 10) -> tuple[float, float, float]:
+def eci_to_geodetic(
+    x: float,
+    y: float,
+    z: float,
+    timestamp: datetime,
+    ellipsoid: ReferenceEllipsoid = WGS84,
+    tolerance: float = 1e-12,
+    max_iterations: int = 10,
+) -> tuple[float, float, float]:
     """Convert ECI coordinates directly to geodetic coordinates.
 
     This is a convenience function that combines ecef_to_geodetic and eci_to_ecef.
@@ -566,8 +569,9 @@ def eci_to_geodetic(x: float, y: float, z: float,
     return ecef_to_geodetic(ecef[0], ecef[1], ecef[2], ellipsoid, tolerance, max_iterations)
 
 
-def geodetic_to_geocentric_latitude(geodetic_lat: float,
-                                      ellipsoid: ReferenceEllipsoid = WGS84) -> float:
+def geodetic_to_geocentric_latitude(
+    geodetic_lat: float, ellipsoid: ReferenceEllipsoid = WGS84
+) -> float:
     r"""Convert geodetic latitude to geocentric latitude.
 
     Geodetic latitude is the angle between the ellipsoid normal and the equatorial plane.
@@ -632,8 +636,9 @@ def geodetic_to_geocentric_latitude(geodetic_lat: float,
     return geocentric_lat
 
 
-def geocentric_to_geodetic_latitude(geocentric_lat: float,
-                                     ellipsoid: ReferenceEllipsoid = WGS84) -> float:
+def geocentric_to_geodetic_latitude(
+    geocentric_lat: float, ellipsoid: ReferenceEllipsoid = WGS84
+) -> float:
     r"""Convert geocentric latitude to geodetic latitude.
 
     This is the inverse of :func:`geodetic_to_geocentric_latitude`. It converts from
@@ -698,8 +703,9 @@ def geocentric_to_geodetic_latitude(geocentric_lat: float,
     return geodetic_lat
 
 
-def parametric_to_geodetic_latitude(parametric_lat: float,
-                                    ellipsoid: ReferenceEllipsoid = WGS84) -> float:
+def parametric_to_geodetic_latitude(
+    parametric_lat: float, ellipsoid: ReferenceEllipsoid = WGS84
+) -> float:
     r"""Convert parametric (reduced) latitude to geodetic latitude.
 
     Parametric latitude (also called reduced latitude) is the latitude on an auxiliary
@@ -762,8 +768,9 @@ def parametric_to_geodetic_latitude(parametric_lat: float,
     return geodetic_lat
 
 
-def geodetic_to_parametric_latitude(geodetic_lat: float,
-                                    ellipsoid: ReferenceEllipsoid = WGS84) -> float:
+def geodetic_to_parametric_latitude(
+    geodetic_lat: float, ellipsoid: ReferenceEllipsoid = WGS84
+) -> float:
     r"""Convert geodetic latitude to parametric (reduced) latitude.
 
     This is the inverse of :func:`parametric_to_geodetic_latitude`.
@@ -885,33 +892,29 @@ def compute_frame_bias_matrix() -> np.ndarray:
     mas_to_rad = np.pi / (180.0 * 3600.0 * 1000.0)  # milliarcseconds to radians
 
     # Frame bias angles (IERS Conventions 2010, Table 5.1)
-    eta_0 = -6.8192 * mas_to_rad      # Offset in x-axis rotation
-    xi_0 = -16.617 * mas_to_rad       # Offset in y-axis rotation
-    da_0 = -14.6 * mas_to_rad         # Offset in z-axis rotation (ICRS RA offset)
+    eta_0 = -6.8192 * mas_to_rad  # Offset in x-axis rotation
+    xi_0 = -16.617 * mas_to_rad  # Offset in y-axis rotation
+    da_0 = -14.6 * mas_to_rad  # Offset in z-axis rotation (ICRS RA offset)
 
     # For very small angles, we can use a simplified rotation matrix
     # This is more numerically stable than computing individual rotation matrices
     # B = Rx(eta_0) * Ry(xi_0) * Rz(da_0)
 
     # Using small-angle approximation for numerical stability
-    bias_matrix = np.array([
-        [1.0 - 0.5 * (xi_0**2 + da_0**2),
-         da_0,
-         -xi_0],
-        [-da_0,
-         1.0 - 0.5 * (eta_0**2 + da_0**2),
-         eta_0],
-        [xi_0,
-         -eta_0,
-         1.0 - 0.5 * (eta_0**2 + xi_0**2)]
-    ])
+    bias_matrix = np.array(
+        [
+            [1.0 - 0.5 * (xi_0**2 + da_0**2), da_0, -xi_0],
+            [-da_0, 1.0 - 0.5 * (eta_0**2 + da_0**2), eta_0],
+            [xi_0, -eta_0, 1.0 - 0.5 * (eta_0**2 + xi_0**2)],
+        ]
+    )
 
     return bias_matrix
 
 
-def gcrs_to_j2000(position: np.ndarray,
-                  velocity: np.ndarray = None,
-                  timestamp: datetime = None) -> tuple[np.ndarray, np.ndarray]:
+def gcrs_to_j2000(
+    position: np.ndarray, velocity: np.ndarray = None, timestamp: datetime | None = None
+) -> tuple[np.ndarray, np.ndarray]:
     r"""Transform position and velocity from GCRS to J2000 frame.
 
     The transformation from GCRS (Geocentric Celestial Reference System) to J2000
@@ -1019,11 +1022,13 @@ def gcrs_to_j2000(position: np.ndarray,
 
     # Simplified precession matrix (good to ~10 meters for near-Earth objects)
     # Full implementation would include nutation terms
-    precession_matrix = np.array([
-        [cos_psi, -sin_psi * cos_eps, -sin_psi * sin_eps],
-        [sin_psi,  cos_psi * cos_eps,  cos_psi * sin_eps],
-        [0.0,     -sin_eps,             cos_eps]
-    ])
+    precession_matrix = np.array(
+        [
+            [cos_psi, -sin_psi * cos_eps, -sin_psi * sin_eps],
+            [sin_psi, cos_psi * cos_eps, cos_psi * sin_eps],
+            [0.0, -sin_eps, cos_eps],
+        ]
+    )
 
     # For small time differences, matrix is close to identity
     # Apply transformation
@@ -1033,9 +1038,9 @@ def gcrs_to_j2000(position: np.ndarray,
     return pos_j2000, vel_j2000
 
 
-def j2000_to_gcrs(position: np.ndarray,
-                  velocity: np.ndarray = None,
-                  timestamp: datetime = None) -> tuple[np.ndarray, np.ndarray]:
+def j2000_to_gcrs(
+    position: np.ndarray, velocity: np.ndarray = None, timestamp: datetime | None = None
+) -> tuple[np.ndarray, np.ndarray]:
     r"""Transform position and velocity from J2000 to GCRS frame.
 
     This is the inverse of :func:`gcrs_to_j2000`. It transforms coordinates from the
@@ -1115,11 +1120,13 @@ def j2000_to_gcrs(position: np.ndarray,
     cos_eps = np.cos(epsilon_0)
     sin_eps = np.sin(epsilon_0)
 
-    precession_matrix = np.array([
-        [cos_psi, -sin_psi * cos_eps, -sin_psi * sin_eps],
-        [sin_psi,  cos_psi * cos_eps,  cos_psi * sin_eps],
-        [0.0,     -sin_eps,             cos_eps]
-    ])
+    precession_matrix = np.array(
+        [
+            [cos_psi, -sin_psi * cos_eps, -sin_psi * sin_eps],
+            [sin_psi, cos_psi * cos_eps, cos_psi * sin_eps],
+            [0.0, -sin_eps, cos_eps],
+        ]
+    )
 
     # Apply forward transformation (inverse of GCRS to J2000)
     pos_gcrs = precession_matrix @ position
@@ -1205,11 +1212,7 @@ def compute_precession_angles_iau2006(T: float) -> dict:
 
     # Obliquity of the ecliptic (omega_A) - moving equator
     omega_A_arcsec = (
-        epsilon_0
-        + 0.05127 * T**2
-        - 0.007726 * T**3
-        - 0.000722 * T**4
-        + 0.000027 * T**5
+        epsilon_0 + 0.05127 * T**2 - 0.007726 * T**3 - 0.000722 * T**4 + 0.000027 * T**5
     )
 
     # Planetary precession (chi_A)
@@ -1226,7 +1229,8 @@ def compute_precession_angles_iau2006(T: float) -> dict:
 
     # Zeta_A: equatorial precession (arcseconds)
     zeta_A_arcsec = (
-        2.650545 + 2306.083227 * T
+        2.650545
+        + 2306.083227 * T
         + 0.2988499 * T**2
         + 0.01801828 * T**3
         - 0.000005971 * T**4
@@ -1235,7 +1239,8 @@ def compute_precession_angles_iau2006(T: float) -> dict:
 
     # z_A: equatorial precession (arcseconds)
     z_A_arcsec = (
-        -2.650545 + 2306.077181 * T
+        -2.650545
+        + 2306.077181 * T
         + 1.0927348 * T**2
         + 0.01826837 * T**3
         - 0.000028596 * T**4
@@ -1252,17 +1257,17 @@ def compute_precession_angles_iau2006(T: float) -> dict:
     )
 
     return {
-        'epsilon_A': epsilon_A_arcsec * arcsec_to_rad,
-        'psi_A': psi_A_arcsec * arcsec_to_rad,
-        'omega_A': omega_A_arcsec * arcsec_to_rad,
-        'chi_A': chi_A_arcsec * arcsec_to_rad,
-        'zeta_A': zeta_A_arcsec * arcsec_to_rad,
-        'z_A': z_A_arcsec * arcsec_to_rad,
-        'theta_A': theta_A_arcsec * arcsec_to_rad,
+        "epsilon_A": epsilon_A_arcsec * arcsec_to_rad,
+        "psi_A": psi_A_arcsec * arcsec_to_rad,
+        "omega_A": omega_A_arcsec * arcsec_to_rad,
+        "chi_A": chi_A_arcsec * arcsec_to_rad,
+        "zeta_A": zeta_A_arcsec * arcsec_to_rad,
+        "z_A": z_A_arcsec * arcsec_to_rad,
+        "theta_A": theta_A_arcsec * arcsec_to_rad,
     }
 
 
-def compute_precession_matrix_iau2006(T: float, method: str = 'equatorial') -> np.ndarray:
+def compute_precession_matrix_iau2006(T: float, method: str = "equatorial") -> np.ndarray:
     r"""Compute the IAU 2006 precession matrix.
 
     Returns the rotation matrix that transforms coordinates from
@@ -1320,86 +1325,58 @@ def compute_precession_matrix_iau2006(T: float, method: str = 'equatorial') -> n
     """
     angles = compute_precession_angles_iau2006(T)
 
-    if method == 'equatorial':
+    if method == "equatorial":
         # Use equatorial precession angles (zeta, z, theta)
-        zeta_A = angles['zeta_A']
-        z_A = angles['z_A']
-        theta_A = angles['theta_A']
+        zeta_A = angles["zeta_A"]
+        z_A = angles["z_A"]
+        theta_A = angles["theta_A"]
 
         # Build rotation matrices
         # R_z(-zeta_A)
         cz = np.cos(-zeta_A)
         sz = np.sin(-zeta_A)
-        R_zeta = np.array([
-            [cz, -sz, 0.0],
-            [sz,  cz, 0.0],
-            [0.0, 0.0, 1.0]
-        ])
+        R_zeta = np.array([[cz, -sz, 0.0], [sz, cz, 0.0], [0.0, 0.0, 1.0]])
 
         # R_y(theta_A)
         ct = np.cos(theta_A)
         st = np.sin(theta_A)
-        R_theta = np.array([
-            [ct, 0.0, st],
-            [0.0, 1.0, 0.0],
-            [-st, 0.0, ct]
-        ])
+        R_theta = np.array([[ct, 0.0, st], [0.0, 1.0, 0.0], [-st, 0.0, ct]])
 
         # R_z(-z_A)
         cza = np.cos(-z_A)
         sza = np.sin(-z_A)
-        R_z = np.array([
-            [cza, -sza, 0.0],
-            [sza,  cza, 0.0],
-            [0.0, 0.0, 1.0]
-        ])
+        R_z = np.array([[cza, -sza, 0.0], [sza, cza, 0.0], [0.0, 0.0, 1.0]])
 
         # Precession matrix: P = R_z(-z_A) @ R_y(theta_A) @ R_z(-zeta_A)
         precession_matrix = R_z @ R_theta @ R_zeta
 
-    elif method == 'ecliptic':
+    elif method == "ecliptic":
         # Use ecliptic precession angles
         epsilon_0 = 84381.406 * np.pi / (180.0 * 3600.0)  # J2000 obliquity
-        epsilon_A = angles['epsilon_A']
-        psi_A = angles['psi_A']
-        chi_A = angles['chi_A']
+        epsilon_A = angles["epsilon_A"]
+        psi_A = angles["psi_A"]
+        chi_A = angles["chi_A"]
 
         # Build rotation matrices
         # R_x(epsilon_0)
         ce0 = np.cos(epsilon_0)
         se0 = np.sin(epsilon_0)
-        R_eps0 = np.array([
-            [1.0, 0.0, 0.0],
-            [0.0, ce0, -se0],
-            [0.0, se0,  ce0]
-        ])
+        R_eps0 = np.array([[1.0, 0.0, 0.0], [0.0, ce0, -se0], [0.0, se0, ce0]])
 
         # R_z(-psi_A)
         cp = np.cos(-psi_A)
         sp = np.sin(-psi_A)
-        R_psi = np.array([
-            [cp, -sp, 0.0],
-            [sp,  cp, 0.0],
-            [0.0, 0.0, 1.0]
-        ])
+        R_psi = np.array([[cp, -sp, 0.0], [sp, cp, 0.0], [0.0, 0.0, 1.0]])
 
         # R_x(-epsilon_A)
         cea = np.cos(-epsilon_A)
         sea = np.sin(-epsilon_A)
-        R_epsA = np.array([
-            [1.0, 0.0, 0.0],
-            [0.0, cea, -sea],
-            [0.0, sea,  cea]
-        ])
+        R_epsA = np.array([[1.0, 0.0, 0.0], [0.0, cea, -sea], [0.0, sea, cea]])
 
         # R_z(chi_A)
         cc = np.cos(chi_A)
         sc = np.sin(chi_A)
-        R_chi = np.array([
-            [cc, -sc, 0.0],
-            [sc,  cc, 0.0],
-            [0.0, 0.0, 1.0]
-        ])
+        R_chi = np.array([[cc, -sc, 0.0], [sc, cc, 0.0], [0.0, 0.0, 1.0]])
 
         # Ecliptic precession matrix
         precession_matrix = R_chi @ R_epsA @ R_psi @ R_eps0
@@ -1410,9 +1387,9 @@ def compute_precession_matrix_iau2006(T: float, method: str = 'equatorial') -> n
     return precession_matrix
 
 
-def apply_precession_j2000_to_date(position: np.ndarray,
-                                    timestamp: datetime,
-                                    velocity: np.ndarray = None) -> tuple:
+def apply_precession_j2000_to_date(
+    position: np.ndarray, timestamp: datetime, velocity: np.ndarray = None
+) -> tuple:
     r"""Apply IAU 2006 precession to transform from J2000.0 to date.
 
     Parameters
@@ -1452,9 +1429,9 @@ def apply_precession_j2000_to_date(position: np.ndarray,
     return pos_date, vel_date
 
 
-def apply_precession_date_to_j2000(position: np.ndarray,
-                                    timestamp: datetime,
-                                    velocity: np.ndarray = None) -> tuple:
+def apply_precession_date_to_j2000(
+    position: np.ndarray, timestamp: datetime, velocity: np.ndarray = None
+) -> tuple:
     r"""Apply IAU 2006 precession to transform from date to J2000.0.
 
     Parameters
@@ -1534,141 +1511,117 @@ def compute_fundamental_arguments(T: float) -> dict:
 
     # Mean anomaly of the Moon (l) - Delaunay variable
     l = (
-        485868.249036
-        + 1717915923.2178 * T
-        + 31.8792 * T**2
-        + 0.051635 * T**3
-        - 0.00024470 * T**4
+        485868.249036 + 1717915923.2178 * T + 31.8792 * T**2 + 0.051635 * T**3 - 0.00024470 * T**4
     ) * arcsec_to_rad
 
     # Mean anomaly of the Sun (l') - Delaunay variable
     lp = (
-        1287104.79305
-        + 129596581.0481 * T
-        - 0.5532 * T**2
-        + 0.000136 * T**3
-        - 0.00001149 * T**4
+        1287104.79305 + 129596581.0481 * T - 0.5532 * T**2 + 0.000136 * T**3 - 0.00001149 * T**4
     ) * arcsec_to_rad
 
     # Mean argument of latitude of the Moon (F)
     F = (
-        335779.526232
-        + 1739527262.8478 * T
-        - 12.7512 * T**2
-        - 0.001037 * T**3
-        + 0.00000417 * T**4
+        335779.526232 + 1739527262.8478 * T - 12.7512 * T**2 - 0.001037 * T**3 + 0.00000417 * T**4
     ) * arcsec_to_rad
 
     # Mean elongation of the Moon from the Sun (D)
     D = (
-        1072260.70369
-        + 1602961601.2090 * T
-        - 6.3706 * T**2
-        + 0.006593 * T**3
-        - 0.00003169 * T**4
+        1072260.70369 + 1602961601.2090 * T - 6.3706 * T**2 + 0.006593 * T**3 - 0.00003169 * T**4
     ) * arcsec_to_rad
 
     # Mean longitude of the Moon's ascending node (Ω)
     Om = (
-        450160.398036
-        - 6962890.5431 * T
-        + 7.4722 * T**2
-        + 0.007702 * T**3
-        - 0.00005939 * T**4
+        450160.398036 - 6962890.5431 * T + 7.4722 * T**2 + 0.007702 * T**3 - 0.00005939 * T**4
     ) * arcsec_to_rad
 
-    return {
-        'l': l,
-        'lp': lp,
-        'F': F,
-        'D': D,
-        'Om': Om
-    }
+    return {"l": l, "lp": lp, "F": F, "D": D, "Om": Om}
 
 
 # IAU 2000B nutation series coefficients (77 terms)
 # Each row: [l, lp, F, D, Om, A_psi, A_psi_t, A_eps, A_eps_t]
 # Coefficients A are in units of 0.1 microarcseconds
-_NUTATION_COEFFS_IAU2000B = np.array([
-    # l   lp   F   D   Om      A_psi     A_psi_t     A_eps     A_eps_t
-    [0,   0,   0,  0,  1,  -172064161,  -174666,   92052331,    9086],
-    [0,   0,   2, -2,  2,   -13170906,    -1675,    5730336,   -3015],
-    [0,   0,   2,  0,  2,    -2276413,     -234,     978459,    -485],
-    [0,   0,   0,  0,  2,     2074554,      207,    -897492,     470],
-    [0,   1,   0,  0,  0,     1475877,    -3633,      73871,    -184],
-    [0,   1,   2, -2,  2,     -516821,     1226,     224386,    -677],
-    [1,   0,   0,  0,  0,      711159,       73,      -6750,       0],
-    [0,   0,   2,  0,  1,     -387298,     -367,     200728,      18],
-    [1,   0,   2,  0,  2,     -301461,      -36,     129025,     -63],
-    [0,  -1,   2, -2,  2,      215829,     -494,     -95929,     299],
-    [0,   0,   2, -2,  1,      128227,      137,     -68982,      -9],
-    [-1,  0,   2,  0,  2,      123457,       11,     -53311,      32],
-    [-1,  0,   0,  2,  0,      156994,       10,      -1235,       0],
-    [1,   0,   0,  0,  1,       63110,       63,     -33228,       0],
-    [-1,  0,   0,  0,  1,      -57976,      -63,      31429,       0],
-    [-1,  0,   2,  2,  2,      -59641,      -11,      25543,     -11],
-    [1,   0,   2,  0,  1,      -51613,      -42,      26366,       0],
-    [-2,  0,   2,  0,  1,       45893,       50,     -24236,     -10],
-    [0,   0,   0,  2,  0,       63384,       11,      -1220,       0],
-    [0,   0,   2,  2,  2,      -38571,       -1,      16452,     -11],
-    [0,  -2,   2, -2,  2,       32481,        0,     -13870,       0],
-    [-2,  0,   0,  2,  0,      -47722,        0,        477,       0],
-    [2,   0,   2,  0,  2,      -31046,       -1,      13238,     -11],
-    [1,   0,   2, -2,  2,       28593,        0,     -12338,      10],
-    [-1,  0,   2,  0,  1,       20441,       21,     -10758,       0],
-    [2,   0,   0,  0,  0,       29243,        0,       -609,       0],
-    [0,   0,   2,  0,  0,       25887,        0,       -550,       0],
-    [0,   1,   0,  0,  1,      -14053,      -25,       8551,      -2],
-    [-1,  0,   0,  2,  1,       15164,       10,      -8001,       0],
-    [0,   2,   2, -2,  2,      -15794,       72,       6850,     -42],
-    [0,   0,  -2,  2,  0,       21783,        0,       -167,       0],
-    [1,   0,   0, -2,  1,      -12873,      -10,       6953,       0],
-    [0,  -1,   0,  0,  1,      -12654,       11,       6415,       0],
-    [-1,  0,   2,  2,  1,      -10204,        0,       5222,       0],
-    [0,   2,   0,  0,  0,       16707,      -85,        168,      -1],
-    [1,   0,   2,  2,  2,       -7691,        0,       3268,       0],
-    [-2,  0,   2,  0,  0,      -11024,        0,        104,       0],
-    [0,   1,   2,  0,  2,        7566,      -21,      -3250,       0],
-    [0,   0,   2,  2,  1,       -6637,      -11,       3353,       0],
-    [0,  -1,   2,  0,  2,       -7141,       21,       3070,       0],
-    [0,   0,   0,  2,  1,       -6302,      -11,       3272,       0],
-    [1,   0,   2, -2,  1,        5800,       10,      -3045,       0],
-    [2,   0,   2, -2,  2,        6443,        0,      -2768,       0],
-    [-2,  0,   0,  2,  1,       -5774,      -11,       3041,       0],
-    [2,   0,   2,  0,  1,       -5350,        0,       2695,       0],
-    [0,  -1,   2, -2,  1,       -4752,      -11,       2719,       0],
-    [0,   0,   0, -2,  1,       -4940,      -11,       2720,       0],
-    [-1, -1,   0,  2,  0,        7350,        0,        -51,       0],
-    [2,   0,   0, -2,  1,        4065,        0,      -2206,       0],
-    [1,   0,   0,  2,  0,        6579,        0,       -199,       0],
-    [0,   1,   2, -2,  1,        3579,        0,      -1900,       0],
-    [1,  -1,   0,  0,  0,        4725,        0,        -41,       0],
-    [-2,  0,   2,  0,  2,       -3075,        0,       1313,       0],
-    [3,   0,   2,  0,  2,       -2904,        0,       1233,       0],
-    [0,  -1,   0,  2,  0,        4348,        0,        -81,       0],
-    [1,  -1,   2,  0,  2,       -2878,        0,       1232,       0],
-    [0,   0,   0,  1,  0,       -4230,        0,        -20,       0],
-    [-1, -1,   2,  2,  2,       -2819,        0,       1207,       0],
-    [-1,  0,   2,  0,  0,       -4056,        0,         40,       0],
-    [0,  -1,   2,  2,  2,       -2647,        0,       1129,       0],
-    [-2,  0,   0,  0,  1,       -2294,        0,       1266,       0],
-    [1,   1,   2,  0,  2,        2481,        0,      -1062,       0],
-    [2,   0,   0,  0,  1,        2179,        0,      -1129,       0],
-    [-1,  1,   0,  1,  0,        3276,        0,         -9,       0],
-    [1,   1,   0,  0,  0,       -3389,        0,         35,       0],
-    [1,   0,   2,  0,  0,        3339,        0,       -107,       0],
-    [-1,  0,   2, -2,  1,       -1987,        0,       1073,       0],
-    [1,   0,   0,  0,  2,       -1981,        0,        854,       0],
-    [-1,  0,   0,  1,  0,        4026,        0,       -553,       0],
-    [0,   0,   2,  1,  2,        1660,        0,       -710,       0],
-    [-1,  0,   2,  4,  2,       -1521,        0,        647,       0],
-    [-1,  1,   0,  1,  1,        1314,        0,       -700,       0],
-    [0,  -2,   2, -2,  1,       -1283,        0,        672,       0],
-    [1,   0,   2,  2,  1,       -1331,        0,        663,       0],
-    [-2,  0,   2,  2,  2,        1383,        0,       -594,       0],
-    [-1,  0,   0,  0,  2,        1405,        0,       -610,       0],
-    [1,   1,   2, -2,  2,        1290,        0,       -556,       0],
-])
+_NUTATION_COEFFS_IAU2000B = np.array(
+    [
+        # l   lp   F   D   Om      A_psi     A_psi_t     A_eps     A_eps_t
+        [0, 0, 0, 0, 1, -172064161, -174666, 92052331, 9086],
+        [0, 0, 2, -2, 2, -13170906, -1675, 5730336, -3015],
+        [0, 0, 2, 0, 2, -2276413, -234, 978459, -485],
+        [0, 0, 0, 0, 2, 2074554, 207, -897492, 470],
+        [0, 1, 0, 0, 0, 1475877, -3633, 73871, -184],
+        [0, 1, 2, -2, 2, -516821, 1226, 224386, -677],
+        [1, 0, 0, 0, 0, 711159, 73, -6750, 0],
+        [0, 0, 2, 0, 1, -387298, -367, 200728, 18],
+        [1, 0, 2, 0, 2, -301461, -36, 129025, -63],
+        [0, -1, 2, -2, 2, 215829, -494, -95929, 299],
+        [0, 0, 2, -2, 1, 128227, 137, -68982, -9],
+        [-1, 0, 2, 0, 2, 123457, 11, -53311, 32],
+        [-1, 0, 0, 2, 0, 156994, 10, -1235, 0],
+        [1, 0, 0, 0, 1, 63110, 63, -33228, 0],
+        [-1, 0, 0, 0, 1, -57976, -63, 31429, 0],
+        [-1, 0, 2, 2, 2, -59641, -11, 25543, -11],
+        [1, 0, 2, 0, 1, -51613, -42, 26366, 0],
+        [-2, 0, 2, 0, 1, 45893, 50, -24236, -10],
+        [0, 0, 0, 2, 0, 63384, 11, -1220, 0],
+        [0, 0, 2, 2, 2, -38571, -1, 16452, -11],
+        [0, -2, 2, -2, 2, 32481, 0, -13870, 0],
+        [-2, 0, 0, 2, 0, -47722, 0, 477, 0],
+        [2, 0, 2, 0, 2, -31046, -1, 13238, -11],
+        [1, 0, 2, -2, 2, 28593, 0, -12338, 10],
+        [-1, 0, 2, 0, 1, 20441, 21, -10758, 0],
+        [2, 0, 0, 0, 0, 29243, 0, -609, 0],
+        [0, 0, 2, 0, 0, 25887, 0, -550, 0],
+        [0, 1, 0, 0, 1, -14053, -25, 8551, -2],
+        [-1, 0, 0, 2, 1, 15164, 10, -8001, 0],
+        [0, 2, 2, -2, 2, -15794, 72, 6850, -42],
+        [0, 0, -2, 2, 0, 21783, 0, -167, 0],
+        [1, 0, 0, -2, 1, -12873, -10, 6953, 0],
+        [0, -1, 0, 0, 1, -12654, 11, 6415, 0],
+        [-1, 0, 2, 2, 1, -10204, 0, 5222, 0],
+        [0, 2, 0, 0, 0, 16707, -85, 168, -1],
+        [1, 0, 2, 2, 2, -7691, 0, 3268, 0],
+        [-2, 0, 2, 0, 0, -11024, 0, 104, 0],
+        [0, 1, 2, 0, 2, 7566, -21, -3250, 0],
+        [0, 0, 2, 2, 1, -6637, -11, 3353, 0],
+        [0, -1, 2, 0, 2, -7141, 21, 3070, 0],
+        [0, 0, 0, 2, 1, -6302, -11, 3272, 0],
+        [1, 0, 2, -2, 1, 5800, 10, -3045, 0],
+        [2, 0, 2, -2, 2, 6443, 0, -2768, 0],
+        [-2, 0, 0, 2, 1, -5774, -11, 3041, 0],
+        [2, 0, 2, 0, 1, -5350, 0, 2695, 0],
+        [0, -1, 2, -2, 1, -4752, -11, 2719, 0],
+        [0, 0, 0, -2, 1, -4940, -11, 2720, 0],
+        [-1, -1, 0, 2, 0, 7350, 0, -51, 0],
+        [2, 0, 0, -2, 1, 4065, 0, -2206, 0],
+        [1, 0, 0, 2, 0, 6579, 0, -199, 0],
+        [0, 1, 2, -2, 1, 3579, 0, -1900, 0],
+        [1, -1, 0, 0, 0, 4725, 0, -41, 0],
+        [-2, 0, 2, 0, 2, -3075, 0, 1313, 0],
+        [3, 0, 2, 0, 2, -2904, 0, 1233, 0],
+        [0, -1, 0, 2, 0, 4348, 0, -81, 0],
+        [1, -1, 2, 0, 2, -2878, 0, 1232, 0],
+        [0, 0, 0, 1, 0, -4230, 0, -20, 0],
+        [-1, -1, 2, 2, 2, -2819, 0, 1207, 0],
+        [-1, 0, 2, 0, 0, -4056, 0, 40, 0],
+        [0, -1, 2, 2, 2, -2647, 0, 1129, 0],
+        [-2, 0, 0, 0, 1, -2294, 0, 1266, 0],
+        [1, 1, 2, 0, 2, 2481, 0, -1062, 0],
+        [2, 0, 0, 0, 1, 2179, 0, -1129, 0],
+        [-1, 1, 0, 1, 0, 3276, 0, -9, 0],
+        [1, 1, 0, 0, 0, -3389, 0, 35, 0],
+        [1, 0, 2, 0, 0, 3339, 0, -107, 0],
+        [-1, 0, 2, -2, 1, -1987, 0, 1073, 0],
+        [1, 0, 0, 0, 2, -1981, 0, 854, 0],
+        [-1, 0, 0, 1, 0, 4026, 0, -553, 0],
+        [0, 0, 2, 1, 2, 1660, 0, -710, 0],
+        [-1, 0, 2, 4, 2, -1521, 0, 647, 0],
+        [-1, 1, 0, 1, 1, 1314, 0, -700, 0],
+        [0, -2, 2, -2, 1, -1283, 0, 672, 0],
+        [1, 0, 2, 2, 1, -1331, 0, 663, 0],
+        [-2, 0, 2, 2, 2, 1383, 0, -594, 0],
+        [-1, 0, 0, 0, 2, 1405, 0, -610, 0],
+        [1, 1, 2, -2, 2, 1290, 0, -556, 0],
+    ]
+)
 
 
 def compute_nutation_iau2000b(T: float) -> tuple:
@@ -1709,11 +1662,11 @@ def compute_nutation_iau2000b(T: float) -> tuple:
     """
     # Get fundamental arguments
     args = compute_fundamental_arguments(T)
-    l = args['l']
-    lp = args['lp']
-    F = args['F']
-    D = args['D']
-    Om = args['Om']
+    l = args["l"]
+    lp = args["lp"]
+    F = args["F"]
+    D = args["D"]
+    Om = args["Om"]
 
     # Units: coefficients are in 0.1 microarcseconds
     # Convert to radians: 0.1 µas = 0.1e-6 arcsec = 0.1e-6 * pi/(180*3600) rad
@@ -1724,8 +1677,7 @@ def compute_nutation_iau2000b(T: float) -> tuple:
 
     for coeff in _NUTATION_COEFFS_IAU2000B:
         # Compute argument
-        arg = (coeff[0] * l + coeff[1] * lp + coeff[2] * F +
-               coeff[3] * D + coeff[4] * Om)
+        arg = coeff[0] * l + coeff[1] * lp + coeff[2] * F + coeff[3] * D + coeff[4] * Om
 
         # Nutation in longitude
         dpsi += (coeff[5] + coeff[6] * T) * np.sin(arg)
@@ -1781,7 +1733,7 @@ def compute_nutation_matrix(T: float) -> np.ndarray:
     """
     # Get mean obliquity and nutation
     angles = compute_precession_angles_iau2006(T)
-    epsilon_A = angles['epsilon_A']
+    epsilon_A = angles["epsilon_A"]
 
     dpsi, deps = compute_nutation_iau2000b(T)
 
@@ -1793,29 +1745,17 @@ def compute_nutation_matrix(T: float) -> np.ndarray:
     # R_x(epsilon_A)
     ce = np.cos(epsilon_A)
     se = np.sin(epsilon_A)
-    R_eps_A = np.array([
-        [1.0, 0.0, 0.0],
-        [0.0, ce, -se],
-        [0.0, se,  ce]
-    ])
+    R_eps_A = np.array([[1.0, 0.0, 0.0], [0.0, ce, -se], [0.0, se, ce]])
 
     # R_z(-dpsi)
     cp = np.cos(-dpsi)
     sp = np.sin(-dpsi)
-    R_dpsi = np.array([
-        [cp, -sp, 0.0],
-        [sp,  cp, 0.0],
-        [0.0, 0.0, 1.0]
-    ])
+    R_dpsi = np.array([[cp, -sp, 0.0], [sp, cp, 0.0], [0.0, 0.0, 1.0]])
 
     # R_x(-epsilon)
     cet = np.cos(-epsilon)
     set_ = np.sin(-epsilon)
-    R_eps = np.array([
-        [1.0, 0.0, 0.0],
-        [0.0, cet, -set_],
-        [0.0, set_,  cet]
-    ])
+    R_eps = np.array([[1.0, 0.0, 0.0], [0.0, cet, -set_], [0.0, set_, cet]])
 
     # Nutation matrix
     N = R_eps @ R_dpsi @ R_eps_A
@@ -1823,9 +1763,9 @@ def compute_nutation_matrix(T: float) -> np.ndarray:
     return N
 
 
-def apply_nutation(position: np.ndarray, T: float,
-                   velocity: np.ndarray = None,
-                   inverse: bool = False) -> tuple:
+def apply_nutation(
+    position: np.ndarray, T: float, velocity: np.ndarray = None, inverse: bool = False
+) -> tuple:
     r"""Apply nutation transformation to coordinates.
 
     Parameters
@@ -1861,9 +1801,9 @@ def apply_nutation(position: np.ndarray, T: float,
 # =============================================================================
 
 
-def eci_to_ecef_full(position: np.ndarray,
-                     timestamp: datetime,
-                     velocity: np.ndarray = None) -> tuple:
+def eci_to_ecef_full(
+    position: np.ndarray, timestamp: datetime, velocity: np.ndarray = None
+) -> tuple:
     r"""Convert ECI (GCRS) to ECEF with full precession-nutation model.
 
     This implements a standard-level transformation from the Geocentric
@@ -1929,7 +1869,7 @@ def eci_to_ecef_full(position: np.ndarray,
     j2000_epoch = datetime(2000, 1, 1, 12, 0, 0)
     dt = (timestamp - j2000_epoch).total_seconds()
     T = dt / (86400.0 * 36525.0)  # Julian centuries
-    julian_days = dt / 86400.0    # Julian days for ERA
+    julian_days = dt / 86400.0  # Julian days for ERA
 
     # Earth's angular velocity (rad/s)
     omega_earth = 7.292115e-5
@@ -1949,11 +1889,7 @@ def eci_to_ecef_full(position: np.ndarray,
     # ERA rotation matrix
     cos_era = np.cos(era)
     sin_era = np.sin(era)
-    R_era = np.array([
-        [cos_era, sin_era, 0.0],
-        [-sin_era, cos_era, 0.0],
-        [0.0, 0.0, 1.0]
-    ])
+    R_era = np.array([[cos_era, sin_era, 0.0], [-sin_era, cos_era, 0.0], [0.0, 0.0, 1.0]])
 
     # Combined rotation matrix: GCRS -> ITRS (ECEF)
     # R_total = R_era @ N @ P
@@ -1966,11 +1902,7 @@ def eci_to_ecef_full(position: np.ndarray,
     if velocity is not None:
         # Velocity transformation includes omega x r term
         vel_rotated = R_total @ velocity
-        omega_cross_r = np.array([
-            -omega_earth * pos_ecef[1],
-            omega_earth * pos_ecef[0],
-            0.0
-        ])
+        omega_cross_r = np.array([-omega_earth * pos_ecef[1], omega_earth * pos_ecef[0], 0.0])
         vel_ecef = vel_rotated - omega_cross_r
     else:
         vel_ecef = None
@@ -1978,9 +1910,9 @@ def eci_to_ecef_full(position: np.ndarray,
     return pos_ecef, vel_ecef
 
 
-def ecef_to_eci_full(position: np.ndarray,
-                     timestamp: datetime,
-                     velocity: np.ndarray = None) -> tuple:
+def ecef_to_eci_full(
+    position: np.ndarray, timestamp: datetime, velocity: np.ndarray = None
+) -> tuple:
     r"""Convert ECEF to ECI (GCRS) with full precession-nutation model.
 
     This implements a standard-level transformation from Earth-Centered
@@ -2023,7 +1955,7 @@ def ecef_to_eci_full(position: np.ndarray,
     j2000_epoch = datetime(2000, 1, 1, 12, 0, 0)
     dt = (timestamp - j2000_epoch).total_seconds()
     T = dt / (86400.0 * 36525.0)  # Julian centuries
-    julian_days = dt / 86400.0    # Julian days for ERA
+    julian_days = dt / 86400.0  # Julian days for ERA
 
     # Earth's angular velocity (rad/s)
     omega_earth = 7.292115e-5
@@ -2042,11 +1974,7 @@ def ecef_to_eci_full(position: np.ndarray,
     # Inverse ERA rotation matrix (rotate by -ERA)
     cos_era = np.cos(era)
     sin_era = np.sin(era)
-    R_era_inv = np.array([
-        [cos_era, -sin_era, 0.0],
-        [sin_era, cos_era, 0.0],
-        [0.0, 0.0, 1.0]
-    ])
+    R_era_inv = np.array([[cos_era, -sin_era, 0.0], [sin_era, cos_era, 0.0], [0.0, 0.0, 1.0]])
 
     # Combined inverse rotation matrix: ITRS -> GCRS
     # R_total_inv = P^T @ N^T @ R_era^T
@@ -2055,11 +1983,7 @@ def ecef_to_eci_full(position: np.ndarray,
     # Transform velocity first (needs original position for omega x r)
     if velocity is not None:
         # Add omega x r term before rotation
-        omega_cross_r = np.array([
-            -omega_earth * position[1],
-            omega_earth * position[0],
-            0.0
-        ])
+        omega_cross_r = np.array([-omega_earth * position[1], omega_earth * position[0], 0.0])
         vel_eci = R_total_inv @ (velocity + omega_cross_r)
     else:
         vel_eci = None
@@ -2121,14 +2045,16 @@ class EarthOrientationParameters:
 
     """
 
-    def __init__(self,
-                 epochs: np.ndarray,
-                 x_p: np.ndarray,
-                 y_p: np.ndarray,
-                 ut1_utc: np.ndarray,
-                 lod: np.ndarray = None,
-                 dX: np.ndarray = None,
-                 dY: np.ndarray = None):
+    def __init__(
+        self,
+        epochs: np.ndarray,
+        x_p: np.ndarray,
+        y_p: np.ndarray,
+        ut1_utc: np.ndarray,
+        lod: np.ndarray = None,
+        dX: np.ndarray = None,
+        dY: np.ndarray = None,
+    ):
         """Initialize EOP data.
 
         Parameters
@@ -2196,8 +2122,7 @@ class EarthOrientationParameters:
         """
         if mjd < self.start_epoch or mjd > self.end_epoch:
             raise ValueError(
-                f"MJD {mjd} is outside EOP data range "
-                f"[{self.start_epoch}, {self.end_epoch}]"
+                f"MJD {mjd} is outside EOP data range " f"[{self.start_epoch}, {self.end_epoch}]"
             )
 
         x_p_interp = np.interp(mjd, self.epochs, self.x_p)
@@ -2222,23 +2147,19 @@ class EarthOrientationParameters:
 
         """
         x_p, y_p, ut1_utc = self.interpolate(mjd)
-        result = {
-            'x_p': x_p,
-            'y_p': y_p,
-            'ut1_utc': ut1_utc
-        }
+        result = {"x_p": x_p, "y_p": y_p, "ut1_utc": ut1_utc}
 
         if self.lod is not None:
-            result['lod'] = np.interp(mjd, self.epochs, self.lod)
+            result["lod"] = np.interp(mjd, self.epochs, self.lod)
         if self.dX is not None:
-            result['dX'] = np.interp(mjd, self.epochs, self.dX)
+            result["dX"] = np.interp(mjd, self.epochs, self.dX)
         if self.dY is not None:
-            result['dY'] = np.interp(mjd, self.epochs, self.dY)
+            result["dY"] = np.interp(mjd, self.epochs, self.dY)
 
         return result
 
     @classmethod
-    def from_finals2000a(cls, filepath: str) -> 'EarthOrientationParameters':
+    def from_finals2000a(cls, filepath: str) -> "EarthOrientationParameters":
         """Load EOP data from IERS finals2000A format file.
 
         The finals2000A.all file is available from IERS at:
@@ -2271,7 +2192,7 @@ class EarthOrientationParameters:
         y_p = []
         ut1_utc = []
 
-        with open(filepath, 'r') as f:
+        with open(filepath) as f:
             for line in f:
                 if len(line) < 68:
                     continue
@@ -2320,7 +2241,7 @@ class EarthOrientationParameters:
             epochs=np.array(epochs),
             x_p=np.array(x_p),
             y_p=np.array(y_p),
-            ut1_utc=np.array(ut1_utc)
+            ut1_utc=np.array(ut1_utc),
         )
 
 
@@ -2396,33 +2317,23 @@ def compute_polar_motion_matrix(x_p: float, y_p: float, s_prime: float = 0.0) ->
     sin_sp = np.sin(s_prime)
 
     # R_3(-s')
-    R3 = np.array([
-        [cos_sp, -sin_sp, 0.0],
-        [sin_sp, cos_sp, 0.0],
-        [0.0, 0.0, 1.0]
-    ])
+    R3 = np.array([[cos_sp, -sin_sp, 0.0], [sin_sp, cos_sp, 0.0], [0.0, 0.0, 1.0]])
 
     # R_2(x_p)
-    R2 = np.array([
-        [cos_xp, 0.0, sin_xp],
-        [0.0, 1.0, 0.0],
-        [-sin_xp, 0.0, cos_xp]
-    ])
+    R2 = np.array([[cos_xp, 0.0, sin_xp], [0.0, 1.0, 0.0], [-sin_xp, 0.0, cos_xp]])
 
     # R_1(y_p)
-    R1 = np.array([
-        [1.0, 0.0, 0.0],
-        [0.0, cos_yp, sin_yp],
-        [0.0, -sin_yp, cos_yp]
-    ])
+    R1 = np.array([[1.0, 0.0, 0.0], [0.0, cos_yp, sin_yp], [0.0, -sin_yp, cos_yp]])
 
     return R3 @ R2 @ R1
 
 
-def eci_to_ecef_with_eop(position: np.ndarray,
-                          timestamp: datetime,
-                          eop: EarthOrientationParameters,
-                          velocity: np.ndarray = None) -> tuple:
+def eci_to_ecef_with_eop(
+    position: np.ndarray,
+    timestamp: datetime,
+    eop: EarthOrientationParameters,
+    velocity: np.ndarray = None,
+) -> tuple:
     r"""Convert ECI (GCRS) to ECEF (ITRS) with full EOP corrections.
 
     This implements a high-precision transformation using:
@@ -2514,11 +2425,7 @@ def eci_to_ecef_with_eop(position: np.ndarray,
     # ERA rotation matrix
     cos_era = np.cos(era)
     sin_era = np.sin(era)
-    R_era = np.array([
-        [cos_era, sin_era, 0.0],
-        [-sin_era, cos_era, 0.0],
-        [0.0, 0.0, 1.0]
-    ])
+    R_era = np.array([[cos_era, sin_era, 0.0], [-sin_era, cos_era, 0.0], [0.0, 0.0, 1.0]])
 
     # Step 4: Polar motion matrix (TIRS -> ITRS)
     W = compute_polar_motion_matrix(x_p, y_p)
@@ -2534,11 +2441,7 @@ def eci_to_ecef_with_eop(position: np.ndarray,
     if velocity is not None:
         # Velocity transformation includes omega x r term
         vel_rotated = R_total @ velocity
-        omega_cross_r = np.array([
-            -omega_earth * pos_itrs[1],
-            omega_earth * pos_itrs[0],
-            0.0
-        ])
+        omega_cross_r = np.array([-omega_earth * pos_itrs[1], omega_earth * pos_itrs[0], 0.0])
         vel_itrs = vel_rotated - omega_cross_r
     else:
         vel_itrs = None
@@ -2546,10 +2449,12 @@ def eci_to_ecef_with_eop(position: np.ndarray,
     return pos_itrs, vel_itrs
 
 
-def ecef_to_eci_with_eop(position: np.ndarray,
-                          timestamp: datetime,
-                          eop: EarthOrientationParameters,
-                          velocity: np.ndarray = None) -> tuple:
+def ecef_to_eci_with_eop(
+    position: np.ndarray,
+    timestamp: datetime,
+    eop: EarthOrientationParameters,
+    velocity: np.ndarray = None,
+) -> tuple:
     r"""Convert ECEF (ITRS) to ECI (GCRS) with full EOP corrections.
 
     This implements the inverse of :func:`eci_to_ecef_with_eop`.
@@ -2611,11 +2516,7 @@ def ecef_to_eci_with_eop(position: np.ndarray,
     # Inverse ERA rotation matrix (rotate by -ERA)
     cos_era = np.cos(era)
     sin_era = np.sin(era)
-    R_era_inv = np.array([
-        [cos_era, -sin_era, 0.0],
-        [sin_era, cos_era, 0.0],
-        [0.0, 0.0, 1.0]
-    ])
+    R_era_inv = np.array([[cos_era, -sin_era, 0.0], [sin_era, cos_era, 0.0], [0.0, 0.0, 1.0]])
 
     # Combined inverse rotation: ITRS -> GCRS
     # R_total_inv = P^T @ N^T @ R_era^T @ W^T
@@ -2624,11 +2525,7 @@ def ecef_to_eci_with_eop(position: np.ndarray,
     # Transform velocity first (needs original position for omega x r)
     if velocity is not None:
         # Add omega x r term before rotation
-        omega_cross_r = np.array([
-            -omega_earth * position[1],
-            omega_earth * position[0],
-            0.0
-        ])
+        omega_cross_r = np.array([-omega_earth * position[1], omega_earth * position[0], 0.0])
         vel_gcrs = R_total_inv @ (velocity + omega_cross_r)
     else:
         vel_gcrs = None

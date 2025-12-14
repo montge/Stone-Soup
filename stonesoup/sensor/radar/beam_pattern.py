@@ -2,11 +2,12 @@ import datetime
 from abc import abstractmethod
 from collections.abc import Sequence
 
-from ...base import Property, Base
+from ...base import Base, Property
 
 
 class BeamTransitionModel(Base):
     """Base class for Beam Transition Model"""
+
     centre: Sequence = Property(doc="Centre of the beam pattern")
 
     @abstractmethod
@@ -17,8 +18,9 @@ class BeamTransitionModel(Base):
 
 class StationaryBeam(BeamTransitionModel):
     """Stationary beam that points in the direction of centre"""
+
     def move_beam(self, *args, **kwargs):
-        """ generates a beam position based on the centre
+        """generates a beam position based on the centre
 
         Parameters
         ----------
@@ -35,13 +37,14 @@ class StationaryBeam(BeamTransitionModel):
 
 class BeamSweep(BeamTransitionModel):
     """This describes a beam moving in a raster pattern"""
+
     init_time: datetime.datetime = Property(default=None, doc="The time the frame is started")
     angle_per_s: float = Property(doc="The speed that the beam scans at")
     frame: tuple[float, float] = Property(doc="Dimensions of search frame as [azimuth,elevation]")
     separation: float = Property(doc="Separation of lines in elevation")
     centre: tuple[float, float] = Property(
-        default=(0, 0),
-        doc="Centre of the search frame in [azimuth,elevation]. Defaults to (0, 0)")
+        default=(0, 0), doc="Centre of the search frame in [azimuth,elevation]. Defaults to (0, 0)"
+    )
 
     @property
     def length_frame(self):
@@ -70,19 +73,15 @@ class BeamSweep(BeamTransitionModel):
             self.init_time = timestamp
         time_diff = timestamp - self.init_time
         # distance into a frame
-        total_angle = (time_diff.total_seconds() * self.angle_per_s) % \
-            self.length_frame
+        total_angle = (time_diff.total_seconds() * self.angle_per_s) % self.length_frame
         # the row the beam should be in
         row = int(total_angle / (self.frame[0]))
         # how far the beam is into the the current row
-        col = total_angle - row*self.frame[0]
+        col = total_angle - row * self.frame[0]
         # start from left or right?
-        if row % 2 == 0:
-            az = col
-        else:
-            az = self.frame[0] - col
+        az = col if row % 2 == 0 else self.frame[0] - col
         # azimuth position
-        az = az - self.frame[0]/2 + self.centre[0]
+        az = az - self.frame[0] / 2 + self.centre[0]
         # elevation position
-        el = self.frame[1]/2 + self.centre[1] - row*self.separation
+        el = self.frame[1] / 2 + self.centre[1] - row * self.separation
         return az, el

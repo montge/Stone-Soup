@@ -1,24 +1,25 @@
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from functools import lru_cache
-from typing import Union, Optional, TYPE_CHECKING
+from functools import cache
+from typing import TYPE_CHECKING
 
 try:
     from shapely import STRtree
-    from shapely.geometry import Polygon, Point, MultiPoint, LineString, MultiLineString
+    from shapely.geometry import LineString, MultiLineString, MultiPoint, Point, Polygon
+
     has_shapely = True
 except ImportError:
     has_shapely = False
 
 import numpy as np
 
-from .base import PlatformMountable
-from ..sensormanager.action import Actionable
 from ..base import Property
 from ..models.clutter.clutter import ClutterModel
-from ..types.detection import TrueDetection, Detection
+from ..sensormanager.action import Actionable
+from ..types.detection import Detection, TrueDetection
 from ..types.groundtruth import GroundTruthState
 from ..types.state import ParticleState, State, StateVector
+from .base import PlatformMountable
 
 if TYPE_CHECKING:
     from ..platform.base import Obstacle
@@ -53,13 +54,12 @@ class Sensor(PlatformMountable, Actionable):
             self.timestamp = self.movement_controller.state.timestamp
         except AttributeError:
             return False
-        if self.timestamp is None:
-            return False
-        return True
+        return self.timestamp is not None
 
     @abstractmethod
-    def measure(self, ground_truths: set[GroundTruthState], noise: Union[np.ndarray, bool] = True,
-                **kwargs) -> set[TrueDetection]:
+    def measure(
+        self, ground_truths: set[GroundTruthState], noise: np.ndarray | bool = True, **kwargs
+    ) -> set[TrueDetection]:
         """Generate a measurement for a given state
 
         Parameters
@@ -89,59 +89,67 @@ class Sensor(PlatformMountable, Actionable):
 
 class SimpleSensor(Sensor, ABC):
 
-    seed: Optional[int] = Property(default=None, doc="Seed for random number generation")
+    seed: int | None = Property(default=None, doc="Seed for random number generation")
     clutter_model: ClutterModel = Property(
         default=None,
         doc="An optional clutter generator that adds a set of simulated "
-            ":class:`Clutter` objects to the measurements at each time step. "
-            "The clutter is simulated according to the provided distribution.")
+        ":class:`Clutter` objects to the measurements at each time step. "
+        "The clutter is simulated according to the provided distribution.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.random_state = np.random.RandomState(self.seed) if self.seed is not None else None
 
-    def measure(self, ground_truths: set[GroundTruthState], noise: Union[np.ndarray, bool] = True,
-                random_state=None, **kwargs) -> set[TrueDetection]:
+    def measure(
+        self,
+        ground_truths: set[GroundTruthState],
+        noise: np.ndarray | bool = True,
+        random_state=None,
+        **kwargs,
+    ) -> set[TrueDetection]:
 
         measurement_model = self.measurement_model
 
-        detectable_ground_truths = [truth for truth in ground_truths
-                                    if self.is_detectable(truth, measurement_model)]
+        detectable_ground_truths = [
+            truth for truth in ground_truths if self.is_detectable(truth, measurement_model)
+        ]
 
         if noise is True:
             random_state = random_state if random_state is not None else self.random_state
             if len(detectable_ground_truths) > 1:
-                noise_vectors_iter = iter(measurement_model.rvs(len(detectable_ground_truths),
-                                                                random_state=random_state,
-                                                                **kwargs))
+                noise_vectors_iter = iter(
+                    measurement_model.rvs(
+                        len(detectable_ground_truths), random_state=random_state, **kwargs
+                    )
+                )
             else:
-                noise_vectors_iter = iter([measurement_model.rvs(random_state=random_state,
-                                                                 **kwargs)])
+                noise_vectors_iter = iter(
+                    [measurement_model.rvs(random_state=random_state, **kwargs)]
+                )
 
         detections = set()
         for truth in detectable_ground_truths:
             measurement_vector = measurement_model.function(truth, noise=False, **kwargs)
 
-            if noise is True:
-                measurement_noise = next(noise_vectors_iter)
-            else:
-                measurement_noise = noise
+            measurement_noise = next(noise_vectors_iter) if noise is True else noise
 
             # Add in measurement noise to the measurement vector
             measurement_vector += measurement_noise
 
-            detection = TrueDetection(measurement_vector,
-                                      measurement_model=measurement_model,
-                                      timestamp=truth.timestamp,
-                                      groundtruth_path=truth)
+            detection = TrueDetection(
+                measurement_vector,
+                measurement_model=measurement_model,
+                timestamp=truth.timestamp,
+                groundtruth_path=truth,
+            )
             detections.add(detection)
 
         # Generate clutter at this time step
         if self.clutter_model is not None:
             self.clutter_model.measurement_model = measurement_model
             clutter = self.clutter_model.function(ground_truths)
-            detectable_clutter = [cltr for cltr in clutter
-                                  if self.is_clutter_detectable(cltr)]
+            detectable_clutter = [cltr for cltr in clutter if self.is_clutter_detectable(cltr)]
             detections = set.union(detections, detectable_clutter)
 
         return detections
@@ -172,8 +180,9 @@ class SensorSuite(Sensor):
         doc="Names of attributes to store the value of at time of detection."
     )
 
-    def measure(self, ground_truths: set[GroundTruthState], noise: Union[bool, np.ndarray] = True,
-                **kwargs) -> set[TrueDetection]:
+    def measure(
+        self, ground_truths: set[GroundTruthState], noise: bool | np.ndarray = True, **kwargs
+    ) -> set[TrueDetection]:
         """Call each sub-sensor's measure method in turn. Key word arguments are passed to the
         measure method of each sensor.
 
@@ -186,8 +195,10 @@ class SensorSuite(Sensor):
 
             detections = sensor.measure(ground_truths, noise, **kwargs)
 
-            attributes_dict = {attribute_name: sensor.__getattribute__(attribute_name)
-                               for attribute_name in self.attributes_inform}
+            attributes_dict = {
+                attribute_name: sensor.__getattribute__(attribute_name)
+                for attribute_name in self.attributes_inform
+            }
 
             for detection in detections:
                 detection.metadata.update(attributes_dict)
@@ -210,16 +221,20 @@ class VisibilityInformed2DSensor(SimpleSensor):
     The second adopts the STR Tree algorithm which is more efficient
     for large numbers of obstacles.
     """
+
     # TODO: Establish the suitable number of obstacles to use when
     # switching between STR Tree and ray casting.
 
-    obstacles: set['Obstacle'] = Property(default=None,
-                                          doc="Set of :class:`~.Obstacle` type "
-                                              "platforms that represent obstacles in the "
-                                              "environment")
+    obstacles: set["Obstacle"] = Property(
+        default=None,
+        doc="Set of :class:`~.Obstacle` type "
+        "platforms that represent obstacles in the "
+        "environment",
+    )
 
-    moving_obstacle_flag: bool = Property(default=False,
-                                          doc="Boolean flag indicating if obstacles are mobile")
+    moving_obstacle_flag: bool = Property(
+        default=False, doc="Boolean flag indicating if obstacles are mobile"
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -236,7 +251,7 @@ class VisibilityInformed2DSensor(SimpleSensor):
         self._all_verts = [obstacle.vertices for obstacle in self.obstacles]
         self._all_rel_edges = [obstacle.relative_edges for obstacle in self.obstacles]
 
-    @lru_cache(maxsize=None)
+    @cache
     def _position_cache(self):
         # Cache for position allows for vertices and relative edges to be
         # calculated only when necessary. Maxsize set to unlimited as it
@@ -255,28 +270,36 @@ class VisibilityInformed2DSensor(SimpleSensor):
             # Call vertices for each obstacle to update self._all_verts and self._all_rel_edges
             _ = [obstacle.vertices for obstacle in self.obstacles]
 
-        if self.max_range < np.inf and (np.any(self._position_cache() != self.position) or
-                                        not self._relevant_obs):
+        if self.max_range < np.inf and (
+            np.any(self._position_cache() != self.position) or not self._relevant_obs
+        ):
 
             self._position_cache.cache_clear()
-            self._relevant_obs_idx = \
-                np.where([np.any(np.sqrt(
-                                         np.sum((vertices[0:2, :]-self.position[0:2])**2, axis=0))
-                                 < self.max_range)
-                         for vertices in self._all_verts])[0].astype(int)
+            self._relevant_obs_idx = np.where(
+                [
+                    np.any(
+                        np.sqrt(np.sum((vertices[0:2, :] - self.position[0:2]) ** 2, axis=0))
+                        < self.max_range
+                    )
+                    for vertices in self._all_verts
+                ]
+            )[0].astype(int)
         else:
-            self._relevant_obs_idx = \
-                np.linspace(0, len(self.obstacles)-1, len(self.obstacles)).astype(int)
+            self._relevant_obs_idx = np.linspace(
+                0, len(self.obstacles) - 1, len(self.obstacles)
+            ).astype(int)
 
     @property
     def _obstacle_tree(self):
         if self.moving_obstacle_flag or self._cached_obstacle_tree is None:
-            self._cached_obstacle_tree = \
-                STRtree([Polygon(obstacle.vertices.T) for obstacle in self.obstacles])
+            self._cached_obstacle_tree = STRtree(
+                [Polygon(obstacle.vertices.T) for obstacle in self.obstacles]
+            )
         return self._cached_obstacle_tree
 
-    def measure(self, ground_truths: set[GroundTruthState], noise: Union[np.ndarray, bool] = True,
-                **kwargs) -> set[TrueDetection]:
+    def measure(
+        self, ground_truths: set[GroundTruthState], noise: np.ndarray | bool = True, **kwargs
+    ) -> set[TrueDetection]:
 
         # In the event that obstacles have been pased to the measure function,
         # they are removed from the set of known obstacles.
@@ -305,10 +328,7 @@ class VisibilityInformed2DSensor(SimpleSensor):
             that the state is visible."""
 
         # Check number of states if `state` is `ParticleState`
-        if isinstance(state, ParticleState):
-            nstates = len(state)
-        else:
-            nstates = 1
+        nstates = len(state) if isinstance(state, ParticleState) else 1
 
         if not self.obstacles:
             return np.full(nstates, True)
@@ -316,26 +336,31 @@ class VisibilityInformed2DSensor(SimpleSensor):
         if self._str_tree_is_visible_trigger:
 
             if isinstance(state, StateVector):
-                line_segments = \
-                    [LineString([self.position[0:2], state[self.position_mapping[0:2], :]])]
+                line_segments = [
+                    LineString([self.position[0:2], state[self.position_mapping[0:2], :]])
+                ]
             elif isinstance(state, ParticleState):
                 position_concat = np.tile(self.position, [nstates])
-                line_segments = \
-                    MultiLineString(
-                        [*np.array([position_concat,
-                                    state.state_vector[self.position_mapping[0:2], :]])
-                            .transpose(2, 0, 1)]).geoms
+                line_segments = MultiLineString(
+                    [
+                        *np.array(
+                            [position_concat, state.state_vector[self.position_mapping[0:2], :]]
+                        ).transpose(2, 0, 1)
+                    ]
+                ).geoms
             else:
                 nstates = 1
-                line_segments = \
-                    [LineString([self.position[0:2],
-                                 state.state_vector[self.position_mapping[0:2], :]])]
+                line_segments = [
+                    LineString(
+                        [self.position[0:2], state.state_vector[self.position_mapping[0:2], :]]
+                    )
+                ]
 
             intersections = np.full((nstates,), True)
 
             obstacle_tree = self._obstacle_tree
 
-            non_vis_rays = obstacle_tree.query(line_segments, predicate='intersects')[0, :]
+            non_vis_rays = obstacle_tree.query(line_segments, predicate="intersects")[0, :]
             intersections[np.unique(non_vis_rays)] = False
 
             return intersections
@@ -367,10 +392,7 @@ class VisibilityInformed2DSensor(SimpleSensor):
             (1, n) array of booleans indicating whether `state` is inside an obstacle
             and is `True` when a state is inside an obstacle."""
 
-        if isinstance(state, ParticleState):
-            nstates = len(state)
-        else:
-            nstates = 1
+        nstates = len(state) if isinstance(state, ParticleState) else 1
 
         in_obstacles = np.full((nstates), False)
         if not self.obstacles:
@@ -381,14 +403,15 @@ class VisibilityInformed2DSensor(SimpleSensor):
             if isinstance(state, StateVector):
                 point_sequence = [Point(state[self.position_mapping[0:2], :].T)]
             elif isinstance(state, ParticleState):
-                point_sequence = \
-                    MultiPoint(state.state_vector[self.position_mapping[0:2], :].T).geoms
+                point_sequence = MultiPoint(
+                    state.state_vector[self.position_mapping[0:2], :].T
+                ).geoms
             else:
                 point_sequence = [Point(state.state_vector[self.position_mapping[0:2], :].T)]
 
             obstacle_tree = self._obstacle_tree
 
-            in_obs_states = obstacle_tree.query(point_sequence, predicate='within')[0, :]
+            in_obs_states = obstacle_tree.query(point_sequence, predicate="within")[0, :]
             in_obstacles[in_obs_states] = True
         else:
 
@@ -407,34 +430,44 @@ class VisibilityInformed2DSensor(SimpleSensor):
 
         # Calculate relative vector between sensor position and state position
         if isinstance(state, StateVector):
-            relative_ray = np.array([state[self.position_mapping[0], :]
-                                    - self.position[0, 0],
-                                    state[self.position_mapping[1], :]
-                                    - self.position[1, 0]])
+            relative_ray = np.array(
+                [
+                    state[self.position_mapping[0], :] - self.position[0, 0],
+                    state[self.position_mapping[1], :] - self.position[1, 0],
+                ]
+            )
         else:
-            relative_ray = np.array([state.state_vector[self.position_mapping[0], :]
-                                    - self.position[0, 0],
-                                    state.state_vector[self.position_mapping[1], :]
-                                    - self.position[1, 0]])
+            relative_ray = np.array(
+                [
+                    state.state_vector[self.position_mapping[0], :] - self.position[0, 0],
+                    state.state_vector[self.position_mapping[1], :] - self.position[1, 0],
+                ]
+            )
 
-        relative_sensor_to_edge = self.position[0:2] - \
-            np.hstack([self._all_verts[n] for n in relevant_obstacle_idx])
+        relative_sensor_to_edge = self.position[0:2] - np.hstack(
+            [self._all_verts[n] for n in relevant_obstacle_idx]
+        )
 
         # Initialise the intersection vector
         intersections = np.full((relative_edges.shape[1], nstates), False)
 
         # Perform intersection check
         for n in range(relative_edges.shape[1]):
-            denom = relative_ray[1, :]*relative_edges[0, n] \
-                - relative_ray[0, :]*relative_edges[1, n]
-            alpha = (relative_edges[1, n]*relative_sensor_to_edge[0, n]
-                     - relative_edges[0, n]*relative_sensor_to_edge[1, n])/denom
-            beta = (relative_ray[0, :]*relative_sensor_to_edge[1, n]
-                    - relative_ray[1, :]*relative_sensor_to_edge[0, n])/denom
+            denom = (
+                relative_ray[1, :] * relative_edges[0, n]
+                - relative_ray[0, :] * relative_edges[1, n]
+            )
+            alpha = (
+                relative_edges[1, n] * relative_sensor_to_edge[0, n]
+                - relative_edges[0, n] * relative_sensor_to_edge[1, n]
+            ) / denom
+            beta = (
+                relative_ray[0, :] * relative_sensor_to_edge[1, n]
+                - relative_ray[1, :] * relative_sensor_to_edge[0, n]
+            ) / denom
 
-            intersections[n, :] = np.logical_and.reduce((alpha >= 0,
-                                                         alpha <= 1,
-                                                         beta >= 0,
-                                                         beta <= 1))
+            intersections[n, :] = np.logical_and.reduce(
+                (alpha >= 0, alpha <= 1, beta >= 0, beta <= 1)
+            )
 
         return intersections

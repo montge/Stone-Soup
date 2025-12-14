@@ -1,23 +1,28 @@
 """Tests the various Kalman-based smoothers. This test replicates that the exists/existed in
 test_lineargaussian"""
 
-import pytest
-import numpy as np
 from datetime import datetime, timedelta
 
-from stonesoup.types.detection import Detection
-from stonesoup.types.multihypothesis import MultipleHypothesis
-from stonesoup.types.state import GaussianState
-from stonesoup.types.prediction import GaussianStatePrediction
-from stonesoup.types.track import Track
-from stonesoup.types.hypothesis import SingleHypothesis
-from stonesoup.models.transition.linear import ConstantVelocity
+import numpy as np
+import pytest
+
 from stonesoup.models.measurement.linear import LinearGaussian
+from stonesoup.models.transition.linear import ConstantVelocity
 from stonesoup.predictor.kalman import KalmanPredictor
+from stonesoup.smoother.kalman import (
+    ExtendedKalmanSmoother,
+    KalmanSmoother,
+    StochasticIntegrationSmoother,
+    UnscentedKalmanSmoother,
+)
+from stonesoup.types.detection import Detection
+from stonesoup.types.hypothesis import SingleHypothesis
+from stonesoup.types.multihypothesis import MultipleHypothesis
+from stonesoup.types.prediction import GaussianStatePrediction
+from stonesoup.types.state import GaussianState
+from stonesoup.types.track import Track
 from stonesoup.types.update import GaussianStateUpdate
 from stonesoup.updater.kalman import KalmanUpdater
-from stonesoup.smoother.kalman import KalmanSmoother, ExtendedKalmanSmoother, \
-    UnscentedKalmanSmoother, StochasticIntegrationSmoother
 
 
 @pytest.fixture(
@@ -25,16 +30,17 @@ from stonesoup.smoother.kalman import KalmanSmoother, ExtendedKalmanSmoother, \
         KalmanSmoother,  # Standard Kalman
         ExtendedKalmanSmoother,  # Extended Kalman
         UnscentedKalmanSmoother,  # Unscented Kalman
-        StochasticIntegrationSmoother  # Stochastic Integration Smoother
+        StochasticIntegrationSmoother,  # Stochastic Integration Smoother
     ],
-    ids=["standard", "extended", "unscented", "sif"]
+    ids=["standard", "extended", "unscented", "sif"],
 )
 def smoother_class(request):
     return request.param
 
 
-@pytest.mark.parametrize("multi_hypothesis", [False, True],
-                         ids=["SingleHypothesis", "MultipleHypothesis"])
+@pytest.mark.parametrize(
+    "multi_hypothesis", [False, True], ids=["SingleHypothesis", "MultipleHypothesis"]
+)
 def test_kalman_smoother(smoother_class, multi_hypothesis):
 
     # First create a track from some detections and then smooth - check the output.
@@ -51,7 +57,9 @@ def test_kalman_smoother(smoother_class, multi_hypothesis):
         np.array([[14.637975326666801]]),
     ]
 
-    detections = [Detection(m, timestamp=timest) for m, timest in zip(measurements, times)]
+    detections = [
+        Detection(m, timestamp=timest) for m, timest in zip(measurements, times, strict=False)
+    ]
 
     # Setup models.
     trans_model = ConstantVelocity(noise_diff_coeff=1)
@@ -79,8 +87,7 @@ def test_kalman_smoother(smoother_class, multi_hypothesis):
 
     smoother = smoother_class(transition_model=trans_model)
     smoothed_track = smoother.smooth(track)
-    smoothed_state_vectors = [
-        state.state_vector for state in smoothed_track]
+    smoothed_state_vectors = [state.state_vector for state in smoothed_track]
 
     # Verify Values
     target_smoothed_vectors = [
@@ -88,7 +95,7 @@ def test_kalman_smoother(smoother_class, multi_hypothesis):
         np.array([[3.307200214998506], [2.187167840595264]]),
         np.array([[6.130402001958210], [3.308896367021604]]),
         np.array([[9.821303658438408], [4.119557021638030]]),
-        np.array([[14.257730973981149], [4.594862462495096]])
+        np.array([[14.257730973981149], [4.594862462495096]]),
     ]
 
     assert np.allclose(smoothed_state_vectors, target_smoothed_vectors)
@@ -114,26 +121,31 @@ def test_multi_prediction_exception(smoother_class):
             state_vector=[1],
             covar=[[1]],
             timestamp=start,
-            hypothesis=MultipleHypothesis([
-                SingleHypothesis(
-                    GaussianStatePrediction([1], [[1]], timestamp=start), None),
-                SingleHypothesis(
-                    GaussianStatePrediction([2], [[1]], timestamp=start), None),
-                ])
+            hypothesis=MultipleHypothesis(
+                [
+                    SingleHypothesis(GaussianStatePrediction([1], [[1]], timestamp=start), None),
+                    SingleHypothesis(GaussianStatePrediction([2], [[1]], timestamp=start), None),
+                ]
+            ),
         ),
         GaussianStateUpdate(
             state_vector=[1],
             covar=[[1]],
-            timestamp=start+timedelta(1),
-            hypothesis=MultipleHypothesis([
-                SingleHypothesis(
-                    GaussianStatePrediction([1], [[1]], timestamp=start+timedelta(1)), None),
-                SingleHypothesis(
-                    GaussianStatePrediction([2], [[1]], timestamp=start+timedelta(1)), None),
-            ])
-        )
+            timestamp=start + timedelta(1),
+            hypothesis=MultipleHypothesis(
+                [
+                    SingleHypothesis(
+                        GaussianStatePrediction([1], [[1]], timestamp=start + timedelta(1)), None
+                    ),
+                    SingleHypothesis(
+                        GaussianStatePrediction([2], [[1]], timestamp=start + timedelta(1)), None
+                    ),
+                ]
+            ),
+        ),
     ]
     smoother = smoother_class(transition_model=ConstantVelocity(1))
     with pytest.raises(
-            ValueError, match="Track has MultipleHypothesis updates with multiple predictions"):
+        ValueError, match="Track has MultipleHypothesis updates with multiple predictions"
+    ):
         smoother._prediction(track[0])

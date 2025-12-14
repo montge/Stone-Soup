@@ -3,13 +3,14 @@ import numpy as np
 try:
     import cv2
 except ImportError as error:
-    raise ImportError('Use of the image feeder classes requires that opencv-python is installed.')\
-        from error
+    raise ImportError(
+        "Use of the image feeder classes requires that opencv-python is installed."
+    ) from error
 
-from .base import Feeder
 from ..base import Property
 from ..buffered_generator import BufferedGenerator
 from ..types.sensordata import ImageFrame
+from .base import Feeder
 
 
 class CFAR(Feeder):
@@ -27,12 +28,16 @@ class CFAR(Feeder):
         objects. As such :attr:`~.ImageFrame.pixels` for all frames must be 2-D arrays, containing
         grayscale intensity values.
     """
+
     train_size: int = Property(doc="The number of train pixels", default=10)
     guard_size: int = Property(doc="The number of guard pixels", default=4)
-    alpha: float = Property(doc="The threshold value", default=1.)
-    squared: bool = Property(doc="If set to True, the threshold will be computed as a function of "
-                                 "the sum of squares. The default is False, in which case a "
-                                 "simple sum will be evaluated.", default=False)
+    alpha: float = Property(doc="The threshold value", default=1.0)
+    squared: bool = Property(
+        doc="If set to True, the threshold will be computed as a function of "
+        "the sum of squares. The default is False, in which case a "
+        "simple sum will be evaluated.",
+        default=False,
+    )
 
     @BufferedGenerator.generator_method
     def data_gen(self):
@@ -43,8 +48,8 @@ class CFAR(Feeder):
             yield timestamp, new_frame
 
     @staticmethod
-    def cfar(input_img, train_size=10, guard_size=4, alpha=1., squared=False):
-        """ Perform Constant False Alarm Rate (CFAR) detection on an input image
+    def cfar(input_img, train_size=10, guard_size=4, alpha=1.0, squared=False):
+        """Perform Constant False Alarm Rate (CFAR) detection on an input image
 
         Parameters
         ----------
@@ -67,20 +72,22 @@ class CFAR(Feeder):
         # Get width and height of image
         width, height = input_img.shape
         # Compute the CFAR window size
-        window_size = 1 + 2*guard_size + 2*train_size
+        window_size = 1 + 2 * guard_size + 2 * train_size
         # Initialise empty output image
         output_img = np.zeros(input_img.shape, np.uint8)
         # Iterate through all pixels
-        for i in range(height-window_size):
-            for j in range(width-window_size):
+        for i in range(height - window_size):
+            for j in range(width - window_size):
                 # Compute coordinates of test pixel
                 c_i = i + guard_size + train_size
                 c_j = j + guard_size + train_size
                 # Select the pixels inside the window
-                v = input_img[i:i + window_size, j:j + window_size].copy()
+                v = input_img[i : i + window_size, j : j + window_size].copy()
                 # Exclude pixels inside guard zone
-                v[train_size:train_size + 2 * guard_size + 1,
-                  train_size:train_size + 2 * guard_size + 1] = 0
+                v[
+                    train_size : train_size + 2 * guard_size + 1,
+                    train_size : train_size + 2 * guard_size + 1,
+                ] = 0
                 # # The above should be equivalent to the code below
                 # v = np.zeros((window_size, window_size))
                 # for k in range(window_size):
@@ -92,12 +99,12 @@ class CFAR(Feeder):
                 # Compute the threshold
                 if squared:
                     v = v**2
-                threshold = np.sum(v) / (window_size**2 - (2*guard_size + 1)**2)
+                threshold = np.sum(v) / (window_size**2 - (2 * guard_size + 1) ** 2)
                 # Populate the output image
                 input_value = input_img[c_i, c_j]
                 if squared:
                     input_value = input_value**2
-                if input_value/threshold > alpha:
+                if input_value / threshold > alpha:
                     output_img[c_i, c_j] = 255
         return output_img
 
@@ -117,6 +124,7 @@ class CCL(Feeder):
         objects. As such :attr:`~.ImageFrame.pixels` for all frames must be 2-D arrays, where each
         element can take only 1 of 2 possible values (e.g. [0 or 1], [0 or 255], etc.).
     """
+
     @BufferedGenerator.generator_method
     def data_gen(self):
         for timestamp, frame in self.reader:

@@ -5,28 +5,32 @@ from collections.abc import Iterable
 try:
     import optuna
 except ImportError as error:
-    raise ImportError("Usage of Optuna Sensor Manager requires that the optional package "
-                      "`optuna`is installed") from error
+    raise ImportError(
+        "Usage of Optuna Sensor Manager requires that the optional package " "`optuna`is installed"
+    ) from error
 
 from ..base import Property
 from ..sensor.sensor import Sensor
-from .action import RealNumberActionGenerator, Action
 from . import SensorManager
+from .action import Action, RealNumberActionGenerator
 
 
 class OptunaSensorManager(SensorManager):
     """Sensor Manager that uses the optuna package to determine the best actions available within
     a time frame specified by :attr:`timeout`."""
+
     timeout: float = Property(
         doc="Number of seconds that the sensor manager should optimise for each time-step",
-        default=10.)
+        default=10.0,
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         optuna.logging.set_verbosity(optuna.logging.CRITICAL)
 
-    def choose_actions(self, tracks, timestamp, nchoose=1, **kwargs) -> Iterable[tuple[Sensor,
-                                                                                       Action]]:
+    def choose_actions(
+        self, tracks, timestamp, nchoose=1, **kwargs
+    ) -> Iterable[tuple[Sensor, Action]]:
         """Method to find the best actions for the given :attr:`sensors` to according to the
         :attr:`reward_function`.
 
@@ -41,7 +45,7 @@ class OptunaSensorManager(SensorManager):
         -------
         Iterable[Tuple[Sensor, Action]]
             The actions and associated sensors produced by the sensor manager."""
-        all_action_generators = dict()
+        all_action_generators = {}
 
         for sensor in self.sensors:
             action_generators = sensor.actions(timestamp)
@@ -56,8 +60,11 @@ class OptunaSensorManager(SensorManager):
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", UserWarning)
                             value = trial.suggest_float(
-                                f'{i}{j}', generator.min, generator.max + generator.epsilon,
-                                step=getattr(generator, 'resolution', None))
+                                f"{i}{j}",
+                                generator.min,
+                                generator.max + generator.epsilon,
+                                step=getattr(generator, "resolution", None),
+                            )
                     else:
                         raise TypeError(f"type {type(generator)} not handled yet")
                     action = generator.action_from_value(value)
@@ -81,7 +88,7 @@ class OptunaSensorManager(SensorManager):
         for i, (sensor, generators) in enumerate(all_action_generators.items()):
             for j, generator in enumerate(generators):
                 if isinstance(generator, RealNumberActionGenerator):
-                    action = generator.action_from_value(best_params[f'{i}{j}'])
+                    action = generator.action_from_value(best_params[f"{i}{j}"])
                 else:
                     raise TypeError(f"generator type {type(generator)} not supported")
                 if action is not None:

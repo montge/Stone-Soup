@@ -1,8 +1,8 @@
 from collections.abc import Iterator
 
-from ...types.angle import Bearing
 from ...functions import mod_bearing
-from .base import ChangeAngleAction, AngleActionsGenerator
+from ...types.angle import Bearing
+from .base import AngleActionsGenerator, ChangeAngleAction
 
 
 class ChangeDwellAction(ChangeAngleAction):
@@ -37,11 +37,13 @@ class DwellActionsGenerator(AngleActionsGenerator):
 
     @property
     def default_action(self):
-        return ChangeDwellAction(rotation_end_time=self.end_time,
-                                 generator=self,
-                                 end_time=self.end_time,
-                                 target_value=self.initial_value,
-                                 increasing_angle=True)
+        return ChangeDwellAction(
+            rotation_end_time=self.end_time,
+            generator=self,
+            end_time=self.end_time,
+            target_value=self.initial_value,
+            increasing_angle=True,
+        )
 
     def __iter__(self) -> Iterator[ChangeDwellAction]:
         """Returns ChangeDwellAction types, where the value is a possible value of the [0, 0]
@@ -51,11 +53,13 @@ class DwellActionsGenerator(AngleActionsGenerator):
 
         while current_angle <= self.max + self.epsilon:
             rot_end_time, increasing = self._end_time_direction(current_angle)
-            yield ChangeDwellAction(rotation_end_time=rot_end_time,
-                                    generator=self,
-                                    end_time=self.end_time,
-                                    target_value=Bearing(current_angle),
-                                    increasing_angle=increasing)
+            yield ChangeDwellAction(
+                rotation_end_time=rot_end_time,
+                generator=self,
+                end_time=self.end_time,
+                target_value=Bearing(current_angle),
+                increasing_angle=increasing,
+            )
             current_angle += self.resolution
 
     def action_from_value(self, value):
@@ -75,8 +79,10 @@ class DwellActionsGenerator(AngleActionsGenerator):
         angle_action = super().action_from_value(value)
         if angle_action is None:
             return angle_action
-        return ChangeDwellAction(rotation_end_time=angle_action.rotation_end_time,
-                                 generator=self,
-                                 end_time=self.end_time,
-                                 target_value=angle_action.target_value,
-                                 increasing_angle=angle_action.increasing_angle)
+        return ChangeDwellAction(
+            rotation_end_time=angle_action.rotation_end_time,
+            generator=self,
+            end_time=self.end_time,
+            target_value=angle_action.target_value,
+            increasing_angle=angle_action.increasing_angle,
+        )

@@ -4,8 +4,8 @@ import numpy as np
 
 from ...models.transition.linear import ConstantVelocity
 from ...predictor.ensemble import EnsemblePredictor
-from ...types.state import GaussianState, EnsembleState
-from ...types.array import StateVector, CovarianceMatrix
+from ...types.array import CovarianceMatrix, StateVector
+from ...types.state import EnsembleState, GaussianState
 
 
 def test_ensemble():
@@ -31,9 +31,11 @@ def test_ensemble():
     prediction = predictor.predict(prior_state, timestamp=new_timestamp)
 
     # Evaluate mean and covariance
-    eval_ensemble = transition_model.matrix(timestamp=new_timestamp,
-                                            time_interval=time_interval) @ prior_ensemble
-    eval_mean = StateVector((np.average(eval_ensemble, axis=1)))
+    eval_ensemble = (
+        transition_model.matrix(timestamp=new_timestamp, time_interval=time_interval)
+        @ prior_ensemble
+    )
+    eval_mean = StateVector(np.average(eval_ensemble, axis=1))
     eval_cov = np.cov(eval_ensemble)
 
     # Compare evaluated mean and covariance with predictor results

@@ -1,16 +1,16 @@
-from .base import DataAssociator
+import itertools
+
+import numpy as np
+
 from ..base import Property
 from ..hypothesiser import Hypothesiser
 from ..hypothesiser.probability import PDAHypothesiser
 from ..types.detection import MissedDetection
-from ..types.hypothesis import (
-    SingleProbabilityHypothesis, ProbabilityJointHypothesis)
+from ..types.hypothesis import ProbabilityJointHypothesis, SingleProbabilityHypothesis
 from ..types.multihypothesis import MultipleHypothesis
 from ..types.numeric import Probability
-import itertools
-import numpy as np
-
 from ._ehm import EHMTree, TrackClusterer
+from .base import DataAssociator
 
 
 class PDA(DataAssociator):
@@ -21,7 +21,8 @@ class PDA(DataAssociator):
     """
 
     hypothesiser: Hypothesiser = Property(
-        doc="Generate a set of hypotheses for each prediction-detection pair")
+        doc="Generate a set of hypotheses for each prediction-detection pair"
+    )
 
     def associate(self, tracks, detections, timestamp, **kwargs):
 
@@ -29,7 +30,7 @@ class PDA(DataAssociator):
         hypotheses = self.generate_hypotheses(tracks, detections, timestamp, **kwargs)
 
         # Ensure association probabilities are normalised
-        for track, hypothesis in hypotheses.items():
+        for _track, hypothesis in hypotheses.items():
             hypothesis.normalise_probabilities(total_weight=1)
 
         return hypotheses
@@ -56,7 +57,8 @@ class JPDA(DataAssociator):
     """
 
     hypothesiser: PDAHypothesiser = Property(
-        doc="Generate a set of hypotheses for each prediction-detection pair")
+        doc="Generate a set of hypotheses for each prediction-detection pair"
+    )
 
     def associate(self, tracks, detections, timestamp, **kwargs):
 
@@ -65,29 +67,31 @@ class JPDA(DataAssociator):
         hypotheses = self.generate_hypotheses(tracks, detections, timestamp, **kwargs)
 
         # enumerate the Joint Hypotheses of track/detection associations
-        joint_hypotheses = \
-            self.enumerate_JPDA_hypotheses(tracks, hypotheses)
+        joint_hypotheses = self.enumerate_JPDA_hypotheses(tracks, hypotheses)
 
         # Calculate MultiMeasurementHypothesis for each Track over all
         # available Detections with probabilities drawn from JointHypotheses
-        new_hypotheses = dict()
+        new_hypotheses = {}
 
         for track in tracks:
 
-            single_measurement_hypotheses = list()
+            single_measurement_hypotheses = []
 
             # record the MissedDetection hypothesis for this track
             prob_misdetect = Probability.sum(
                 joint_hypothesis.probability
                 for joint_hypothesis in joint_hypotheses
-                if not joint_hypothesis.hypotheses[track].measurement)
+                if not joint_hypothesis.hypotheses[track].measurement
+            )
 
             single_measurement_hypotheses.append(
                 SingleProbabilityHypothesis(
                     hypotheses[track][0].prediction,
                     MissedDetection(timestamp=timestamp),
                     measurement_prediction=hypotheses[track][0].measurement_prediction,
-                    probability=prob_misdetect))
+                    probability=prob_misdetect,
+                )
+            )
 
             # record hypothesis for any given Detection being associated with
             # this track
@@ -97,14 +101,17 @@ class JPDA(DataAssociator):
                 pro_detect_assoc = Probability.sum(
                     joint_hypothesis.probability
                     for joint_hypothesis in joint_hypotheses
-                    if joint_hypothesis.hypotheses[track].measurement is hypothesis.measurement)
+                    if joint_hypothesis.hypotheses[track].measurement is hypothesis.measurement
+                )
 
                 single_measurement_hypotheses.append(
                     SingleProbabilityHypothesis(
                         hypothesis.prediction,
                         hypothesis.measurement,
                         measurement_prediction=hypothesis.measurement_prediction,
-                        probability=pro_detect_assoc))
+                        probability=pro_detect_assoc,
+                    )
+                )
 
             result = MultipleHypothesis(single_measurement_hypotheses, True, 1)
 
@@ -115,7 +122,7 @@ class JPDA(DataAssociator):
     @classmethod
     def enumerate_JPDA_hypotheses(cls, tracks, multihypths):
 
-        joint_hypotheses = list()
+        joint_hypotheses = []
 
         if not tracks:
             return joint_hypotheses
@@ -124,10 +131,10 @@ class JPDA(DataAssociator):
         # which the probability of association is a certain multiple less
         # than the probability of missed detection - detection is outside the
         # gating region, association is impossible
-        possible_assoc = list()
+        possible_assoc = []
 
         for track in tracks:
-            track_possible_assoc = list()
+            track_possible_assoc = []
             for hypothesis in multihypths[track]:
                 # Always include missed detection (gate ratio < 1)
                 track_possible_assoc.append(hypothesis)
@@ -137,22 +144,22 @@ class JPDA(DataAssociator):
         enum_JPDA_hypotheses = (
             joint_hypothesis
             for joint_hypothesis in itertools.product(*possible_assoc)
-            if cls.isvalid(joint_hypothesis))
+            if cls.isvalid(joint_hypothesis)
+        )
 
         # turn the valid JPDA joint hypotheses into 'JointHypothesis'
         for joint_hypothesis in enum_JPDA_hypotheses:
             local_hypotheses = {}
 
-            for track, hypothesis in zip(tracks, joint_hypothesis):
-                local_hypotheses[track] = \
-                    multihypths[track][hypothesis.measurement]
+            for track, hypothesis in zip(tracks, joint_hypothesis, strict=False):
+                local_hypotheses[track] = multihypths[track][hypothesis.measurement]
 
-            joint_hypotheses.append(
-                ProbabilityJointHypothesis(local_hypotheses))
+            joint_hypotheses.append(ProbabilityJointHypothesis(local_hypotheses))
 
         # normalize ProbabilityJointHypotheses relative to each other
-        sum_probabilities = Probability.sum(hypothesis.probability
-                                            for hypothesis in joint_hypotheses)
+        sum_probabilities = Probability.sum(
+            hypothesis.probability for hypothesis in joint_hypotheses
+        )
         for hypothesis in joint_hypotheses:
             hypothesis.probability /= sum_probabilities
 
@@ -178,7 +185,7 @@ class JPDA(DataAssociator):
 
 
 class JPDAwithLBP(JPDA):
-    """ Joint Probabilistic Data Association with Loopy Belief Propagation
+    """Joint Probabilistic Data Association with Loopy Belief Propagation
 
     This is a faster alternative of the standard :class:`~.JPDA` algorithm, which makes use of
     Loopy Belief Propagation (LBP) to efficiently approximately compute the marginal association
@@ -207,12 +214,12 @@ class JPDAwithLBP(JPDA):
         -------
         : mapping of :class:`stonesoup.types.track.Track` : :class:`stonesoup.types.hypothesis.Hypothesis`
             Mapping of track to Hypothesis
-        """  # noqa: E501
+        """
 
         # Calculate MultipleHypothesis for each Track over all available Detections
         hypotheses = {
-            track: self.hypothesiser.hypothesise(track, detections, timestamp)
-            for track in tracks}
+            track: self.hypothesiser.hypothesise(track, detections, timestamp) for track in tracks
+        }
 
         if not hypotheses or not detections:  # No tracks or no detections
             return hypotheses
@@ -221,7 +228,7 @@ class JPDAwithLBP(JPDA):
 
     @staticmethod
     def _calc_likelihood_matrix(tracks, detections, hypotheses):
-        """ Compute the likelihood matrix (i.e. single target association weights)
+        """Compute the likelihood matrix (i.e. single target association weights)
 
         Parameters
         ----------
@@ -254,8 +261,11 @@ class JPDAwithLBP(JPDA):
                 if not hyp:
                     likelihood_matrix[i, 0] = hyp.weight
                 else:
-                    j = next(d_i for d_i, detection in enumerate(detections)
-                             if hyp.measurement is detection)
+                    j = next(
+                        d_i
+                        for d_i, detection in enumerate(detections)
+                        if hyp.measurement is detection
+                    )
                     likelihood_matrix[i, j + 1] = hyp.weight
 
         # change the normalisation of the likelihood matrix to have the no measurement
@@ -318,7 +328,7 @@ class JPDAwithLBP(JPDA):
 
             # determine alpha
             if d > 0:
-                alpha = np.log10((1 + w_star*d) / (1 + w_star))
+                alpha = np.log10((1 + w_star * d) / (1 + w_star))
                 alpha /= np.log10(d)
             else:
                 alpha = 0.0
@@ -326,7 +336,7 @@ class JPDAwithLBP(JPDA):
             # if w_star has a very large value, alpha = 1 which causes division by zero in the
             # convergence check therefore, set alpha to be a nominal value just short of unity
             if alpha == 1:
-                alpha = (1 - 1e-10)
+                alpha = 1 - 1e-10
 
         # calculate marginal probabilities (beliefs)
         s = 1 + np.sum(likelihood_matrix[:, 1:] * nu, axis=1, keepdims=True)
@@ -353,11 +363,11 @@ class JPDAwithLBP(JPDA):
 
         # Calculate MultiMeasurementHypothesis for each Track over all
         # available Detections with probabilities drawn from the association matrix
-        new_hypotheses = dict()
+        new_hypotheses = {}
 
         for i, track in enumerate(track_list):
 
-            single_measurement_hypotheses = list()
+            single_measurement_hypotheses = []
 
             # Null measurement hypothesis
             null_hypothesis = next((hyp for hyp in hypotheses[track] if not hyp), None)
@@ -367,7 +377,9 @@ class JPDAwithLBP(JPDA):
                     null_hypothesis.prediction,
                     MissedDetection(timestamp=time),
                     measurement_prediction=null_hypothesis.measurement_prediction,
-                    probability=prob_misdetect))
+                    probability=prob_misdetect,
+                )
+            )
 
             # True hypotheses
             for hypothesis in hypotheses[track]:
@@ -375,8 +387,11 @@ class JPDAwithLBP(JPDA):
                     continue
 
                 # Get the detection index
-                j = next(d_i + 1 for d_i, detection in enumerate(detection_list)
-                         if hypothesis.measurement is detection)
+                j = next(
+                    d_i + 1
+                    for d_i, detection in enumerate(detection_list)
+                    if hypothesis.measurement is detection
+                )
 
                 pro_detect_assoc = Probability(assoc_prob_matrix[i, j])
                 single_measurement_hypotheses.append(
@@ -384,7 +399,9 @@ class JPDAwithLBP(JPDA):
                         hypothesis.prediction,
                         hypothesis.measurement,
                         measurement_prediction=hypothesis.measurement_prediction,
-                        probability=pro_detect_assoc))
+                        probability=pro_detect_assoc,
+                    )
+                )
 
             new_hypotheses[track] = MultipleHypothesis(single_measurement_hypotheses, True, 1)
 
@@ -414,7 +431,7 @@ class JPDAwithEHM(JPDA):
         clusters = TrackClusterer(hypotheses)
 
         # Update the hypotheses with the new association probabilities for each cluster
-        new_hypotheses = dict()
+        new_hypotheses = {}
         for cluster in clusters.clustered_hypotheses:
 
             # Run EHM2 on cluster and get cluster hypotheses with new probabilities
@@ -424,14 +441,16 @@ class JPDAwithEHM(JPDA):
             # Update hypotheses for each track in the cluster
             for track, new_track_hypotheses in cluster_hypotheses.items():
 
-                single_measurement_hypotheses = list()
+                single_measurement_hypotheses = []
                 for this_hypothesis, new_probability in new_track_hypotheses:
                     single_measurement_hypotheses.append(
                         SingleProbabilityHypothesis(
                             this_hypothesis.prediction,
                             this_hypothesis.measurement,
                             measurement_prediction=this_hypothesis.measurement_prediction,
-                            probability=new_probability))
+                            probability=new_probability,
+                        )
+                    )
 
                 new_hypotheses[track] = MultipleHypothesis(single_measurement_hypotheses, True, 1)
 

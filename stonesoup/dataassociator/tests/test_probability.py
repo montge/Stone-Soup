@@ -1,12 +1,13 @@
 import datetime
 
-import pytest
 import numpy as np
+import pytest
 
-from ..probability import PDA, JPDA, JPDAwithLBP, JPDAwithEHM, JPDAwithEHM2
 from ...types.detection import Detection, MissedDetection
 from ...types.state import GaussianState
 from ...types.track import Track
+from ..probability import JPDA, PDA, JPDAwithEHM, JPDAwithEHM2, JPDAwithLBP
+
 try:
     from ...plugins.pyehm import JPDAWithEHM, JPDAWithEHM2
 except ImportError:
@@ -22,12 +23,13 @@ except ImportError:
         JPDAwithEHM,
         JPDAwithEHM2,
         pytest.param(
-            JPDAWithEHM,
-            marks=pytest.mark.skipif(JPDAWithEHM is None, reason="pyehm required")),
+            JPDAWithEHM, marks=pytest.mark.skipif(JPDAWithEHM is None, reason="pyehm required")
+        ),
         pytest.param(
-            JPDAWithEHM2,
-            marks=pytest.mark.skipif(JPDAWithEHM2 is None, reason="pyehm required")),
-    ])
+            JPDAWithEHM2, marks=pytest.mark.skipif(JPDAWithEHM2 is None, reason="pyehm required")
+        ),
+    ]
+)
 def associator(request, probability_hypothesiser):
     return request.param(probability_hypothesiser)
 
@@ -49,14 +51,10 @@ def test_probability(associator):
     assert len(associations) == 2
 
     # verify association probabilities are correct
-    prob_t1_d1_association = [hyp.probability for hyp in associations[t1]
-                              if hyp.measurement is d1]
-    prob_t1_d2_association = [hyp.probability for hyp in associations[t1]
-                              if hyp.measurement is d2]
-    prob_t2_d1_association = [hyp.probability for hyp in associations[t2]
-                              if hyp.measurement is d1]
-    prob_t2_d2_association = [hyp.probability for hyp in associations[t2]
-                              if hyp.measurement is d2]
+    prob_t1_d1_association = [hyp.probability for hyp in associations[t1] if hyp.measurement is d1]
+    prob_t1_d2_association = [hyp.probability for hyp in associations[t1] if hyp.measurement is d2]
+    prob_t2_d1_association = [hyp.probability for hyp in associations[t2] if hyp.measurement is d1]
+    prob_t2_d2_association = [hyp.probability for hyp in associations[t2] if hyp.measurement is d2]
 
     assert prob_t1_d1_association[0] > prob_t1_d2_association[0]
     assert prob_t2_d1_association[0] < prob_t2_d2_association[0]
@@ -79,11 +77,19 @@ def test_missed_detection_probability(associator):
     max_track2_prob = max([hyp.probability for hyp in associations[t1]])
 
     track1_missed_detect_prob = max(
-        [hyp.probability for hyp in associations[t1]
-         if isinstance(hyp.measurement, MissedDetection)])
+        [
+            hyp.probability
+            for hyp in associations[t1]
+            if isinstance(hyp.measurement, MissedDetection)
+        ]
+    )
     track2_missed_detect_prob = max(
-        [hyp.probability for hyp in associations[t1]
-         if isinstance(hyp.measurement, MissedDetection)])
+        [
+            hyp.probability
+            for hyp in associations[t1]
+            if isinstance(hyp.measurement, MissedDetection)
+        ]
+    )
 
     assert max_track1_prob == track1_missed_detect_prob
     assert max_track2_prob == track2_missed_detect_prob
@@ -101,9 +107,11 @@ def test_no_detections_probability(associator):
     associations = associator.associate(tracks, detections, timestamp)
 
     # All hypotheses should be missed detection hypothesis
-    assert all(isinstance(hypothesis.measurement, MissedDetection)
-               for multihyp in associations.values()
-               for hypothesis in multihyp)
+    assert all(
+        isinstance(hypothesis.measurement, MissedDetection)
+        for multihyp in associations.values()
+        for hypothesis in multihyp
+    )
 
 
 def test_no_tracks_probability(associator):

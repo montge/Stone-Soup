@@ -1,25 +1,33 @@
-import pytest
-import numpy as np
 from datetime import datetime, timedelta
 
-from ..orbital import (
-    stumpff_c, stumpff_s, universal_anomaly_newton,
-    lagrange_coefficients_from_universal_anomaly, keplerian_to_rv,
-    orbital_state_eci_to_ecef, orbital_state_ecef_to_eci,
-    orbital_state_j2000_to_gcrs, orbital_state_gcrs_to_j2000,
-    compute_orbital_period, compute_orbital_velocity,
-    compute_specific_angular_momentum, compute_specific_energy
-)
+import numpy as np
+import pytest
+
 from ...types.array import StateVector
+from ..orbital import (
+    compute_orbital_period,
+    compute_orbital_velocity,
+    compute_specific_angular_momentum,
+    compute_specific_energy,
+    keplerian_to_rv,
+    lagrange_coefficients_from_universal_anomaly,
+    orbital_state_ecef_to_eci,
+    orbital_state_eci_to_ecef,
+    orbital_state_gcrs_to_j2000,
+    orbital_state_j2000_to_gcrs,
+    stumpff_c,
+    stumpff_s,
+    universal_anomaly_newton,
+)
 
 
 @pytest.mark.parametrize(
     "z, outs, outc",
     [
-        (0, 1/6, 1/2),
+        (0, 1 / 6, 1 / 2),
         (np.pi**2, 0.10132118364233778, 0.20264236728467555),
         (-(np.pi**2), 0.2711433813983066, 1.073189242960177),
-    ]
+    ],
 )
 def test_stumpff(z, outs, outc):
     """Test the Stumpf functions"""
@@ -49,11 +57,13 @@ def test_universal_anomaly_and_lagrange():
     start_at = StateVector([7000, -12124, 0, 2.6679, 4.6210, 0])
     deltat = timedelta(hours=1)
 
-    assert np.isclose(universal_anomaly_newton(start_at, deltat, grav_parameter=bigg),
-                      chi_is, atol=1e-2)
+    assert np.isclose(
+        universal_anomaly_newton(start_at, deltat, grav_parameter=bigg), chi_is, atol=1e-2
+    )
 
-    f, g, fdot, gdot = lagrange_coefficients_from_universal_anomaly(start_at, deltat,
-                                                                    grav_parameter=bigg)
+    f, g, fdot, gdot = lagrange_coefficients_from_universal_anomaly(
+        start_at, deltat, grav_parameter=bigg
+    )
     assert np.isclose(f, f_is, rtol=1e-4)
     assert np.isclose(g, g_is, rtol=2e-3)  # Seems a bit loose - is the textbook wrong?
     assert np.isclose(fdot, fdot_is, rtol=1e-4)
@@ -114,9 +124,7 @@ def test_eci_ecef_roundtrip():
     state_recovered = orbital_state_ecef_to_eci(state_ecef, timestamp)
 
     np.testing.assert_allclose(
-        np.array(state_recovered).flatten(),
-        np.array(state_eci).flatten(),
-        rtol=1e-10
+        np.array(state_recovered).flatten(), np.array(state_eci).flatten(), rtol=1e-10
     )
 
 
@@ -129,9 +137,7 @@ def test_ecef_eci_roundtrip():
     state_recovered = orbital_state_eci_to_ecef(state_eci, timestamp)
 
     np.testing.assert_allclose(
-        np.array(state_recovered).flatten(),
-        np.array(state_ecef).flatten(),
-        rtol=1e-10
+        np.array(state_recovered).flatten(), np.array(state_ecef).flatten(), rtol=1e-10
     )
 
 
@@ -178,9 +184,7 @@ def test_j2000_gcrs_roundtrip():
     state_recovered = orbital_state_gcrs_to_j2000(state_gcrs, timestamp)
 
     np.testing.assert_allclose(
-        np.array(state_recovered).flatten(),
-        np.array(state_j2000).flatten(),
-        rtol=1e-10
+        np.array(state_recovered).flatten(), np.array(state_j2000).flatten(), rtol=1e-10
     )
 
 
@@ -385,7 +389,6 @@ def test_escape_velocity():
 def test_hyperbolic_positive_energy():
     """Test that hyperbolic trajectory has positive energy."""
     r = 7000000
-    mu = 3.986004418e14
 
     # Above escape velocity
     v = 15000  # Much faster than escape velocity (~10.9 km/s)
@@ -411,7 +414,7 @@ def test_energy_semi_major_axis_relation():
 
     # Verify via vis-viva: v^2 = mu * (2/r - 1/a)
     # So 1/a = 2/r - v^2/mu
-    inv_a = 2/r - v**2/mu
+    inv_a = 2 / r - v**2 / mu
     a_from_visviva = 1 / inv_a
 
     np.testing.assert_allclose(a_computed, a_from_visviva, rtol=1e-10)

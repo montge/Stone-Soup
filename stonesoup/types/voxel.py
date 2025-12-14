@@ -4,15 +4,21 @@ This module provides voxel grid and octree-based state types for representing
 spatial distributions in 3D space, useful for extended object tracking and
 volumetric state estimation.
 """
+
+from __future__ import annotations
+
 import datetime
-from typing import Optional, Tuple, Union
+from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy.stats import multivariate_normal
 
 from ..base import Property
-from .array import StateVector, CovarianceMatrix
+from .array import CovarianceMatrix, StateVector
 from .base import Type
+
+if TYPE_CHECKING:
+    from .state import GaussianState
 
 
 class VoxelGrid(Type):
@@ -40,40 +46,40 @@ class VoxelGrid(Type):
 
     bounds: np.ndarray = Property(
         doc="Spatial bounds as [x_min, x_max, y_min, y_max, z_min, z_max]. "
-            "Must be a 6-element array defining the axis-aligned bounding box."
+        "Must be a 6-element array defining the axis-aligned bounding box."
     )
     resolution: float = Property(
         doc="Voxel resolution (edge length) in meters. All voxels are cubic "
-            "with this edge length."
+        "with this edge length."
     )
     max_depth: int = Property(
         default=0,
         doc="Maximum octree subdivision depth for adaptive resolution. "
-            "If 0 (default), uniform grid is used without octree subdivision."
+        "If 0 (default), uniform grid is used without octree subdivision.",
     )
 
     def __init__(self, bounds, *args, **kwargs):
         if not isinstance(bounds, np.ndarray):
             bounds = np.array(bounds)
         if bounds.shape != (6,):
-            raise ValueError(
-                f"bounds must be a 6-element array, got shape {bounds.shape}")
+            raise ValueError(f"bounds must be a 6-element array, got shape {bounds.shape}")
         if not (bounds[0] < bounds[1] and bounds[2] < bounds[3] and bounds[4] < bounds[5]):
-            raise ValueError(
-                "bounds must satisfy x_min < x_max, y_min < y_max, z_min < z_max")
+            raise ValueError("bounds must satisfy x_min < x_max, y_min < y_max, z_min < z_max")
         super().__init__(bounds, *args, **kwargs)
 
     @property
     def dimensions(self) -> np.ndarray:
         """Grid dimensions in each axis [dx, dy, dz]."""
-        return np.array([
-            self.bounds[1] - self.bounds[0],
-            self.bounds[3] - self.bounds[2],
-            self.bounds[5] - self.bounds[4]
-        ])
+        return np.array(
+            [
+                self.bounds[1] - self.bounds[0],
+                self.bounds[3] - self.bounds[2],
+                self.bounds[5] - self.bounds[4],
+            ]
+        )
 
     @property
-    def shape(self) -> Tuple[int, int, int]:
+    def shape(self) -> tuple[int, int, int]:
         """Number of voxels along each axis (nx, ny, nz)."""
         dims = self.dimensions
         return tuple(int(np.ceil(d / self.resolution)) for d in dims)
@@ -83,7 +89,7 @@ class VoxelGrid(Type):
         """Total number of voxels in the grid."""
         return int(np.prod(self.shape))
 
-    def voxel_indices(self, point: np.ndarray) -> Optional[Tuple[int, int, int]]:
+    def voxel_indices(self, point: np.ndarray) -> tuple[int, int, int] | None:
         """Convert a 3D point to voxel grid indices.
 
         Parameters
@@ -106,11 +112,13 @@ class VoxelGrid(Type):
             return None
 
         # Compute normalized position [0, 1] in each dimension
-        normalized = np.array([
-            (point[0] - self.bounds[0]) / (self.bounds[1] - self.bounds[0]),
-            (point[1] - self.bounds[2]) / (self.bounds[3] - self.bounds[2]),
-            (point[2] - self.bounds[4]) / (self.bounds[5] - self.bounds[4])
-        ])
+        normalized = np.array(
+            [
+                (point[0] - self.bounds[0]) / (self.bounds[1] - self.bounds[0]),
+                (point[1] - self.bounds[2]) / (self.bounds[3] - self.bounds[2]),
+                (point[2] - self.bounds[4]) / (self.bounds[5] - self.bounds[4]),
+            ]
+        )
 
         # Convert to voxel indices
         shape = self.shape
@@ -145,9 +153,11 @@ class VoxelGrid(Type):
         if point.shape != (3,):
             raise ValueError(f"point must be 3D, got shape {point.shape}")
 
-        return (self.bounds[0] <= point[0] <= self.bounds[1] and
-                self.bounds[2] <= point[1] <= self.bounds[3] and
-                self.bounds[4] <= point[2] <= self.bounds[5])
+        return (
+            self.bounds[0] <= point[0] <= self.bounds[1]
+            and self.bounds[2] <= point[1] <= self.bounds[3]
+            and self.bounds[4] <= point[2] <= self.bounds[5]
+        )
 
     def volume(self) -> float:
         """Calculate total volume of the grid.
@@ -165,7 +175,7 @@ class VoxelGrid(Type):
         """
         return float(np.prod(self.dimensions))
 
-    def voxel_center(self, indices: Tuple[int, int, int]) -> np.ndarray:
+    def voxel_center(self, indices: tuple[int, int, int]) -> np.ndarray:
         """Get the center point of a voxel given its indices.
 
         Parameters
@@ -221,26 +231,23 @@ class OctreeNode(Type):
     bounds: np.ndarray = Property(
         doc="Spatial bounds of this node as [x_min, x_max, y_min, y_max, z_min, z_max]."
     )
-    depth: int = Property(
-        doc="Depth level in the octree (0 = root)."
-    )
-    data: Optional[float] = Property(
+    depth: int = Property(doc="Depth level in the octree (0 = root).")
+    data: float | None = Property(
         default=None,
         doc="Data value stored at this node (e.g., occupancy probability). "
-            "None for non-leaf nodes."
+        "None for non-leaf nodes.",
     )
-    children: Optional[Tuple['OctreeNode', ...]] = Property(
+    children: tuple[OctreeNode, ...] | None = Property(
         default=None,
         doc="Tuple of 8 child nodes for subdivided octants, None for leaf nodes. "
-            "Children are ordered by binary encoding: (x_low/high, y_low/high, z_low/high)."
+        "Children are ordered by binary encoding: (x_low/high, y_low/high, z_low/high).",
     )
 
     def __init__(self, bounds, *args, **kwargs):
         if not isinstance(bounds, np.ndarray):
             bounds = np.array(bounds)
         if bounds.shape != (6,):
-            raise ValueError(
-                f"bounds must be a 6-element array, got shape {bounds.shape}")
+            raise ValueError(f"bounds must be a 6-element array, got shape {bounds.shape}")
         super().__init__(bounds, *args, **kwargs)
 
     @property
@@ -251,11 +258,13 @@ class OctreeNode(Type):
     @property
     def center(self) -> np.ndarray:
         """Center point of this node's bounds."""
-        return np.array([
-            (self.bounds[0] + self.bounds[1]) / 2,
-            (self.bounds[2] + self.bounds[3]) / 2,
-            (self.bounds[4] + self.bounds[5]) / 2
-        ])
+        return np.array(
+            [
+                (self.bounds[0] + self.bounds[1]) / 2,
+                (self.bounds[2] + self.bounds[3]) / 2,
+                (self.bounds[4] + self.bounds[5]) / 2,
+            ]
+        )
 
     @property
     def volume(self) -> float:
@@ -265,7 +274,7 @@ class OctreeNode(Type):
         dz = self.bounds[5] - self.bounds[4]
         return dx * dy * dz
 
-    def subdivide(self) -> Tuple['OctreeNode', ...]:
+    def subdivide(self) -> tuple[OctreeNode, ...]:
         """Subdivide this node into 8 octant children.
 
         Returns
@@ -290,18 +299,20 @@ class OctreeNode(Type):
         for ix in range(2):
             for iy in range(2):
                 for iz in range(2):
-                    child_bounds = np.array([
-                        center[0] if ix else self.bounds[0],
-                        self.bounds[1] if ix else center[0],
-                        center[1] if iy else self.bounds[2],
-                        self.bounds[3] if iy else center[1],
-                        center[2] if iz else self.bounds[4],
-                        self.bounds[5] if iz else center[2]
-                    ])
+                    child_bounds = np.array(
+                        [
+                            center[0] if ix else self.bounds[0],
+                            self.bounds[1] if ix else center[0],
+                            center[1] if iy else self.bounds[2],
+                            self.bounds[3] if iy else center[1],
+                            center[2] if iz else self.bounds[4],
+                            self.bounds[5] if iz else center[2],
+                        ]
+                    )
                     child = OctreeNode(
                         bounds=child_bounds,
                         depth=self.depth + 1,
-                        data=self.data  # Inherit parent's data
+                        data=self.data,  # Inherit parent's data
                     )
                     children.append(child)
 
@@ -323,9 +334,11 @@ class OctreeNode(Type):
         if point.shape != (3,):
             raise ValueError(f"point must be 3D, got shape {point.shape}")
 
-        return (self.bounds[0] <= point[0] <= self.bounds[1] and
-                self.bounds[2] <= point[1] <= self.bounds[3] and
-                self.bounds[4] <= point[2] <= self.bounds[5])
+        return (
+            self.bounds[0] <= point[0] <= self.bounds[1]
+            and self.bounds[2] <= point[1] <= self.bounds[3]
+            and self.bounds[4] <= point[2] <= self.bounds[5]
+        )
 
 
 class VoxelState(Type):
@@ -360,18 +373,15 @@ class VoxelState(Type):
     >>> gaussian_state = state.to_gaussian()
     """
 
-    grid: VoxelGrid = Property(
-        doc="VoxelGrid defining the spatial structure."
-    )
-    occupancy: Union[np.ndarray, dict] = Property(
+    grid: VoxelGrid = Property(doc="VoxelGrid defining the spatial structure.")
+    occupancy: np.ndarray | dict = Property(
         doc="Occupancy probabilities for voxels. Can be either:\n"
-            "- Dense: numpy array with shape matching grid.shape\n"
-            "- Sparse: dict mapping voxel indices (i,j,k) to probability values\n"
-            "Values should be in [0, 1] representing probability of occupancy."
+        "- Dense: numpy array with shape matching grid.shape\n"
+        "- Sparse: dict mapping voxel indices (i,j,k) to probability values\n"
+        "Values should be in [0, 1] representing probability of occupancy."
     )
     timestamp: datetime.datetime = Property(
-        default=None,
-        doc="Timestamp of the state. Default None."
+        default=None, doc="Timestamp of the state. Default None."
     )
 
     def __init__(self, grid, occupancy, *args, **kwargs):
@@ -380,19 +390,17 @@ class VoxelState(Type):
             if occupancy.shape != grid.shape:
                 raise ValueError(
                     f"Dense occupancy shape {occupancy.shape} does not match "
-                    f"grid shape {grid.shape}")
+                    f"grid shape {grid.shape}"
+                )
         elif isinstance(occupancy, dict):
             # Validate sparse indices
-            for idx in occupancy.keys():
+            for idx in occupancy:
                 if not isinstance(idx, tuple) or len(idx) != 3:
-                    raise ValueError(
-                        f"Sparse occupancy keys must be 3-tuples, got {idx}")
+                    raise ValueError(f"Sparse occupancy keys must be 3-tuples, got {idx}")
                 if not all(isinstance(i, (int, np.integer)) for i in idx):
-                    raise ValueError(
-                        f"Sparse occupancy indices must be integers, got {idx}")
+                    raise ValueError(f"Sparse occupancy indices must be integers, got {idx}")
         else:
-            raise TypeError(
-                f"occupancy must be numpy array or dict, got {type(occupancy)}")
+            raise TypeError(f"occupancy must be numpy array or dict, got {type(occupancy)}")
 
         super().__init__(grid, occupancy, *args, **kwargs)
 
@@ -431,7 +439,7 @@ class VoxelState(Type):
         else:
             return float(self.occupancy[indices])
 
-    def to_gaussian(self) -> 'GaussianState':
+    def to_gaussian(self) -> GaussianState:
         """Convert voxel representation to Gaussian state approximation.
 
         Computes the mean and covariance of the occupied voxels weighted
@@ -480,17 +488,19 @@ class VoxelState(Type):
 
         if not points:
             # No occupied voxels, return state at grid center with large covariance
-            center = np.array([
-                (self.grid.bounds[0] + self.grid.bounds[1]) / 2,
-                (self.grid.bounds[2] + self.grid.bounds[3]) / 2,
-                (self.grid.bounds[4] + self.grid.bounds[5]) / 2
-            ])
+            center = np.array(
+                [
+                    (self.grid.bounds[0] + self.grid.bounds[1]) / 2,
+                    (self.grid.bounds[2] + self.grid.bounds[3]) / 2,
+                    (self.grid.bounds[4] + self.grid.bounds[5]) / 2,
+                ]
+            )
             dims = self.grid.dimensions
             covar = np.diag((dims / 2) ** 2)  # Large uncertainty
             return GaussianState(
                 state_vector=StateVector(center),
                 covar=CovarianceMatrix(covar),
-                timestamp=self.timestamp
+                timestamp=self.timestamp,
             )
 
         points = np.array(points)
@@ -502,21 +512,20 @@ class VoxelState(Type):
 
         # Compute weighted covariance
         centered = points - mean
-        covar = (centered.T @ np.diag(weights) @ centered)
+        covar = centered.T @ np.diag(weights) @ centered
 
         # Ensure minimum covariance based on voxel resolution
         min_var = (self.grid.resolution / 2) ** 2
         covar += np.eye(3) * min_var
 
         return GaussianState(
-            state_vector=StateVector(mean),
-            covar=CovarianceMatrix(covar),
-            timestamp=self.timestamp
+            state_vector=StateVector(mean), covar=CovarianceMatrix(covar), timestamp=self.timestamp
         )
 
     @classmethod
-    def from_gaussian(cls, gaussian_state: 'GaussianState', grid: VoxelGrid,
-                      threshold: float = 0.01) -> 'VoxelState':
+    def from_gaussian(
+        cls, gaussian_state: GaussianState, grid: VoxelGrid, threshold: float = 0.01
+    ) -> VoxelState:
         """Create voxel state from Gaussian state.
 
         Evaluates the Gaussian PDF at each voxel center to create an
@@ -548,7 +557,8 @@ class VoxelState(Type):
         """
         if gaussian_state.state_vector.shape[0] != 3:
             raise ValueError(
-                f"Gaussian state must be 3D, got {gaussian_state.state_vector.shape[0]}D")
+                f"Gaussian state must be 3D, got {gaussian_state.state_vector.shape[0]}D"
+            )
 
         mean = gaussian_state.state_vector.flatten()
         covar = gaussian_state.covar
@@ -574,13 +584,9 @@ class VoxelState(Type):
         if max_prob > 0:
             occupancy = {idx: prob / max_prob for idx, prob in occupancy.items()}
 
-        return cls(
-            grid=grid,
-            occupancy=occupancy,
-            timestamp=gaussian_state.timestamp
-        )
+        return cls(grid=grid, occupancy=occupancy, timestamp=gaussian_state.timestamp)
 
-    def to_dense(self) -> 'VoxelState':
+    def to_dense(self) -> VoxelState:
         """Convert sparse occupancy to dense array representation.
 
         Returns
@@ -599,9 +605,7 @@ class VoxelState(Type):
         """
         if not self.is_sparse:
             return VoxelState(
-                grid=self.grid,
-                occupancy=self.occupancy.copy(),
-                timestamp=self.timestamp
+                grid=self.grid, occupancy=self.occupancy.copy(), timestamp=self.timestamp
             )
 
         # Create dense array
@@ -609,13 +613,9 @@ class VoxelState(Type):
         for indices, prob in self.occupancy.items():
             dense[indices] = prob
 
-        return VoxelState(
-            grid=self.grid,
-            occupancy=dense,
-            timestamp=self.timestamp
-        )
+        return VoxelState(grid=self.grid, occupancy=dense, timestamp=self.timestamp)
 
-    def to_sparse(self, threshold: float = 1e-6) -> 'VoxelState':
+    def to_sparse(self, threshold: float = 1e-6) -> VoxelState:
         """Convert dense occupancy to sparse dictionary representation.
 
         Parameters
@@ -640,13 +640,8 @@ class VoxelState(Type):
         """
         if self.is_sparse:
             # Filter by threshold
-            sparse = {idx: prob for idx, prob in self.occupancy.items()
-                      if prob >= threshold}
-            return VoxelState(
-                grid=self.grid,
-                occupancy=sparse,
-                timestamp=self.timestamp
-            )
+            sparse = {idx: prob for idx, prob in self.occupancy.items() if prob >= threshold}
+            return VoxelState(grid=self.grid, occupancy=sparse, timestamp=self.timestamp)
 
         # Convert dense to sparse
         sparse = {}
@@ -658,8 +653,4 @@ class VoxelState(Type):
                     if prob >= threshold:
                         sparse[(i, j, k)] = float(prob)
 
-        return VoxelState(
-            grid=self.grid,
-            occupancy=sparse,
-            timestamp=self.timestamp
-        )
+        return VoxelState(grid=self.grid, occupancy=sparse, timestamp=self.timestamp)

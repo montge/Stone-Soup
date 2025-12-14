@@ -2,15 +2,15 @@ import datetime
 
 import numpy as np
 
-from ..pointprocess import PointProcessMultiTargetTracker
-from ...types.state import TaggedWeightedGaussianState
-from ...mixturereducer.gaussianmixture import GaussianMixtureReducer
-from ...updater.pointprocess import PHDUpdater
-from ...hypothesiser.gaussianmixture import GaussianMixtureHypothesiser
-from ...hypothesiser.distance import DistanceHypothesiser
 from ... import measures
+from ...hypothesiser.distance import DistanceHypothesiser
+from ...hypothesiser.gaussianmixture import GaussianMixtureHypothesiser
+from ...mixturereducer.gaussianmixture import GaussianMixtureReducer
 from ...models.measurement.linear import LinearGaussian
+from ...types.state import TaggedWeightedGaussianState
 from ...updater.kalman import KalmanUpdater
+from ...updater.pointprocess import PHDUpdater
+from ..pointprocess import PointProcessMultiTargetTracker
 
 
 def test_point_process_multi_target_tracker_cycle(detector, predictor):
@@ -23,24 +23,27 @@ def test_point_process_multi_target_tracker_cycle(detector, predictor):
         birth_covar,
         weight=0.3,
         tag=TaggedWeightedGaussianState.BIRTH,
-        timestamp=timestamp)
+        timestamp=timestamp,
+    )
 
     # Initialise a Kalman Updater
-    measurement_model = LinearGaussian(ndim_state=1, mapping=[0],
-                                       noise_covar=np.array([[0.04]]))
+    measurement_model = LinearGaussian(ndim_state=1, mapping=[0], noise_covar=np.array([[0.04]]))
     updater = KalmanUpdater(measurement_model=measurement_model)
     # Initialise a Gaussian Mixture hypothesiser
     measure = measures.Mahalanobis()
     base_hypothesiser = DistanceHypothesiser(
-        predictor, updater, measure=measure, missed_distance=16)
-    hypothesiser = GaussianMixtureHypothesiser(hypothesiser=base_hypothesiser,
-                                               order_by_detection=True)
+        predictor, updater, measure=measure, missed_distance=16
+    )
+    hypothesiser = GaussianMixtureHypothesiser(
+        hypothesiser=base_hypothesiser, order_by_detection=True
+    )
 
     # Initialise a Gaussian Mixture reducer
     merge_threshold = 4
     prune_threshold = 1e-5
-    reducer = GaussianMixtureReducer(prune_threshold=prune_threshold,
-                                     merge_threshold=merge_threshold)
+    reducer = GaussianMixtureReducer(
+        prune_threshold=prune_threshold, merge_threshold=merge_threshold
+    )
 
     # Initialise a Point Process updater
     phd_updater = PHDUpdater(updater=updater, prob_detection=0.8)
@@ -50,8 +53,8 @@ def test_point_process_multi_target_tracker_cycle(detector, predictor):
         updater=phd_updater,
         hypothesiser=hypothesiser,
         reducer=reducer,
-        birth_component=birth_component
-        )
+        birth_component=birth_component,
+    )
 
     for time, tracks in tracker:
         assert time == previous_time + datetime.timedelta(minutes=1)

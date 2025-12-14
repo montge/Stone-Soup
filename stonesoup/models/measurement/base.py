@@ -1,8 +1,8 @@
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
-from ..base import Model
 from ...base import Property
+from ..base import Model
 
 
 class MeasurementModel(Model, ABC):

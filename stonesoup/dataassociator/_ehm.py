@@ -1,4 +1,5 @@
 import numpy as np
+
 from stonesoup.types.numeric import Probability
 
 
@@ -9,7 +10,7 @@ class EHMTree:
     """
 
     def __init__(self, track_hypotheses, make_tree=True):
-        """ Construct the EHMTree object from a list of track hypotheses
+        """Construct the EHMTree object from a list of track hypotheses
 
         Parameters
         ----------
@@ -39,7 +40,6 @@ class EHMTree:
         self._set_forward_weights()
 
     def get_posterior_hypotheses(self):
-
         """
         Get the hypotheses of each track along with their revised probabilities under the Mutual
         Exclusion constraint.
@@ -70,7 +70,7 @@ class EHMTree:
         for track, measurement_hypotheses in reversed(track_hypotheses):
 
             # Get measurements which might conflict
-            meas = set([x.measurement for x in measurement_hypotheses if x.measurement])
+            meas = {x.measurement for x in measurement_hypotheses if x.measurement}
 
             accmeas = meas
             child_tracks = []
@@ -107,7 +107,7 @@ class EHMTree:
             # Add nodes to children of this level
             child_level = self.levels[child_track]
 
-            for usedmeas, node in level.nodes.items():
+            for usedmeas, _node in level.nodes.items():
 
                 # For each hypothesis of this track:
                 for hypothesis in level.measurement_hypotheses:
@@ -178,8 +178,9 @@ class EHMTree:
                     for child_track in level.child_tracks:
                         child_level = self.levels[child_track]
                         newusedmeas = child_level._get_new_used_measurements(usedmeas, hypothesis)
-                        child_backward_weights[child_track] = \
-                            child_level.nodes[newusedmeas].backward_weight
+                        child_backward_weights[child_track] = child_level.nodes[
+                            newusedmeas
+                        ].backward_weight
 
                     # For each child level
                     for child_track in level.child_tracks:
@@ -260,7 +261,8 @@ class EHMLevel:
         # Return measurements which might conflict with assignments at this level or
         # descendants, given parent hypothesis and set of previously used measurements
         return previous_used_measurements.union({hypothesis.measurement}).intersection(
-            self.accumulated_measurements)
+            self.accumulated_measurements
+        )
 
 
 class TrackClusterer:
@@ -268,8 +270,10 @@ class TrackClusterer:
     def __init__(self, hypotheses):
 
         # Get initial clusters of tracks (1 track per cluster)
-        self.clusters = [((track,), set([hyp.measurement for hyp in hyps if hyp.measurement]))
-                         for track, hyps in hypotheses.items()]
+        self.clusters = [
+            ((track,), {hyp.measurement for hyp in hyps if hyp.measurement})
+            for track, hyps in hypotheses.items()
+        ]
 
         # Get table of number of intersections
         nintersect_table = self._get_num_intersect_table()
@@ -283,31 +287,32 @@ class TrackClusterer:
                 break
 
             # Merge one cluster into another and delete it
-            self.clusters[maxi] = (self.clusters[maxi][0] + self.clusters[maxj][0],
-                                   self.clusters[maxi][1].union(self.clusters[maxj][1]))
+            self.clusters[maxi] = (
+                self.clusters[maxi][0] + self.clusters[maxj][0],
+                self.clusters[maxi][1].union(self.clusters[maxj][1]),
+            )
             del self.clusters[maxj]
 
             # Compute new intersection table
-            nintersect_table = np.delete(
-                np.delete(nintersect_table, maxj, axis=0), maxj, axis=1
-            )
+            nintersect_table = np.delete(np.delete(nintersect_table, maxj, axis=0), maxj, axis=1)
             for j in range(maxi):
                 nintersect_table[j, maxi] = len(self.clusters[maxi][1] & self.clusters[j][1])
-            for j in range(maxi+1, nintersect_table.shape[0]):
+            for j in range(maxi + 1, nintersect_table.shape[0]):
                 nintersect_table[maxi, j] = len(self.clusters[maxi][1] & self.clusters[j][1])
 
         # Get clustered hypotheses
         self.clustered_hypotheses = []
         for cluster_tracks, _ in self.clusters:
-            self.clustered_hypotheses.append([(track, hypotheses[track])
-                                              for track in cluster_tracks])
+            self.clustered_hypotheses.append(
+                [(track, hypotheses[track]) for track in cluster_tracks]
+            )
 
     def _get_num_intersect_table(self):
         # Get table nintersect_table[i1, i2] = number of measurements in both clusters i1 and i2,
         # where i2 > i1
         nclusters = len(self.clusters)
-        nintersect_table = np.zeros((nclusters, nclusters)).astype('int')
+        nintersect_table = np.zeros((nclusters, nclusters)).astype("int")
         for i1, c1 in enumerate(self.clusters):
-            for i2, c2 in enumerate(self.clusters[i1+1:]):
-                nintersect_table[i1][i1+i2+1] = len(c1[1].intersection(c2[1]))
+            for i2, c2 in enumerate(self.clusters[i1 + 1 :]):
+                nintersect_table[i1][i1 + i2 + 1] = len(c1[1].intersection(c2[1]))
         return nintersect_table

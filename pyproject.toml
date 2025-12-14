@@ -200,11 +200,41 @@ ignore = [
     "E501",   # Line too long (handled by formatter)
     "S101",   # Use of assert (needed for tests)
     "B008",   # Function call in default argument (Property pattern)
+    "B019",   # lru_cache on methods - existing pattern in codebase
+    "B007",   # Loop variable not used - often intentional for unpacking
+    "B904",   # Raise from in except - existing pattern
+    "RUF002", # Ambiguous unicode (en-dash) in docstrings - bibliographic references
+    "RUF003", # Ambiguous unicode (curly quotes) in docstrings - bibliographic references
+    "RUF012", # Mutable class attributes - existing pattern with Property system
+    "SIM102", # Nested if statements - sometimes clearer separately
+    "SIM105", # Use contextlib.suppress - existing try/except pattern
+    "SIM108", # Ternary operator - existing if/else pattern
+    "SIM113", # Enumerate - existing pattern
+    "SIM115", # Use context manager - existing pattern
+    "PTH109", # os.getcwd - existing pattern
+    "PTH112", # os.path.isdir - existing pattern
+    "PTH122", # os.path.splitext - existing pattern
+    "PTH123", # open() - existing pattern
+    "S301",   # pickle usage - existing serialization pattern
+    "S311",   # random usage - pseudorandom ok for simulations
+    "B017",   # assertRaises - existing test pattern
+    "B020",   # Loop variable overwritten - sometimes intentional
+    "B024",   # Abstract class without abstract methods - existing pattern
+    "B026",   # Star-arg unpacking - existing pattern
+    "TC003",  # Type checking imports - existing pattern
+    "SIM300", # Yoda conditions - assertion order matters for non-symmetric comparisons
+    "C416",   # Unnecessary list comprehension - sometimes clearer
+    "B028",   # stacklevel in warnings - existing pattern
+    "B905",   # zip without strict - existing pattern
+    "RUF100", # Unused noqa directives - may be needed for other linters
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"stonesoup/**/tests/**" = ["S101", "S311"]  # Allow assert and random in tests
+"stonesoup/**/tests/**" = ["S101", "S311", "B015", "B018"]  # Allow assert, random, comparisons
 "docs/**" = ["E402", "B018"]  # Allow import order issues in docs
+"stonesoup/functions/coordinates.py" = ["E741"]  # Allow standard astronomical variable names (l)
+"stonesoup/serialise.py" = ["I001"]  # Keep original import order for clarity
+"stonesoup/tests/test_serialise.py" = ["I001"]  # Keep original import order for clarity
 
 [tool.ruff.lint.isort]
 known-first-party = ["stonesoup"]

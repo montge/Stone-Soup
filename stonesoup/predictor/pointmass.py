@@ -4,6 +4,7 @@ import numpy as np
 import plotly.io as pio
 from scipy.interpolate import RegularGridInterpolator
 from scipy.signal import fftconvolve
+
 from stonesoup.functions import grid_creation
 from stonesoup.types.state import PointMassState
 
@@ -20,7 +21,7 @@ class PointMassPredictor(Predictor):
     An implementation of a Point Mass Filter predictor.
     """
 
-    sFactor: float = Property(default=4., doc="How many sigma to cover by the grid")
+    sFactor: float = Property(default=4.0, doc="How many sigma to cover by the grid")
 
     def predict(self, prior, timestamp=None, **kwargs):
         """Point Mass Filter prediction step
@@ -50,9 +51,7 @@ class PointMassPredictor(Predictor):
             Ppold = prior.eigVec
         else:
 
-            F = self.transition_model.matrix(
-                prior=prior, time_interval=time_interval, **kwargs
-            )
+            F = self.transition_model.matrix(prior=prior, time_interval=time_interval, **kwargs)
             Q = self.transition_model.covar(time_interval=time_interval, **kwargs)
 
             invF = np.linalg.inv(F)
@@ -60,7 +59,7 @@ class PointMassPredictor(Predictor):
             FqF = invF @ Q @ invFT
             matrixForEig = prior.covar() + FqF
 
-            measGridNew, GridDeltaOld, gridDimOld, nothing, eigVect = grid_creation(
+            measGridNew, GridDeltaOld, gridDimOld, _nothing, eigVect = grid_creation(
                 prior.mean.reshape(-1, 1),
                 matrixForEig,
                 self.sFactor,
@@ -101,14 +100,11 @@ class PointMassPredictor(Predictor):
                 predGrid[:, halfGrid][:, np.newaxis] - predGrid
             )  # Middle row of the TPM matrix
             TPMrow = (
-                np.exp(np.sum(-0.5 * pom @ np.linalg.inv(Q) * pom, axis=1))
-                / predDenDenomW
+                np.exp(np.sum(-0.5 * pom @ np.linalg.inv(Q) * pom, axis=1)) / predDenDenomW
             ).reshape(
                 1, -1, order="C"
             )  # Middle row of the TPM matrix
-            TPMrowCubPom = np.reshape(
-                TPMrow, prior.Npa, order="C"
-            )  # Into physical space
+            TPMrowCubPom = np.reshape(TPMrow, prior.Npa, order="C")  # Into physical space
 
             # Compute the convolution using scipy.signal.fftconvolve
             convolution_result_complex = fftconvolve(
@@ -120,9 +116,7 @@ class PointMassPredictor(Predictor):
 
             predDensityProb = np.reshape(convolution_result_real, (-1, 1), order="F")
             # Normalization (theoretically not needed)
-            predDensityProb = predDensityProb / (
-                np.sum(predDensityProb) * np.prod(GridDelta)
-            )
+            predDensityProb = predDensityProb / (np.sum(predDensityProb) * np.prod(GridDelta))
 
             xOld = F @ np.vstack(prior.mean)
             Ppold = F @ eigVect

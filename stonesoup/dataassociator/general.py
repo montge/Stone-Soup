@@ -24,17 +24,21 @@ class OneToOneAssociator(Associator):
 
     measure: BaseMeasure = Property(
         doc="This will compare two objects that could be associated together and will provide an "
-            "indication of the separation between the objects.")
+        "indication of the separation between the objects."
+    )
     association_threshold: float = Property(
         default=None,
         doc="The maximum (minimum if :attr:`~.maximise_measure` is true) value from the "
-            ":attr:`~.measure` needed to associate two objects. If the default value of `None` is "
-            "used then the association threshold is set to plus/minus an arbitrarily large number "
-            "that shouldn't limit associations.")
+        ":attr:`~.measure` needed to associate two objects. If the default value of `None` is "
+        "used then the association threshold is set to plus/minus an arbitrarily large number "
+        "that shouldn't limit associations.",
+    )
 
     maximise_measure: bool = Property(
-        default=False, doc="Should the association algorithm attempt to maximise or minimise the "
-                           "output of the measure.")
+        default=False,
+        doc="Should the association algorithm attempt to maximise or minimise the "
+        "output of the measure.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -45,8 +49,9 @@ class OneToOneAssociator(Associator):
             else:
                 self.association_threshold = 1e10
 
-    def associate(self, objects_a: Collection, objects_b: Collection) \
-            -> tuple[AssociationSet, Collection, Collection]:
+    def associate(
+        self, objects_a: Collection, objects_b: Collection
+    ) -> tuple[AssociationSet, Collection, Collection]:
         """Associate two collections of objects together. Calculate the measure between each
         object. :func:`~scipy.optimize.linear_sum_assignment` is used to find
         the minimum (or maximum) measure by combination objects from two sources.
@@ -80,14 +85,13 @@ class OneToOneAssociator(Associator):
         # to assign tracks to nearest detection
         # Maximise flag = true for probability instance
         # (converts minimisation problem to maximisation problem)
-        row_ind, col_ind = linear_sum_assignment(
-            distance_matrix, self.maximise_measure)
+        row_ind, col_ind = linear_sum_assignment(distance_matrix, self.maximise_measure)
 
         # Create dictionary for associations
         associations = AssociationSet()
 
         # Generate dict of key/value pairs
-        for i, j in zip(row_ind, col_ind):
+        for i, j in zip(row_ind, col_ind, strict=False):
             object_a = list_of_as[i]
             object_b = list_of_bs[j]
 
@@ -103,9 +107,7 @@ class OneToOneAssociator(Associator):
                     # Meets threshold
                     associations.associations.add(Association({object_a, object_b}))
 
-        associated_objects = {obj
-                              for assoc in associations.associations
-                              for obj in assoc.objects}
+        associated_objects = {obj for assoc in associations.associations for obj in assoc.objects}
 
         unassociated_a = set(objects_a) - associated_objects
         unassociated_b = set(objects_b) - associated_objects
@@ -122,7 +124,7 @@ class OneToOneAssociator(Associator):
         return self.association_threshold
 
     def individual_weighting(self, a, b):
-        """ This wrapper around the measure function allows for filtering/error checking of the
+        """This wrapper around the measure function allows for filtering/error checking of the
         measure function. It can give an easy access point for subclasses that want to apply
         additional filtering or gating."""
         measure_output = self.measure(a, b)

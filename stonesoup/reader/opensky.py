@@ -6,15 +6,16 @@ try:
     from requests.compat import urljoin
 except ImportError as error:
     raise ImportError(
-        "Usage of opensky requires the dependency 'requests' is installed. ") from error
+        "Usage of opensky requires the dependency 'requests' is installed. "
+    ) from error
 
 
-from .base import Reader, DetectionReader, GroundTruthReader
 from ..base import Property
 from ..buffered_generator import BufferedGenerator
 from ..types.detection import Detection
 from ..types.groundtruth import GroundTruthPath, GroundTruthState
 from ..types.state import State
+from .base import DetectionReader, GroundTruthReader, Reader
 
 
 class _OpenSkyNetworkReader(Reader):
@@ -44,11 +45,13 @@ class _OpenSkyNetworkReader(Reader):
     bbox: tuple[float, float, float, float] = Property(
         default=None,
         doc="Bounding box to filter data to (left, bottom, right, top). "
-            "Default `None` which will include global data.")
+        "Default `None` which will include global data.",
+    )
     timestep: datetime.timedelta = Property(
         default=datetime.timedelta(seconds=15),
         doc="Time of each poll after reported time from OpenSky. "
-            "Must be greater than 10 seconds. Default 15 seconds.")
+        "Must be greater than 10 seconds. Default 15 seconds.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -59,11 +62,11 @@ class _OpenSkyNetworkReader(Reader):
     def data_gen(self):
         if self.bbox:
             params = {
-             'lomin': self.bbox[0],
-             'lamin': self.bbox[1],
-             'lomax': self.bbox[2],
-             'lamax': self.bbox[3],
-             }
+                "lomin": self.bbox[0],
+                "lamin": self.bbox[1],
+                "lomax": self.bbox[2],
+                "lamax": self.bbox[3],
+            }
         else:
             params = {}  # Global
 
@@ -76,36 +79,41 @@ class _OpenSkyNetworkReader(Reader):
                 data = response.json()
 
                 states_and_metadata = []
-                for state in data['states']:
+                for state in data["states"]:
                     if state[8]:  # On ground
                         continue
                     # Must have position (lon, lat, geo-alt)
                     if not all(state[index] for index in (5, 6, 13)):
                         continue
                     timestamp = datetime.datetime.fromtimestamp(
-                        state[3], datetime.timezone.utc).replace(tzinfo=None)
+                        state[3], datetime.timezone.utc
+                    ).replace(tzinfo=None)
                     # Skip old detections
                     if time is not None and timestamp <= time:
                         continue
 
-                    states_and_metadata.append((
-                        State([[state[5]], [state[6]], [state[13]]], timestamp=timestamp),
-                        {
-                            'icao24': state[0],
-                            'callsign': state[1],
-                            'orign_country': state[2],
-                            'sensors': state[12],
-                            'squawk': state[14],
-                            'spi': state[15],
-                            'source': self.sources[state[16]],
-                        }
-                    ))
+                    states_and_metadata.append(
+                        (
+                            State([[state[5]], [state[6]], [state[13]]], timestamp=timestamp),
+                            {
+                                "icao24": state[0],
+                                "callsign": state[1],
+                                "orign_country": state[2],
+                                "sensors": state[12],
+                                "squawk": state[14],
+                                "spi": state[15],
+                                "source": self.sources[state[16]],
+                            },
+                        )
+                    )
                 time = datetime.datetime.fromtimestamp(
-                    data['time'], datetime.timezone.utc).replace(tzinfo=None)
+                    data["time"], datetime.timezone.utc
+                ).replace(tzinfo=None)
                 yield time, states_and_metadata
 
-                while time + self.timestep > datetime.datetime.now(
-                        datetime.timezone.utc).replace(tzinfo=None):
+                while time + self.timestep > datetime.datetime.now(datetime.timezone.utc).replace(
+                    tzinfo=None
+                ):
                     sleep(0.1)
 
 
@@ -128,8 +136,10 @@ class OpenSkyNetworkDetectionReader(_OpenSkyNetworkReader, DetectionReader):
     @BufferedGenerator.generator_method
     def detections_gen(self):
         for time, states_and_metadata in self.data_gen():
-            yield time, {Detection(state.state_vector, state.timestamp, metadata)
-                         for state, metadata in states_and_metadata}
+            yield time, {
+                Detection(state.state_vector, state.timestamp, metadata)
+                for state, metadata in states_and_metadata
+            }
 
 
 class OpenSkyNetworkGroundTruthReader(_OpenSkyNetworkReader, GroundTruthReader):
@@ -158,7 +168,7 @@ class OpenSkyNetworkGroundTruthReader(_OpenSkyNetworkReader, GroundTruthReader):
         for time, states_and_metadata in self.data_gen():
             updated_paths = set()
             for state, metadata in states_and_metadata:
-                path_id = metadata.get('icao24')
+                path_id = metadata.get("icao24")
                 if path_id is None:
                     path = GroundTruthPath()
                 else:

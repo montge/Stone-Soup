@@ -240,38 +240,38 @@ def test_transmission_loss_frequency_effect():
 
 def test_cart2depth_bearing_range_origin():
     """Point at origin should have zero depth, bearing, and range."""
-    depth, bearing, slant_range = cart2depth_bearing_range(0.0, 0.0, 0.0)
+    depth, _bearing, slant_range = cart2depth_bearing_range(0.0, 0.0, 0.0)
     assert depth == 0.0
     assert slant_range == 0.0
 
 
 def test_cart2depth_bearing_range_depth_sign():
     """Negative z (underwater) should give positive depth."""
-    depth, bearing, slant_range = cart2depth_bearing_range(0.0, 0.0, -100.0)
+    depth, _bearing, _slant_range = cart2depth_bearing_range(0.0, 0.0, -100.0)
     assert depth == 100.0
 
 
 def test_cart2depth_bearing_range_north():
     """Point due north should have bearing = 0."""
-    depth, bearing, slant_range = cart2depth_bearing_range(0.0, 100.0, 0.0)
+    _depth, bearing, _slant_range = cart2depth_bearing_range(0.0, 100.0, 0.0)
     assert bearing == approx(0.0, abs=1e-10)
 
 
 def test_cart2depth_bearing_range_east():
     """Point due east should have bearing = pi/2."""
-    depth, bearing, slant_range = cart2depth_bearing_range(100.0, 0.0, 0.0)
+    _depth, bearing, _slant_range = cart2depth_bearing_range(100.0, 0.0, 0.0)
     assert bearing == approx(np.pi / 2, abs=1e-10)
 
 
 def test_cart2depth_bearing_range_south():
     """Point due south should have bearing = pi or -pi."""
-    depth, bearing, slant_range = cart2depth_bearing_range(0.0, -100.0, 0.0)
+    _depth, bearing, _slant_range = cart2depth_bearing_range(0.0, -100.0, 0.0)
     assert abs(bearing) == approx(np.pi, abs=1e-10)
 
 
 def test_cart2depth_bearing_range_west():
     """Point due west should have bearing = -pi/2."""
-    depth, bearing, slant_range = cart2depth_bearing_range(-100.0, 0.0, 0.0)
+    _depth, bearing, _slant_range = cart2depth_bearing_range(-100.0, 0.0, 0.0)
     assert bearing == approx(-np.pi / 2, abs=1e-10)
 
 
@@ -298,19 +298,19 @@ def test_depth_bearing_range_array_input():
 
 def test_cart2bearing_elevation_range_horizontal():
     """Horizontal point should have zero elevation."""
-    bearing, elevation, slant_range = cart2bearing_elevation_range(100.0, 100.0, 0.0)
+    _bearing, elevation, _slant_range = cart2bearing_elevation_range(100.0, 100.0, 0.0)
     assert elevation == approx(0.0, abs=1e-10)
 
 
 def test_cart2bearing_elevation_range_up():
     """Point directly above should have elevation = pi/2."""
-    bearing, elevation, slant_range = cart2bearing_elevation_range(0.0, 0.0, 100.0)
+    _bearing, elevation, _slant_range = cart2bearing_elevation_range(0.0, 0.0, 100.0)
     assert elevation == approx(np.pi / 2, abs=1e-10)
 
 
 def test_cart2bearing_elevation_range_down():
     """Point directly below should have elevation = -pi/2."""
-    bearing, elevation, slant_range = cart2bearing_elevation_range(0.0, 0.0, -100.0)
+    _bearing, elevation, _slant_range = cart2bearing_elevation_range(0.0, 0.0, -100.0)
     assert elevation == approx(-np.pi / 2, abs=1e-10)
 
 
@@ -742,7 +742,7 @@ def test_interpolate_profile_array():
     """Profile interpolation should work for array of depths."""
     profile = create_isothermal_profile(15.0, 35.0, max_depth=1000.0)
     depths = np.array([100.0, 200.0, 300.0])
-    temps, sals = interpolate_profile(profile, depths)
+    temps, _sals = interpolate_profile(profile, depths)
     assert len(temps) == 3
     assert np.all(temps == 15.0)
 
@@ -829,7 +829,7 @@ def test_uniform_current_constant():
 def test_depth_varying_current_surface():
     """Depth-varying current should be strongest at surface."""
     current = create_depth_varying_current(2.0, 100.0, np.pi / 2)  # East
-    vx, vy, vz = current(0, 0, 0)  # Surface
+    vx, vy, _vz = current(0, 0, 0)  # Surface
     assert vx == approx(2.0, rel=1e-6)
     assert vy == approx(0.0, abs=1e-10)
 
@@ -846,7 +846,7 @@ def test_depth_varying_current_decay():
 def test_shear_current_surface():
     """Shear current should have maximum at surface."""
     current = create_shear_current(1.5, 0.001, 0.0)  # North
-    vx, vy, vz = current(0, 0, 0)
+    vx, vy, _vz = current(0, 0, 0)
     assert vx == approx(0.0, abs=1e-10)
     assert vy == approx(1.5, rel=1e-6)
 
@@ -854,7 +854,7 @@ def test_shear_current_surface():
 def test_shear_current_linear_decrease():
     """Shear current should decrease linearly."""
     current = create_shear_current(1.0, 0.001, 0.0)
-    _, vy1, _ = current(0, 0, 0)
+    _, _vy1, _ = current(0, 0, 0)
     _, vy2, _ = current(0, 0, -500.0)  # 500m depth
     # Velocity should decrease by 0.001 * 500 = 0.5
     assert vy2 == approx(0.5, rel=0.01)
@@ -881,7 +881,7 @@ def test_apply_current_to_velocity():
 def test_current_direction_north():
     """Current with direction=0 should flow north."""
     current = create_depth_varying_current(1.0, 100.0, 0.0)
-    vx, vy, vz = current(0, 0, 0)
+    vx, vy, _vz = current(0, 0, 0)
     assert vx == approx(0.0, abs=1e-10)
     assert vy == approx(1.0, rel=1e-6)
 
@@ -889,7 +889,7 @@ def test_current_direction_north():
 def test_current_direction_east():
     """Current with direction=pi/2 should flow east."""
     current = create_depth_varying_current(1.0, 100.0, np.pi / 2)
-    vx, vy, vz = current(0, 0, 0)
+    vx, vy, _vz = current(0, 0, 0)
     assert vx == approx(1.0, rel=1e-6)
     assert vy == approx(0.0, abs=1e-10)
 

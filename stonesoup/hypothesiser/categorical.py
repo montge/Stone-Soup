@@ -1,4 +1,3 @@
-from .base import Hypothesiser
 from ..base import Property
 from ..measures import ObservationAccuracy
 from ..predictor.categorical import HMMPredictor
@@ -7,6 +6,7 @@ from ..types.hypothesis import SingleProbabilityHypothesis
 from ..types.multihypothesis import MultipleHypothesis
 from ..types.numeric import Probability
 from ..updater.categorical import HMMUpdater
+from .base import Hypothesiser
 
 
 class HMMHypothesiser(Hypothesiser):
@@ -19,14 +19,16 @@ class HMMHypothesiser(Hypothesiser):
 
     predictor: HMMPredictor = Property(doc="Predictor used to predict tracks to detection times")
     updater: HMMUpdater = Property(doc="Updater used to get measurement prediction")
-    prob_detect: Probability = Property(default=Probability(0.99),
-                                        doc="Target Detection Probability")
-    prob_gate: Probability = Property(default=Probability(0.95),
-                                      doc="Gate Probability - prob. gate contains true "
-                                          "measurement if detected")
+    prob_detect: Probability = Property(
+        default=Probability(0.99), doc="Target Detection Probability"
+    )
+    prob_gate: Probability = Property(
+        default=Probability(0.95),
+        doc="Gate Probability - prob. gate contains true " "measurement if detected",
+    )
 
     def hypothesise(self, track, detections, timestamp, **kwargs):
-        """ Evaluate and return all track association hypotheses.
+        """Evaluate and return all track association hypotheses.
 
         For a given track and a set of N available detections, return a MultipleHypothesis object
         with N+1 detections (first detection is a 'MissedDetection'), each with an associated
@@ -51,7 +53,7 @@ class HMMHypothesiser(Hypothesiser):
             A container of :class:`~.SingleProbabilityHypothesis` objects
         """
 
-        hypotheses = list()
+        hypotheses = []
 
         prediction = self.predictor.predict(track, timestamp=timestamp)
 
@@ -59,10 +61,9 @@ class HMMHypothesiser(Hypothesiser):
 
         hypotheses.append(
             SingleProbabilityHypothesis(
-                prediction,
-                MissedDetection(timestamp=timestamp),
-                probability
-            ))
+                prediction, MissedDetection(timestamp=timestamp), probability
+            )
+        )
 
         for detection in detections:
             prediction = self.predictor.predict(track, timestamp=detection.timestamp)
@@ -70,7 +71,7 @@ class HMMHypothesiser(Hypothesiser):
             measurement_prediction = self.updater.predict_measurement(
                 predicted_state=prediction,
                 measurement_model=detection.measurement_model,
-                measurement_noise=False
+                measurement_noise=False,
             )
 
             probability = self.measure(measurement_prediction, detection)
@@ -80,10 +81,9 @@ class HMMHypothesiser(Hypothesiser):
             # True detection hypothesis
             hypotheses.append(
                 SingleProbabilityHypothesis(
-                    prediction,
-                    detection,
-                    probability,
-                    measurement_prediction))
+                    prediction, detection, probability, measurement_prediction
+                )
+            )
 
         return MultipleHypothesis(hypotheses, normalise=False, total_weight=1)
 

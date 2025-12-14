@@ -1,14 +1,20 @@
 import copy
-from datetime import datetime
 import random
+from datetime import datetime
 
 import networkx as nx
 import numpy as np
 
-from stonesoup.architecture import SensorNode, FusionNode, Edge, Edges, InformationArchitecture, \
-    NetworkArchitecture
+from stonesoup.architecture import (
+    Edge,
+    Edges,
+    FusionNode,
+    InformationArchitecture,
+    NetworkArchitecture,
+    SensorNode,
+)
 from stonesoup.architecture.edge import FusionQueue
-from stonesoup.architecture.node import SensorFusionNode, RepeaterNode
+from stonesoup.architecture.node import RepeaterNode, SensorFusionNode
 from stonesoup.base import Base, Property
 from stonesoup.feeder.track import Tracks2GaussianDetectionFeeder
 from stonesoup.sensor.sensor import Sensor
@@ -22,44 +28,51 @@ class InformationArchitectureGenerator(Base):
     The graph is generated randomly subject to the parameters such as `node_ratio` and
     `mean_degree`, rather than having to be user-defined.
     """
+
     arch_type: str = Property(
         doc="Type of architecture to be modelled. Currently only 'hierarchical' and "
-            "'decentralised' are supported.",
-        default='decentralised')
+        "'decentralised' are supported.",
+        default="decentralised",
+    )
     start_time: datetime = Property(
         doc="Start time of simulation to be passed to the Architecture class.",
-        default_factory=datetime.now)
+        default_factory=datetime.now,
+    )
     node_ratio: tuple = Property(
         doc="Tuple containing the number of each type of node, in the order of (sensor nodes, "
-            "sensor fusion nodes, fusion nodes).",
-        default=None)
+        "sensor fusion nodes, fusion nodes).",
+        default=None,
+    )
     mean_degree: float = Property(
-        doc="Average (mean) degree of nodes in the network.",
-        default=None)
+        doc="Average (mean) degree of nodes in the network.", default=None
+    )
     base_sensor: Sensor = Property(
         doc="Sensor class object that will be duplicated to create multiple sensors. Position of "
-            "this sensor is used with 'sensor_max_distance' to calculate a position for "
-            "duplicated sensors.",
-        default=None)
+        "this sensor is used with 'sensor_max_distance' to calculate a position for "
+        "duplicated sensors.",
+        default=None,
+    )
     sensor_max_distance: tuple = Property(
         doc="Max distance each sensor can be from base_sensor.position. Should be a tuple of "
-            "length equal to len(base_sensor.position_mapping)",
-        default=None)
+        "length equal to len(base_sensor.position_mapping)",
+        default=None,
+    )
     base_tracker: Tracker = Property(
         doc="Tracker class object that will be duplicated to create multiple trackers. "
-            "Should have detector=None.",
-        default=None)
+        "Should have detector=None.",
+        default=None,
+    )
     iteration_limit: int = Property(
         doc="Limit for the number of iterations the generate_edgelist() method can make when "
-            "attempting to build a suitable graph.",
-        default=10000)
+        "attempting to build a suitable graph.",
+        default=10000,
+    )
     allow_invalid_graph: bool = Property(
         doc="Bool where True allows invalid graphs to be returned without throwing an error. "
-            "False by default",
-        default=False)
-    n_archs: int = Property(
-        doc="How many architectures should be generated.",
-        default=2)
+        "False by default",
+        default=False,
+    )
+    n_archs: int = Property(doc="How many architectures should be generated.", default=2)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -72,7 +85,7 @@ class InformationArchitectureGenerator(Base):
 
         if self.sensor_max_distance is None:
             self.sensor_max_distance = tuple(np.zeros(len(self.base_sensor.position_mapping)))
-        if self.arch_type not in ['decentralised', 'hierarchical']:
+        if self.arch_type not in ["decentralised", "hierarchical"]:
             raise ValueError('arch_style must be "decentralised" or "hierarchical"')
 
     def generate(self):
@@ -88,8 +101,8 @@ class InformationArchitectureGenerator(Base):
 
         nodes = self._assign_nodes(node_labels)
 
-        archs = list()
-        for architecture in nodes.keys():
+        archs = []
+        for architecture in nodes:
             arch = self._generate_architecture(nodes[architecture], edgelist)
             archs.append(arch)
         return archs
@@ -113,24 +126,26 @@ class InformationArchitectureGenerator(Base):
 
         for label in node_labels:
 
-            if label.startswith('f'):
+            if label.startswith("f"):
                 for architecture in range(self.n_archs):
                     t = copy.deepcopy(self.base_tracker)
                     fq = FusionQueue()
                     t.detector = Tracks2GaussianDetectionFeeder(fq)
 
-                    node = FusionNode(tracker=t,
-                                      fusion_queue=fq,
-                                      label=label,
-                                      latency=0)
+                    node = FusionNode(tracker=t, fusion_queue=fq, label=label, latency=0)
 
                     nodes[architecture][label] = node
 
-            elif label.startswith('sf'):
+            elif label.startswith("sf"):
 
                 pos = np.array(
-                    [[p + random.uniform(-d, d)] for p, d in zip(self.base_sensor.position,
-                                                                 self.sensor_max_distance)])
+                    [
+                        [p + random.uniform(-d, d)]
+                        for p, d in zip(
+                            self.base_sensor.position, self.sensor_max_distance, strict=False
+                        )
+                    ]
+                )
 
                 for architecture in range(self.n_archs):
                     s = copy.deepcopy(self.base_sensor)
@@ -140,31 +155,31 @@ class InformationArchitectureGenerator(Base):
                     fq = FusionQueue()
                     t.detector = Tracks2GaussianDetectionFeeder(fq)
 
-                    node = SensorFusionNode(sensor=s,
-                                            tracker=t,
-                                            fusion_queue=fq,
-                                            label=label,
-                                            latency=0)
+                    node = SensorFusionNode(
+                        sensor=s, tracker=t, fusion_queue=fq, label=label, latency=0
+                    )
 
                     nodes[architecture][label] = node
 
-            elif label.startswith('s'):
+            elif label.startswith("s"):
                 pos = np.array(
-                    [[p + random.uniform(-d, d)] for p, d in zip(self.base_sensor.position,
-                                                                 self.sensor_max_distance)])
+                    [
+                        [p + random.uniform(-d, d)]
+                        for p, d in zip(
+                            self.base_sensor.position, self.sensor_max_distance, strict=False
+                        )
+                    ]
+                )
                 for architecture in range(self.n_archs):
                     s = copy.deepcopy(self.base_sensor)
                     s.position = pos
 
-                    node = SensorNode(sensor=s,
-                                      label=label,
-                                      latency=0)
+                    node = SensorNode(sensor=s, label=label, latency=0)
                     nodes[architecture][label] = node
 
             else:
                 for architecture in range(self.n_archs):
-                    node = RepeaterNode(label=label,
-                                        latency=0)
+                    node = RepeaterNode(label=label, latency=0)
                     nodes[architecture][label] = node
 
         return nodes
@@ -173,13 +188,15 @@ class InformationArchitectureGenerator(Base):
 
         edges = []
 
-        nodes = ['f' + str(i) for i in range(self.n_fusion_nodes)] + \
-                ['sf' + str(i) for i in range(self.n_sensor_fusion_nodes)] + \
-                ['s' + str(i) for i in range(self.n_sensor_nodes)]
+        nodes = (
+            ["f" + str(i) for i in range(self.n_fusion_nodes)]
+            + ["sf" + str(i) for i in range(self.n_sensor_fusion_nodes)]
+            + ["s" + str(i) for i in range(self.n_sensor_nodes)]
+        )
 
         valid = False
 
-        if self.arch_type == 'hierarchical':
+        if self.arch_type == "hierarchical":
             while not valid:
                 edges = []
                 n = self.n_fusion_nodes + self.n_sensor_fusion_nodes
@@ -191,7 +208,7 @@ class InformationArchitectureGenerator(Base):
                         source = nodes[0]
                         target = nodes[1]
                     else:
-                        if node.startswith('s') and not node.startswith('sf'):
+                        if node.startswith("s") and not node.startswith("sf"):
                             source = node
                             target = nodes[random.randint(0, n - 1)]
                         else:
@@ -204,7 +221,7 @@ class InformationArchitectureGenerator(Base):
 
                 # Logic checks on graph
                 g = nx.DiGraph(edges)
-                for f_node in ['f' + str(i) for i in range(self.n_fusion_nodes)]:
+                for f_node in ["f" + str(i) for i in range(self.n_fusion_nodes)]:
                     if g.in_degree(f_node) == 0:
                         break
                 else:
@@ -218,13 +235,16 @@ class InformationArchitectureGenerator(Base):
                     source = target = -1
                     if i < self.n_nodes:
                         source = nodes[i]
-                        target = nodes[random.randint(
-                            0, min(i - 1, len(nodes) - self.n_sensor_nodes - 1))]
+                        target = nodes[
+                            random.randint(0, min(i - 1, len(nodes) - self.n_sensor_nodes - 1))
+                        ]
 
                     else:
-                        while source == target \
-                                or (source, target) in edges \
-                                or (target, source) in edges:
+                        while (
+                            source == target
+                            or (source, target) in edges
+                            or (target, source) in edges
+                        ):
                             source = nodes[random.randint(0, len(nodes) - 1)]
                             target = nodes[random.randint(0, len(nodes) - self.n_sensor_nodes - 1)]
 
@@ -232,7 +252,7 @@ class InformationArchitectureGenerator(Base):
 
                 # Logic checks on graph
                 g = nx.DiGraph(edges)
-                for f_node in ['f' + str(i) for i in range(self.n_fusion_nodes)]:
+                for f_node in ["f" + str(i) for i in range(self.n_fusion_nodes)]:
                     if g.in_degree(f_node) == 0:
                         break
                 else:
@@ -248,10 +268,12 @@ class NetworkArchitectureGenerator(InformationArchitectureGenerator):
     The graph is generated randomly subject to the parameters such as
     `node_ratio` and `mean_degree`, rather than having to be user-defined.
     """
+
     n_routes: tuple = Property(
         doc="Tuple containing a minimum and maximum value for the number of routes created in the "
-            "network architecture to represent a single edge in the information architecture.",
-        default=(1, 2))
+        "network architecture to represent a single edge in the information architecture.",
+        default=(1, 2),
+    )
 
     def generate(self):
         """
@@ -268,8 +290,8 @@ class NetworkArchitectureGenerator(InformationArchitectureGenerator):
 
         nodes = self._assign_nodes(node_labels)
 
-        archs = list()
-        for architecture in nodes.keys():
+        archs = []
+        for architecture in nodes:
             arch = self._generate_architecture(nodes[architecture], edgelist)
             archs.append(arch)
         return archs
@@ -279,11 +301,14 @@ class NetworkArchitectureGenerator(InformationArchitectureGenerator):
         i = 0
         for e in edgelist:
             # Choose number of routes between two information architecture nodes
-            n = self.n_routes[0] if len(self.n_routes) == 1 else \
-                random.randint(self.n_routes[0], self.n_routes[1])
+            n = (
+                self.n_routes[0]
+                if len(self.n_routes) == 1
+                else random.randint(self.n_routes[0], self.n_routes[1])
+            )
 
-            for route in range(n):
-                r_lab = 'r' + str(i)
+            for _route in range(n):
+                r_lab = "r" + str(i)
                 network_edgelist.append((e[0], r_lab))
                 network_edgelist.append((r_lab, e[1]))
                 nodes.append(r_lab)

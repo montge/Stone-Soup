@@ -12,6 +12,7 @@ from typing import Any
 from urllib.parse import ParseResult
 
 import numpy as np
+
 try:
     import ffmpeg
     import moviepy.editor as mpy
@@ -20,16 +21,16 @@ except ImportError as error:
         "Usage of video processing classes requires that the optional"
         "package dependencies 'moviepy' and 'ffmpeg-python' are installed. "
         "This can be achieved by running "
-        "'python -m pip install stonesoup[video]'")\
-        from error
+        "'python -m pip install stonesoup[video]'"
+    ) from error
 
 
-from .base import FrameReader
-from .file import FileReader
-from .url import UrlReader
 from ..base import Property
 from ..buffered_generator import BufferedGenerator
 from ..types.sensordata import ImageFrame
+from .base import FrameReader
+from .file import FileReader
+from .url import UrlReader
 
 
 class VideoClipReader(FileReader, FrameReader):
@@ -59,22 +60,23 @@ class VideoClipReader(FileReader, FrameReader):
 
     .. _MoviePy: https://zulko.github.io/moviepy/index.html
     .. _documentation: https://zulko.github.io/moviepy/getting_started/effects.html
-     """  # noqa:E501
+    """
+
     start_time: datetime.timedelta = Property(
         doc="Start time expressed as duration from the start of the clip",
-        default=datetime.timedelta(seconds=0))
+        default=datetime.timedelta(seconds=0),
+    )
     end_time: datetime.timedelta = Property(
-        doc="End time expressed as duration from the start of the clip",
-        default=None)
-    timestamp: datetime.datetime = Property(
-        doc="Timestamp given to the first frame",
-        default=None)
+        doc="End time expressed as duration from the start of the clip", default=None
+    )
+    timestamp: datetime.datetime = Property(doc="Timestamp given to the first frame", default=None)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         end_time_sec = self.end_time.total_seconds() if self.end_time is not None else None
-        self.clip = mpy.VideoFileClip(str(self.path)) \
-            .subclip(self.start_time.total_seconds(), end_time_sec)
+        self.clip = mpy.VideoFileClip(str(self.path)).subclip(
+            self.start_time.total_seconds(), end_time_sec
+        )
 
     @BufferedGenerator.generator_method
     def frames_gen(self):
@@ -116,65 +118,67 @@ class FFmpegVideoStreamReader(UrlReader, FrameReader):
 
     url: ParseResult = Property(
         doc="Input source to read video stream from, passed as input url argument. This can "
-            "include any valid FFmpeg input e.g. rtsp URL, device name when using 'dshow'/'v4l2'")
+        "include any valid FFmpeg input e.g. rtsp URL, device name when using 'dshow'/'v4l2'"
+    )
     buffer_size: int = Property(
         default=1,
         doc="Size of the frame buffer. The frame buffer is used to cache frames in cases where "
-            "the stream generates frames faster than they are ingested by the reader. If "
-            "`buffer_size` is less than or equal to zero, the buffer size is infinite.")
+        "the stream generates frames faster than they are ingested by the reader. If "
+        "`buffer_size` is less than or equal to zero, the buffer size is infinite.",
+    )
     input_opts: Mapping[str, str] = Property(
         default=None,
         doc="FFmpeg input options, provided in the form of a dictionary, whose keys correspond to "
-            "option names. (e.g. ``{'fflags': 'nobuffer'}``). The default is ``{}``.")
+        "option names. (e.g. ``{'fflags': 'nobuffer'}``). The default is ``{}``.",
+    )
     output_opts: Mapping[str, str] = Property(
         default=None,
         doc="FFmpeg output options, provided in the form of a dictionary, whose keys correspond "
-            "to option names. The default is ``{'f': 'rawvideo', 'pix_fmt': 'rgb24'}``.")
+        "to option names. The default is ``{'f': 'rawvideo', 'pix_fmt': 'rgb24'}``.",
+    )
     filters: Sequence[tuple[str, Sequence[Any], Mapping[Any, Any]]] = Property(
         default=None,
         doc="FFmpeg filters, provided in the form of a list of filter name, sequence of "
-            "arguments, mapping of key/value pairs (e.g. ``[('scale', ('320', '240'), {})]``). "
-            "Default `None` where no filter will be applied. Note that :attr:`frame_size` may "
-            "need to be set in when video size changed by filter.")
+        "arguments, mapping of key/value pairs (e.g. ``[('scale', ('320', '240'), {})]``). "
+        "Default `None` where no filter will be applied. Note that :attr:`frame_size` may "
+        "need to be set in when video size changed by filter.",
+    )
     frame_size: tuple[int, int] = Property(
         default=None,
         doc="Tuple of frame width and height. Default `None` where it will be detected using "
-            "`ffprobe` against the input, but this may yield wrong width/height (e.g. when "
-            "filters are applied), and such this option can be used to override.")
+        "`ffprobe` against the input, but this may yield wrong width/height (e.g. when "
+        "filters are applied), and such this option can be used to override.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.input_opts is None:
             self.input_opts = {}
         if self.output_opts is None:
-            self.output_opts = {'f': 'rawvideo', 'pix_fmt': 'rgb24'}
+            self.output_opts = {"f": "rawvideo", "pix_fmt": "rgb24"}
         if self.filters is None:
             self.filters = []
 
         self.buffer = Queue(maxsize=self.buffer_size)
 
         if self.frame_size is not None:
-            self._stream_info = {
-                'width': self.frame_size[0],
-                'height': self.frame_size[1]}
+            self._stream_info = {"width": self.frame_size[0], "height": self.frame_size[1]}
         else:
             # Probe stream information
             self._stream_info = next(
                 s
-                for s in ffmpeg.probe(self.url.geturl(), **self.input_opts)['streams']
-                if s['codec_type'] == 'video')
+                for s in ffmpeg.probe(self.url.geturl(), **self.input_opts)["streams"]
+                if s["codec_type"] == "video"
+            )
 
         # Initialise stream
         self.stream = ffmpeg.input(self.url.geturl(), **self.input_opts)
         for filter_ in self.filters:
             filter_name, filter_args, filter_kwargs = filter_
-            self.stream = self.stream.filter(
-                filter_name, *filter_args, **filter_kwargs
-            )
+            self.stream = self.stream.filter(filter_name, *filter_args, **filter_kwargs)
         self.stream = (
-            self.stream
-            .output('pipe:', **self.output_opts)
-            .global_args('-y', '-loglevel', 'panic')
+            self.stream.output("pipe:", **self.output_opts)
+            .global_args("-y", "-loglevel", "panic")
             .run_async(pipe_stdout=True)
         )
 
@@ -193,18 +197,15 @@ class FFmpegVideoStreamReader(UrlReader, FrameReader):
 
     def _run(self):
         while self.stream.poll() is None:
-            width = int(self._stream_info['width'])
-            height = int(self._stream_info['height'])
+            width = int(self._stream_info["width"])
+            height = int(self._stream_info["height"])
 
             # Read bytes from stream
             in_bytes = self.stream.stdout.read(width * height * 3)
 
             if in_bytes:
                 # Transform bytes to pixels
-                frame_np = (
-                    np.frombuffer(in_bytes, np.uint8)
-                    .reshape([height, width, 3])
-                )
+                frame_np = np.frombuffer(in_bytes, np.uint8).reshape([height, width, 3])
                 frame = ImageFrame(frame_np, datetime.datetime.now())
 
                 # Write new frame to buffer

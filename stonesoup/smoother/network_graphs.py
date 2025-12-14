@@ -10,12 +10,15 @@ Supported formats:
 - OSM (OpenStreetMap) data via overpass API or files
 
 """
-import numpy as np
-from typing import Dict, List, Tuple, Union, Optional, Any
+
 from abc import ABC, abstractmethod
+from typing import Any
+
+import numpy as np
 
 try:
     import networkx as nx
+
     HAS_NETWORKX = True
 except ImportError:
     HAS_NETWORKX = False
@@ -30,7 +33,7 @@ class NetworkGraphBuilder(ABC):
     """
 
     @abstractmethod
-    def build_graph(self) -> Dict[str, Any]:
+    def build_graph(self) -> dict[str, Any]:
         """Build and return the graph structure.
 
         Returns
@@ -70,13 +73,13 @@ class RoadNetworkBuilder(NetworkGraphBuilder):
     def __init__(self, directed: bool = False, simplify: bool = False):
         self.directed = directed
         self.simplify = simplify
-        self._nodes: Dict[str, Tuple[float, float]] = {}
-        self._edges: List[Tuple[str, str, Dict]] = []
+        self._nodes: dict[str, tuple[float, float]] = {}
+        self._edges: list[tuple[str, str, dict]] = []
         self._node_counter = 0
 
-    def _get_node_id(self, position: Tuple[float, float],
-                     node_id: Optional[str] = None,
-                     tolerance: float = 1e-6) -> str:
+    def _get_node_id(
+        self, position: tuple[float, float], node_id: str | None = None, tolerance: float = 1e-6
+    ) -> str:
         """Get or create a node ID for a position.
 
         If a node already exists at this position (within tolerance),
@@ -91,8 +94,7 @@ class RoadNetworkBuilder(NetworkGraphBuilder):
 
         # Check for existing node at this position
         for nid, pos in self._nodes.items():
-            if abs(pos[0] - position[0]) < tolerance and \
-               abs(pos[1] - position[1]) < tolerance:
+            if abs(pos[0] - position[0]) < tolerance and abs(pos[1] - position[1]) < tolerance:
                 return nid
 
         # Create new node
@@ -101,8 +103,7 @@ class RoadNetworkBuilder(NetworkGraphBuilder):
         self._nodes[new_id] = position
         return new_id
 
-    def add_node(self, position: Tuple[float, float],
-                 node_id: Optional[str] = None) -> str:
+    def add_node(self, position: tuple[float, float], node_id: str | None = None) -> str:
         """Add a node to the network.
 
         Parameters
@@ -120,9 +121,12 @@ class RoadNetworkBuilder(NetworkGraphBuilder):
         """
         return self._get_node_id(position, node_id)
 
-    def add_road(self, coordinates: List[Tuple[float, float]],
-                 road_id: Optional[str] = None,
-                 attributes: Optional[Dict] = None) -> List[str]:
+    def add_road(
+        self,
+        coordinates: list[tuple[float, float]],
+        road_id: str | None = None,
+        attributes: dict | None = None,
+    ) -> list[str]:
         """Add a road segment to the network.
 
         A road is defined as a sequence of coordinates. Intermediate
@@ -148,7 +152,7 @@ class RoadNetworkBuilder(NetworkGraphBuilder):
 
         attrs = attributes or {}
         if road_id:
-            attrs['road_id'] = road_id
+            attrs["road_id"] = road_id
 
         node_ids = []
         for coord in coordinates:
@@ -161,8 +165,7 @@ class RoadNetworkBuilder(NetworkGraphBuilder):
             # Calculate edge length
             p1 = self._nodes[node_ids[i]]
             p2 = self._nodes[node_ids[i + 1]]
-            edge_attrs['length'] = np.sqrt(
-                (p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+            edge_attrs["length"] = np.sqrt((p2[0] - p1[0]) ** 2 + (p2[1] - p1[1]) ** 2)
 
             self._edges.append((node_ids[i], node_ids[i + 1], edge_attrs))
 
@@ -172,8 +175,9 @@ class RoadNetworkBuilder(NetworkGraphBuilder):
 
         return node_ids
 
-    def add_intersection(self, position: Tuple[float, float],
-                         intersection_id: Optional[str] = None) -> str:
+    def add_intersection(
+        self, position: tuple[float, float], intersection_id: str | None = None
+    ) -> str:
         """Add an intersection point.
 
         This is a convenience method - intersections are just nodes
@@ -194,8 +198,7 @@ class RoadNetworkBuilder(NetworkGraphBuilder):
         """
         return self.add_node(position, intersection_id)
 
-    def connect_roads(self, node_id1: str, node_id2: str,
-                      attributes: Optional[Dict] = None):
+    def connect_roads(self, node_id1: str, node_id2: str, attributes: dict | None = None):
         """Connect two existing nodes with a direct edge.
 
         Parameters
@@ -214,13 +217,13 @@ class RoadNetworkBuilder(NetworkGraphBuilder):
         attrs = attributes or {}
         p1 = self._nodes[node_id1]
         p2 = self._nodes[node_id2]
-        attrs['length'] = np.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+        attrs["length"] = np.sqrt((p2[0] - p1[0]) ** 2 + (p2[1] - p1[1]) ** 2)
 
         self._edges.append((node_id1, node_id2, attrs))
         if not self.directed:
             self._edges.append((node_id2, node_id1, attrs))
 
-    def build_graph(self) -> Dict[str, Any]:
+    def build_graph(self) -> dict[str, Any]:
         """Build the road network graph.
 
         Returns
@@ -241,10 +244,7 @@ class RoadNetworkBuilder(NetworkGraphBuilder):
                     seen_edges.add(edge_key)
                     edges.append((n1, n2))
 
-        return {
-            'nodes': dict(self._nodes),
-            'edges': edges
-        }
+        return {"nodes": dict(self._nodes), "edges": edges}
 
     def to_networkx(self):
         """Convert to a NetworkX graph.
@@ -263,10 +263,7 @@ class RoadNetworkBuilder(NetworkGraphBuilder):
         if not HAS_NETWORKX:
             raise ImportError("NetworkX is required for this method")
 
-        if self.directed:
-            G = nx.DiGraph()
-        else:
-            G = nx.Graph()
+        G = nx.DiGraph() if self.directed else nx.Graph()
 
         for node_id, pos in self._nodes.items():
             G.add_node(node_id, pos=pos)
@@ -303,14 +300,14 @@ class RailNetworkBuilder(NetworkGraphBuilder):
 
     def __init__(self, include_stations: bool = True):
         self.include_stations = include_stations
-        self._nodes: Dict[str, Tuple[float, float]] = {}
-        self._edges: List[Tuple[str, str, Dict]] = []
-        self._stations: Dict[str, str] = {}  # station_name -> node_id
+        self._nodes: dict[str, tuple[float, float]] = {}
+        self._edges: list[tuple[str, str, dict]] = []
+        self._stations: dict[str, str] = {}  # station_name -> node_id
         self._node_counter = 0
 
-    def _get_node_id(self, position: Tuple[float, float],
-                     node_id: Optional[str] = None,
-                     tolerance: float = 1e-6) -> str:
+    def _get_node_id(
+        self, position: tuple[float, float], node_id: str | None = None, tolerance: float = 1e-6
+    ) -> str:
         """Get or create a node ID for a position."""
         if node_id is not None:
             if node_id in self._nodes:
@@ -319,8 +316,7 @@ class RailNetworkBuilder(NetworkGraphBuilder):
             return node_id
 
         for nid, pos in self._nodes.items():
-            if abs(pos[0] - position[0]) < tolerance and \
-               abs(pos[1] - position[1]) < tolerance:
+            if abs(pos[0] - position[0]) < tolerance and abs(pos[1] - position[1]) < tolerance:
                 return nid
 
         new_id = f"rail_node_{self._node_counter}"
@@ -328,10 +324,13 @@ class RailNetworkBuilder(NetworkGraphBuilder):
         self._nodes[new_id] = position
         return new_id
 
-    def add_track(self, coordinates: List[Tuple[float, float]],
-                  track_id: Optional[str] = None,
-                  bidirectional: bool = True,
-                  attributes: Optional[Dict] = None) -> List[str]:
+    def add_track(
+        self,
+        coordinates: list[tuple[float, float]],
+        track_id: str | None = None,
+        bidirectional: bool = True,
+        attributes: dict | None = None,
+    ) -> list[str]:
         """Add a rail track segment.
 
         Parameters
@@ -355,9 +354,9 @@ class RailNetworkBuilder(NetworkGraphBuilder):
             raise ValueError("Track must have at least 2 coordinates")
 
         attrs = attributes or {}
-        attrs['type'] = 'track'
+        attrs["type"] = "track"
         if track_id:
-            attrs['track_id'] = track_id
+            attrs["track_id"] = track_id
 
         node_ids = []
         for coord in coordinates:
@@ -368,8 +367,7 @@ class RailNetworkBuilder(NetworkGraphBuilder):
             edge_attrs = attrs.copy()
             p1 = self._nodes[node_ids[i]]
             p2 = self._nodes[node_ids[i + 1]]
-            edge_attrs['length'] = np.sqrt(
-                (p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+            edge_attrs["length"] = np.sqrt((p2[0] - p1[0]) ** 2 + (p2[1] - p1[1]) ** 2)
 
             self._edges.append((node_ids[i], node_ids[i + 1], edge_attrs))
             if bidirectional:
@@ -377,9 +375,9 @@ class RailNetworkBuilder(NetworkGraphBuilder):
 
         return node_ids
 
-    def add_station(self, position: Tuple[float, float],
-                    station_name: str,
-                    attributes: Optional[Dict] = None) -> str:
+    def add_station(
+        self, position: tuple[float, float], station_name: str, attributes: dict | None = None
+    ) -> str:
         """Add a station at a position.
 
         Parameters
@@ -401,8 +399,7 @@ class RailNetworkBuilder(NetworkGraphBuilder):
         self._stations[station_name] = node_id
         return node_id
 
-    def add_junction(self, position: Tuple[float, float],
-                     junction_id: Optional[str] = None) -> str:
+    def add_junction(self, position: tuple[float, float], junction_id: str | None = None) -> str:
         """Add a rail junction (switch point).
 
         Parameters
@@ -420,7 +417,7 @@ class RailNetworkBuilder(NetworkGraphBuilder):
         """
         return self._get_node_id(position, junction_id)
 
-    def build_graph(self) -> Dict[str, Any]:
+    def build_graph(self) -> dict[str, Any]:
         """Build the rail network graph.
 
         Returns
@@ -438,13 +435,10 @@ class RailNetworkBuilder(NetworkGraphBuilder):
                 seen_edges.add(edge_key)
                 edges.append((n1, n2))
 
-        result = {
-            'nodes': dict(self._nodes),
-            'edges': edges
-        }
+        result = {"nodes": dict(self._nodes), "edges": edges}
 
         if self.include_stations and self._stations:
-            result['stations'] = dict(self._stations)
+            result["stations"] = dict(self._stations)
 
         return result
 
@@ -466,8 +460,7 @@ class RailNetworkBuilder(NetworkGraphBuilder):
         return G
 
 
-def graph_from_geojson(geojson_data: Dict,
-                       network_type: str = 'road') -> Dict[str, Any]:
+def graph_from_geojson(geojson_data: dict, network_type: str = "road") -> dict[str, Any]:
     """Create a network graph from GeoJSON data.
 
     Parses GeoJSON LineString or MultiLineString features into a
@@ -503,37 +496,34 @@ def graph_from_geojson(geojson_data: Dict,
     >>> graph = graph_from_geojson(geojson)
 
     """
-    if network_type == 'road':
-        builder = RoadNetworkBuilder()
-    else:
-        builder = RailNetworkBuilder()
+    builder = RoadNetworkBuilder() if network_type == "road" else RailNetworkBuilder()
 
     # Handle both FeatureCollection and single Feature
-    if geojson_data.get('type') == 'FeatureCollection':
-        features = geojson_data.get('features', [])
-    elif geojson_data.get('type') == 'Feature':
+    if geojson_data.get("type") == "FeatureCollection":
+        features = geojson_data.get("features", [])
+    elif geojson_data.get("type") == "Feature":
         features = [geojson_data]
     else:
         features = []
 
     for feature in features:
-        geometry = feature.get('geometry', {})
-        properties = feature.get('properties', {})
-        geom_type = geometry.get('type')
-        coords = geometry.get('coordinates', [])
+        geometry = feature.get("geometry", {})
+        properties = feature.get("properties", {})
+        geom_type = geometry.get("type")
+        coords = geometry.get("coordinates", [])
 
-        if geom_type == 'LineString':
+        if geom_type == "LineString":
             # Convert coordinates to tuples
             coord_tuples = [(c[0], c[1]) for c in coords]
-            if network_type == 'road':
+            if network_type == "road":
                 builder.add_road(coord_tuples, attributes=properties)
             else:
                 builder.add_track(coord_tuples, attributes=properties)
 
-        elif geom_type == 'MultiLineString':
+        elif geom_type == "MultiLineString":
             for line_coords in coords:
                 coord_tuples = [(c[0], c[1]) for c in line_coords]
-                if network_type == 'road':
+                if network_type == "road":
                     builder.add_road(coord_tuples, attributes=properties)
                 else:
                     builder.add_track(coord_tuples, attributes=properties)
@@ -541,8 +531,7 @@ def graph_from_geojson(geojson_data: Dict,
     return builder.build_graph()
 
 
-def simplify_graph(graph: Dict[str, Any],
-                   tolerance: float = 0.0) -> Dict[str, Any]:
+def simplify_graph(graph: dict[str, Any], tolerance: float = 0.0) -> dict[str, Any]:
     """Simplify a graph by removing intermediate nodes.
 
     Removes nodes with degree 2 that lie on a straight path,
@@ -562,8 +551,8 @@ def simplify_graph(graph: Dict[str, Any],
         Simplified graph.
 
     """
-    nodes = dict(graph['nodes'])
-    edges = list(graph['edges'])
+    nodes = dict(graph["nodes"])
+    edges = list(graph["edges"])
 
     # Build adjacency
     adjacency = {n: set() for n in nodes}
@@ -607,16 +596,17 @@ def simplify_graph(graph: Dict[str, Any],
         if (n1, n2) not in edges and (n2, n1) not in edges:
             edges.append((n1, n2))
 
-    return {
-        'nodes': nodes,
-        'edges': edges
-    }
+    return {"nodes": nodes, "edges": edges}
 
 
-def create_grid_network(x_min: float, x_max: float,
-                        y_min: float, y_max: float,
-                        spacing: float,
-                        network_type: str = 'road') -> Dict[str, Any]:
+def create_grid_network(
+    x_min: float,
+    x_max: float,
+    y_min: float,
+    y_max: float,
+    spacing: float,
+    network_type: str = "road",
+) -> dict[str, Any]:
     """Create a regular grid network.
 
     Useful for testing or representing urban grid street patterns.
@@ -646,8 +636,8 @@ def create_grid_network(x_min: float, x_max: float,
     nodes = {}
     edges = []
 
-    x_coords = np.arange(x_min, x_max + spacing/2, spacing)
-    y_coords = np.arange(y_min, y_max + spacing/2, spacing)
+    x_coords = np.arange(x_min, x_max + spacing / 2, spacing)
+    y_coords = np.arange(y_min, y_max + spacing / 2, spacing)
 
     # Create nodes
     for i, x in enumerate(x_coords):
@@ -670,13 +660,10 @@ def create_grid_network(x_min: float, x_max: float,
                 top = f"grid_{i}_{j+1}"
                 edges.append((current, top))
 
-    return {
-        'nodes': nodes,
-        'edges': edges
-    }
+    return {"nodes": nodes, "edges": edges}
 
 
-def merge_graphs(*graphs: Dict[str, Any]) -> Dict[str, Any]:
+def merge_graphs(*graphs: dict[str, Any]) -> dict[str, Any]:
     """Merge multiple graphs into one.
 
     Nodes at the same position are automatically merged.
@@ -702,7 +689,7 @@ def merge_graphs(*graphs: Dict[str, Any]) -> Dict[str, Any]:
         # Map old node IDs to new ones
         id_mapping = {}
 
-        for old_id, pos in graph['nodes'].items():
+        for old_id, pos in graph["nodes"].items():
             pos_key = (round(pos[0], 6), round(pos[1], 6))
 
             if pos_key in position_to_id:
@@ -717,7 +704,7 @@ def merge_graphs(*graphs: Dict[str, Any]) -> Dict[str, Any]:
                 id_mapping[old_id] = new_id
 
         # Add edges with new IDs
-        for n1, n2 in graph['edges']:
+        for n1, n2 in graph["edges"]:
             new_n1 = id_mapping[n1]
             new_n2 = id_mapping[n2]
             edge = (new_n1, new_n2)
@@ -725,7 +712,4 @@ def merge_graphs(*graphs: Dict[str, Any]) -> Dict[str, Any]:
             if edge not in all_edges and reverse_edge not in all_edges:
                 all_edges.append(edge)
 
-    return {
-        'nodes': all_nodes,
-        'edges': all_edges
-    }
+    return {"nodes": all_nodes, "edges": all_edges}

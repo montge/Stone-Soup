@@ -211,7 +211,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        python-version: ['3.10', '3.11', '3.12', '3.13']  # 3.14 deferred until ecosystem ready
 
     steps:
       - uses: actions/checkout@v4
@@ -362,7 +362,7 @@ jobs:
           cd libstonesoup/build
           # Generate LCOV report for human-readable coverage
           lcov --capture --directory . --output-file coverage.info
-          lcov --remove coverage.info '/usr/*' --output-file coverage.info
+          lcov --remove coverage.info '/usr/*' --output-file coverage.info --ignore-errors unused
           lcov --list coverage.info
           # Generate .gcov files for SonarCloud
           mkdir -p gcov_reports

@@ -1,10 +1,9 @@
 import datetime
 from itertools import combinations
-from typing import Union
 
 from ..base import Property
 from .base import Type
-from .time import TimeRange, CompoundTimeRange
+from .time import CompoundTimeRange, TimeRange
 
 
 class Association(Type):
@@ -26,8 +25,9 @@ class AssociationPair(Association):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if len(self.objects) != 2:
-            raise ValueError("Only two objects can be associated in one "
-                             "AssociationPair object.")
+            raise ValueError(
+                "Only two objects can be associated in one " "AssociationPair object."
+            )
 
 
 class SingleTimeAssociation(Association):
@@ -38,8 +38,8 @@ class SingleTimeAssociation(Association):
     """
 
     timestamp: datetime.datetime = Property(
-        default=None,
-        doc="Timestamp of the association. Default is None.")
+        default=None, doc="Timestamp of the association. Default is None."
+    )
 
 
 class TimeRangeAssociation(Association):
@@ -49,8 +49,9 @@ class TimeRangeAssociation(Association):
     range of times.
     """
 
-    time_range: Union[CompoundTimeRange, TimeRange] = Property(
-        default=None, doc="Range of times that association exists over. Default is None.")
+    time_range: CompoundTimeRange | TimeRange = Property(
+        default=None, doc="Range of times that association exists over. Default is None."
+    )
 
     @property
     def duration(self):
@@ -66,7 +67,8 @@ class AssociationSet(Type):
     """
 
     associations: set[Association] = Property(
-        default_factory=set, doc="set of independent associations.")
+        default_factory=set, doc="set of independent associations."
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -94,9 +96,10 @@ class AssociationSet(Type):
         This is only implemented for pairs with a time_range attribute - others will be skipped.
         """
         to_remove = set()
-        for (assoc1, assoc2) in combinations(self.associations, 2):
-            if not (len(assoc1.objects) == 2 and len(assoc2.objects) == 2) or \
-                    not (hasattr(assoc1, 'time_range') and hasattr(assoc2, 'time_range')):
+        for assoc1, assoc2 in combinations(self.associations, 2):
+            if not (len(assoc1.objects) == 2 and len(assoc2.objects) == 2) or not (
+                hasattr(assoc1, "time_range") and hasattr(assoc2, "time_range")
+            ):
                 continue
             if assoc1.objects == assoc2.objects:
                 if isinstance(assoc1.time_range, CompoundTimeRange):
@@ -143,14 +146,13 @@ class AssociationSet(Type):
         """
         overall_range = CompoundTimeRange()
         for association in self.associations:
-            if hasattr(association, 'time_range'):
+            if hasattr(association, "time_range"):
                 overall_range.add(association.time_range)
         return overall_range
 
     @property
     def object_set(self):
-        """Returns a set of all objects contained by this instance.
-        """
+        """Returns a set of all objects contained by this instance."""
         object_set = set()
         for assoc in self.associations:
             for obj in assoc.objects:
@@ -205,10 +207,13 @@ class AssociationSet(Type):
         if not isinstance(objects, list) and not isinstance(objects, set):
             objects = {objects}
 
-        return AssociationSet({association
-                              for association in self.associations
-                              if all(object_ in association.objects
-                                     for object_ in objects)})
+        return AssociationSet(
+            {
+                association
+                for association in self.associations
+                if all(object_ in association.objects for object_ in objects)
+            }
+        )
 
     def __contains__(self, item):
         return item in self.associations

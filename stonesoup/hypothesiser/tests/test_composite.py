@@ -3,16 +3,16 @@ import datetime
 import numpy as np
 import pytest
 
+from ...models.measurement.categorical import MarkovianMeasurementModel
+from ...predictor.composite import CompositePredictor
+from ...types.detection import CategoricalDetection, CompositeDetection, Detection, MissedDetection
+from ...types.hypothesis import CompositeHypothesis, CompositeProbabilityHypothesis
+from ...types.multihypothesis import MultipleHypothesis
+from ...types.state import CategoricalState, CompositeState, GaussianState
+from ...types.track import Track
 from ..categorical import HMMHypothesiser
 from ..composite import CompositeHypothesiser
 from ..probability import PDAHypothesiser
-from ...models.measurement.categorical import MarkovianMeasurementModel
-from ...predictor.composite import CompositePredictor
-from ...types.detection import Detection, MissedDetection, CompositeDetection, CategoricalDetection
-from ...types.hypothesis import CompositeHypothesis, CompositeProbabilityHypothesis
-from ...types.multihypothesis import MultipleHypothesis
-from ...types.state import GaussianState, CompositeState, CategoricalState
-from ...types.track import Track
 
 
 def make_categorical_measurement_model(ndim_state, ndim_meas):
@@ -24,22 +24,36 @@ def make_categorical_measurement_model(ndim_state, ndim_meas):
 
 def test_composite(predictor, updater, dummy_category_predictor, dummy_category_updater):
     sub_hypothesisers = [
-        PDAHypothesiser(predictor, updater, clutter_spatial_density=1.2e-2, prob_detect=0.9,
-                        prob_gate=0.99, include_all=True),
-        HMMHypothesiser(dummy_category_predictor, dummy_category_updater,
-                        prob_detect=0.7, prob_gate=0.95),
-        PDAHypothesiser(predictor, updater, clutter_spatial_density=1.4e-2, prob_detect=0.5,
-                        prob_gate=0.98, include_all=True),
-        HMMHypothesiser(dummy_category_predictor, dummy_category_updater,
-                        prob_detect=0.8, prob_gate=0.97)
+        PDAHypothesiser(
+            predictor,
+            updater,
+            clutter_spatial_density=1.2e-2,
+            prob_detect=0.9,
+            prob_gate=0.99,
+            include_all=True,
+        ),
+        HMMHypothesiser(
+            dummy_category_predictor, dummy_category_updater, prob_detect=0.7, prob_gate=0.95
+        ),
+        PDAHypothesiser(
+            predictor,
+            updater,
+            clutter_spatial_density=1.4e-2,
+            prob_detect=0.5,
+            prob_gate=0.98,
+            include_all=True,
+        ),
+        HMMHypothesiser(
+            dummy_category_predictor, dummy_category_updater, prob_detect=0.8, prob_gate=0.97
+        ),
     ]
 
     # Test instantiation errors
     with pytest.raises(ValueError, match="Cannot create an empty composite hypothesiser"):
-        CompositeHypothesiser(sub_hypothesisers=list())
+        CompositeHypothesiser(sub_hypothesisers=[])
 
     with pytest.raises(ValueError, match="All sub-hypothesisers must be a hypothesiser type"):
-        CompositeHypothesiser(sub_hypothesisers + [1, 2, 3])
+        CompositeHypothesiser([*sub_hypothesisers, 1, 2, 3])
 
     hypothesiser = CompositeHypothesiser(sub_hypothesisers=sub_hypothesisers)
 
@@ -52,31 +66,51 @@ def test_composite(predictor, updater, dummy_category_predictor, dummy_category_
     then = datetime.datetime.now()
     now = then + datetime.timedelta(seconds=5)
 
-    track = Track([CompositeState([GaussianState([0, 1, 0, 1], 0.1 * np.eye(4)),
-                                   CategoricalState([0.2, 0.2, 0.2, 0.2, 0.2]),
-                                   GaussianState([3, 4, 5], 0.2 * np.eye(3)),
-                                   CategoricalState([0.3, 0.4, 0.3])],
-                                  default_timestamp=then)])
+    track = Track(
+        [
+            CompositeState(
+                [
+                    GaussianState([0, 1, 0, 1], 0.1 * np.eye(4)),
+                    CategoricalState([0.2, 0.2, 0.2, 0.2, 0.2]),
+                    GaussianState([3, 4, 5], 0.2 * np.eye(3)),
+                    CategoricalState([0.3, 0.4, 0.3]),
+                ],
+                default_timestamp=then,
+            )
+        ]
+    )
 
-    detection1 = CompositeDetection([Detection([3, 3, 3, 3], timestamp=now),
-                                     CategoricalDetection(np.random.rand(2), timestamp=now),
-                                     Detection([2, 4, 6], timestamp=now),
-                                     CategoricalDetection(np.random.rand(2), timestamp=now)],
-                                    mapping=[0, 1, 2, 3])
-    detection2 = CompositeDetection([Detection([4, 4, 4, 4], timestamp=now),
-                                     CategoricalDetection(np.random.rand(2), timestamp=now),
-                                     CategoricalDetection(np.random.rand(2), timestamp=now)],
-                                    mapping=[0, 1, 3])
-    detection3 = CompositeDetection([CategoricalDetection(np.random.rand(2), timestamp=now),
-                                     CategoricalDetection(np.random.rand(2), timestamp=now)],
-                                    mapping=[3, 1])
+    detection1 = CompositeDetection(
+        [
+            Detection([3, 3, 3, 3], timestamp=now),
+            CategoricalDetection(np.random.rand(2), timestamp=now),
+            Detection([2, 4, 6], timestamp=now),
+            CategoricalDetection(np.random.rand(2), timestamp=now),
+        ],
+        mapping=[0, 1, 2, 3],
+    )
+    detection2 = CompositeDetection(
+        [
+            Detection([4, 4, 4, 4], timestamp=now),
+            CategoricalDetection(np.random.rand(2), timestamp=now),
+            CategoricalDetection(np.random.rand(2), timestamp=now),
+        ],
+        mapping=[0, 1, 3],
+    )
+    detection3 = CompositeDetection(
+        [
+            CategoricalDetection(np.random.rand(2), timestamp=now),
+            CategoricalDetection(np.random.rand(2), timestamp=now),
+        ],
+        mapping=[3, 1],
+    )
 
     detections = {detection1, detection2, detection3}
 
     multi_hypothesis = hypothesiser.hypothesise(track, detections, now)
 
     # Test all hypotheses are composite
-    assert all({isinstance(hypothesis, CompositeHypothesis) for hypothesis in multi_hypothesis})
+    assert all(isinstance(hypothesis, CompositeHypothesis) for hypothesis in multi_hypothesis)
 
     # Test all detections considered
     hyp_detections = {hypothesis.measurement for hypothesis in multi_hypothesis}
@@ -127,9 +161,11 @@ def test_composite(predictor, updater, dummy_category_predictor, dummy_category_
     # Test contains
     for sub_hypothesiser in sub_hypothesisers:
         assert sub_hypothesiser in hypothesiser
-    assert PDAHypothesiser(predictor, updater, clutter_spatial_density=1, prob_detect=1,
-                           prob_gate=1) not in hypothesiser
-    assert 'a' not in hypothesiser
+    assert (
+        PDAHypothesiser(predictor, updater, clutter_spatial_density=1, prob_detect=1, prob_gate=1)
+        not in hypothesiser
+    )
+    assert "a" not in hypothesiser
 
     # Test get
     for i, expected_hypothesiser in enumerate(sub_hypothesisers):

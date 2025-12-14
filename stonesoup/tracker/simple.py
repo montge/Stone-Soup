@@ -2,7 +2,6 @@ import datetime
 
 import numpy as np
 
-from .base import Tracker, _TrackerMixInNext
 from ..base import Property
 from ..dataassociator import DataAssociator
 from ..deleter import Deleter
@@ -14,6 +13,7 @@ from ..types.prediction import GaussianStatePrediction
 from ..types.track import Track
 from ..types.update import GaussianStateUpdate
 from ..updater import Updater
+from .base import Tracker, _TrackerMixInNext
 
 
 class SingleTargetTracker(_TrackerMixInNext, Tracker):
@@ -37,11 +37,13 @@ class SingleTargetTracker(_TrackerMixInNext, Tracker):
         Current track being maintained. Also accessible as the sole item in
         :attr:`tracks`
     """
+
     initiator: Initiator = Property(doc="Initiator used to initialise the track.")
     deleter: Deleter = Property(doc="Deleter used to delete tracks.")
     detector: DetectionReader = Property(doc="Detector used to generate detection objects.")
     data_associator: DataAssociator = Property(
-        doc="Association algorithm to pair predictions to detections")
+        doc="Association algorithm to pair predictions to detections"
+    )
     updater: Updater = Property(doc="Updater used to update the track object to the new state.")
 
     def __init__(self, *args, **kwargs):
@@ -55,14 +57,12 @@ class SingleTargetTracker(_TrackerMixInNext, Tracker):
     def __next__(self) -> tuple[datetime.datetime, set[Track]]:
         time, detections = next(self.detector_iter)
         if self._track is not None:
-            associations = self.data_associator.associate(
-                self.tracks, detections, time)
+            associations = self.data_associator.associate(self.tracks, detections, time)
             if associations[self._track]:
                 state_post = self.updater.update(associations[self._track])
                 self._track.append(state_post)
             else:
-                self._track.append(
-                    associations[self._track].prediction)
+                self._track.append(associations[self._track].prediction)
 
         if self._track is None or self.deleter.delete_tracks(self.tracks):
             new_tracks = self.initiator.initiate(detections, time)
@@ -75,7 +75,7 @@ class SingleTargetTracker(_TrackerMixInNext, Tracker):
 
 
 class SingleTargetMixtureTracker(_TrackerMixInNext, Tracker):
-    """ A simple single target tracking that receives associations from a
+    """A simple single target tracking that receives associations from a
     (Gaussian) Mixture associator.
 
     Track single objects using Stone Soup components. The tracker works by
@@ -91,11 +91,13 @@ class SingleTargetMixtureTracker(_TrackerMixInNext, Tracker):
     Parameters
     ----------
     """
+
     initiator: Initiator = Property(doc="Initiator used to initialise the track.")
     deleter: Deleter = Property(doc="Deleter used to delete tracks.")
     detector: DetectionReader = Property(doc="Detector used to generate detection objects.")
     data_associator: DataAssociator = Property(
-        doc="Association algorithm to pair predictions to detections")
+        doc="Association algorithm to pair predictions to detections"
+    )
     updater: Updater = Property(doc="Updater used to update the track object to the new state.")
 
     def __init__(self, *args, **kwargs):
@@ -110,8 +112,7 @@ class SingleTargetMixtureTracker(_TrackerMixInNext, Tracker):
         time, detections = next(self.detector_iter)
 
         if self._track is not None:
-            associations = self.data_associator.associate(
-                self.tracks, detections, time)
+            associations = self.data_associator.associate(self.tracks, detections, time)
 
             unassociated_detections = set(detections)
             for track, multihypothesis in associations.items():
@@ -125,10 +126,8 @@ class SingleTargetMixtureTracker(_TrackerMixInNext, Tracker):
                     if not hypothesis:
                         posterior_states.append(hypothesis.prediction)
                     else:
-                        posterior_states.append(
-                            self.updater.update(hypothesis))
-                    posterior_state_weights.append(
-                        hypothesis.probability)
+                        posterior_states.append(self.updater.update(hypothesis))
+                    posterior_state_weights.append(hypothesis.probability)
 
                 means = StateVectors([state.state_vector for state in posterior_states])
                 covars = np.stack([state.covar for state in posterior_states], axis=2)
@@ -140,18 +139,25 @@ class SingleTargetMixtureTracker(_TrackerMixInNext, Tracker):
                 missed_detection_weight = next(hyp.weight for hyp in multihypothesis if not hyp)
 
                 # Check if at least one reasonable measurement...
-                if any(hypothesis.weight > missed_detection_weight
-                       for hypothesis in multihypothesis):
+                if any(
+                    hypothesis.weight > missed_detection_weight for hypothesis in multihypothesis
+                ):
                     # ...and if so use update type
-                    track.append(GaussianStateUpdate(
-                        post_mean, post_covar,
-                        multihypothesis,
-                        multihypothesis[0].measurement.timestamp))
+                    track.append(
+                        GaussianStateUpdate(
+                            post_mean,
+                            post_covar,
+                            multihypothesis,
+                            multihypothesis[0].measurement.timestamp,
+                        )
+                    )
                 else:
                     # ...and if not, treat as a prediction
-                    track.append(GaussianStatePrediction(
-                        post_mean, post_covar,
-                        multihypothesis[0].prediction.timestamp))
+                    track.append(
+                        GaussianStatePrediction(
+                            post_mean, post_covar, multihypothesis[0].prediction.timestamp
+                        )
+                    )
 
                 # any detections in multihypothesis that had an
                 # association score (weight) lower than or equal to the
@@ -186,11 +192,13 @@ class MultiTargetTracker(_TrackerMixInNext, Tracker):
     Parameters
     ----------
     """
+
     initiator: Initiator = Property(doc="Initiator used to initialise the track.")
     deleter: Deleter = Property(doc="Deleter used to delete tracks.")
     detector: DetectionReader = Property(doc="Detector used to generate detection objects.")
     data_associator: DataAssociator = Property(
-        doc="Association algorithm to pair predictions to detections")
+        doc="Association algorithm to pair predictions to detections"
+    )
     updater: Updater = Property(doc="Updater used to update the track object to the new state.")
 
     def __init__(self, *args, **kwargs):
@@ -204,8 +212,7 @@ class MultiTargetTracker(_TrackerMixInNext, Tracker):
     def __next__(self) -> tuple[datetime.datetime, set[Track]]:
         time, detections = next(self.detector_iter)
 
-        associations = self.data_associator.associate(
-            self.tracks, detections, time)
+        associations = self.data_associator.associate(self.tracks, detections, time)
         associated_detections = set()
         for track, hypothesis in associations.items():
             if hypothesis:
@@ -216,8 +223,7 @@ class MultiTargetTracker(_TrackerMixInNext, Tracker):
                 track.append(hypothesis.prediction)
 
         self._tracks -= self.deleter.delete_tracks(self.tracks)
-        self._tracks |= self.initiator.initiate(
-            detections - associated_detections, time)
+        self._tracks |= self.initiator.initiate(detections - associated_detections, time)
 
         return time, self.tracks
 
@@ -238,11 +244,13 @@ class MultiTargetMixtureTracker(_TrackerMixInNext, Tracker):
     Parameters
     ----------
     """
+
     initiator: Initiator = Property(doc="Initiator used to initialise the track.")
     deleter: Deleter = Property(doc="Deleter used to delete tracks.")
     detector: DetectionReader = Property(doc="Detector used to generate detection objects.")
     data_associator: DataAssociator = Property(
-        doc="Association algorithm to pair predictions to detections")
+        doc="Association algorithm to pair predictions to detections"
+    )
     updater: Updater = Property(doc="Updater used to update the track object to the new state.")
 
     def __init__(self, *args, **kwargs):
@@ -256,8 +264,7 @@ class MultiTargetMixtureTracker(_TrackerMixInNext, Tracker):
     def __next__(self) -> tuple[datetime.datetime, set[Track]]:
         time, detections = next(self.detector_iter)
 
-        associations = self.data_associator.associate(
-            self.tracks, detections, time)
+        associations = self.data_associator.associate(self.tracks, detections, time)
         unassociated_detections = set(detections)
         for track, multihypothesis in associations.items():
 
@@ -270,10 +277,8 @@ class MultiTargetMixtureTracker(_TrackerMixInNext, Tracker):
                 if not hypothesis:
                     posterior_states.append(hypothesis.prediction)
                 else:
-                    posterior_states.append(
-                        self.updater.update(hypothesis))
-                posterior_state_weights.append(
-                    hypothesis.probability)
+                    posterior_states.append(self.updater.update(hypothesis))
+                posterior_state_weights.append(hypothesis.probability)
 
             means = StateVectors([state.state_vector for state in posterior_states])
             covars = np.stack([state.covar for state in posterior_states], axis=2)
@@ -284,18 +289,23 @@ class MultiTargetMixtureTracker(_TrackerMixInNext, Tracker):
             missed_detection_weight = next(hyp.weight for hyp in multihypothesis if not hyp)
 
             # Check if at least one reasonable measurement...
-            if any(hypothesis.weight > missed_detection_weight
-                   for hypothesis in multihypothesis):
+            if any(hypothesis.weight > missed_detection_weight for hypothesis in multihypothesis):
                 # ...and if so use update type
-                track.append(GaussianStateUpdate(
-                    post_mean, post_covar,
-                    multihypothesis,
-                    multihypothesis[0].measurement.timestamp))
+                track.append(
+                    GaussianStateUpdate(
+                        post_mean,
+                        post_covar,
+                        multihypothesis,
+                        multihypothesis[0].measurement.timestamp,
+                    )
+                )
             else:
                 # ...and if not, treat as a prediction
-                track.append(GaussianStatePrediction(
-                    post_mean, post_covar,
-                    multihypothesis[0].prediction.timestamp))
+                track.append(
+                    GaussianStatePrediction(
+                        post_mean, post_covar, multihypothesis[0].prediction.timestamp
+                    )
+                )
 
             # any detections in multihypothesis that had an
             # association score (weight) lower than or equal to the
@@ -307,7 +317,6 @@ class MultiTargetMixtureTracker(_TrackerMixInNext, Tracker):
                         unassociated_detections.remove(hyp.measurement)
 
         self._tracks -= self.deleter.delete_tracks(self.tracks)
-        self._tracks |= self.initiator.initiate(
-            unassociated_detections, time)
+        self._tracks |= self.initiator.initiate(unassociated_detections, time)
 
         return time, self.tracks

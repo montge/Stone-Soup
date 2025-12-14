@@ -2,27 +2,28 @@ from collections.abc import Callable
 
 import numpy as np
 
-from .base import Sampler
 from ..base import Property
-from ..types.state import ParticleState
 from ..types.array import StateVectors
+from ..types.state import ParticleState
+from .base import Sampler
 
 
 class ParticleSampler(Sampler):
     """Particle sampler.
 
-     A generic :class:`~.Sampler` which wraps around most distribution sampling functions from
-     :class:`numpy` and :class:`scipy`, that returns a :class:`~.ParticleState`
-     """
+    A generic :class:`~.Sampler` which wraps around most distribution sampling functions from
+    :class:`numpy` and :class:`scipy`, that returns a :class:`~.ParticleState`
+    """
 
     distribution_func: Callable = Property(
-        doc="Callable function that returns samples from the desired distribution.")
+        doc="Callable function that returns samples from the desired distribution."
+    )
 
     params: dict = Property(
-        doc="Dictionary containing the keyword arguments for :attr:`distribution_func`.")
+        doc="Dictionary containing the keyword arguments for :attr:`distribution_func`."
+    )
 
-    ndim_state: int = Property(
-        doc="Number of dimensions in each sample.")
+    ndim_state: int = Property(doc="Number of dimensions in each sample.")
 
     def sample(self, params=None, timestamp=None, **kwargs):
         """Samples from the desired distribution and returns as a :class:`~.ParticleState`
@@ -40,7 +41,7 @@ class ParticleSampler(Sampler):
         -------
         particle state : :class:`~.ParticleState`
             The particle state containing the samples of the distribution
-            """
+        """
 
         if params is not None:
             params_update = params
@@ -60,8 +61,10 @@ class ParticleSampler(Sampler):
         if np.shape(samples)[0] != self.ndim_state:
             samples = samples.T
 
-        particles = ParticleState(state_vector=StateVectors(samples),
-                                  weight=np.array([1 / nsamples] * nsamples),
-                                  timestamp=timestamp)
+        particles = ParticleState(
+            state_vector=StateVectors(samples),
+            weight=np.array([1 / nsamples] * nsamples),
+            timestamp=timestamp,
+        )
 
         return particles

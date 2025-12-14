@@ -1,16 +1,16 @@
+from abc import ABC
+from collections.abc import Callable
+
 import numpy as np
 from scipy.stats import poisson
-from collections.abc import Callable
-from typing import Union, Optional
-from abc import ABC
 
-from ..base import Model
 from ...base import Property
+from ...types.array import StateVector, StateVectors
 from ...types.detection import Clutter
 from ...types.groundtruth import GroundTruthState
-from ...types.array import StateVector, StateVectors
 from ...types.numeric import Probability
 from ...types.state import State
+from ..base import Model
 
 
 class ClutterModel(Model, ABC):
@@ -28,12 +28,14 @@ class ClutterModel(Model, ABC):
     clutter_rate: float = Property(
         default=1.0,
         doc="The average number of clutter points per time step. The actual "
-            "number is Poisson distributed")
+        "number is Poisson distributed",
+    )
     distribution: Callable = Property(
         default=np.random.default_rng().uniform,
         doc="A function which represents the distribution of the clutter over the "
-            "measurement space. The function should return a single value (ie, do "
-            "not use multivariate distributions).")
+        "measurement space. The function should return a single value (ie, do "
+        "not use multivariate distributions).",
+    )
     dist_params: tuple = Property(
         default=((-200, 200), (-200, 200)),
         doc="The required parameters for the clutter distribution function. The "
@@ -41,13 +43,15 @@ class ClutterModel(Model, ABC):
         "and should be defined for use in Cartesian space."
         "The default defines the space for a uniform distribution in 2D. The call "
         "`np.array([self.distribution(*arg) for arg in self.dist_params])` "
-        "must return a numpy array of length equal to the number of dimensions.")
-    seed: Optional[Union[int, np.random.RandomState]] = Property(
+        "must return a numpy array of length equal to the number of dimensions.",
+    )
+    seed: int | np.random.RandomState | None = Property(
         default=None,
         doc="Seed or state for random number generation. If defined as an integer, "
         "it will be used to create a numpy RandomState. Or it can be defined directly "
         "as a RandomState (useful if you want to pass one of the random state's "
-        "functions as the :attr:`distribution`).")
+        "functions as the :attr:`distribution`).",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -98,9 +102,13 @@ class ClutterModel(Model, ABC):
             clutter_vector = self.measurement_model.function(state)
 
             # Create a clutter object.
-            clutter.add(Clutter(state_vector=clutter_vector,
-                                timestamp=timestamp,
-                                measurement_model=self.measurement_model))
+            clutter.add(
+                Clutter(
+                    state_vector=clutter_vector,
+                    timestamp=timestamp,
+                    measurement_model=self.measurement_model,
+                )
+            )
 
         return clutter
 
@@ -110,18 +118,18 @@ class ClutterModel(Model, ABC):
         Return the number of measurement dimensions or, if a measurement model has
         not yet been assigned, the number of state dimensions.
         """
-        if hasattr(self, 'measurement_model'):
+        if hasattr(self, "measurement_model"):
             return self.measurement_model.ndim_meas
         else:
             return len(self.dist_params)
 
-    def rvs(self, num_samples: int = 1, **kwargs) -> Union[StateVector, StateVectors]:
+    def rvs(self, num_samples: int = 1, **kwargs) -> StateVector | StateVectors:
         """
         Must be implemented to properly inherit the parent Model.
         """
         return None
 
-    def pdf(self, state1: State, state2: State, **kwargs) -> Union[Probability, np.ndarray]:
+    def pdf(self, state1: State, state2: State, **kwargs) -> Probability | np.ndarray:
         """
         Must be implemented to properly inherit the parent Model.
         """

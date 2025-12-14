@@ -1,10 +1,10 @@
 import warnings
 
-from .base import Hypothesiser
 from ..base import Property
 from ..types.multihypothesis import MultipleHypothesis
 from ..types.numeric import Probability
 from ..types.prediction import Prediction
+from .base import Hypothesiser
 
 
 class MFAHypothesiser(Hypothesiser):
@@ -24,7 +24,8 @@ class MFAHypothesiser(Hypothesiser):
     """
 
     hypothesiser: Hypothesiser = Property(
-        doc="Underlying hypothesiser used to generate detection-target pairs")
+        doc="Underlying hypothesiser used to generate detection-target pairs"
+    )
 
     def hypothesise(self, track, detections, timestamp, detections_tuple, **kwargs):
         """Form hypotheses for associations between Detections and a given track.
@@ -49,26 +50,27 @@ class MFAHypothesiser(Hypothesiser):
         # Check to make sure all detections are obtained from the same time
         timestamps = {detection.timestamp for detection in detections}
         if len(timestamps) > 1:
-            warnings.warn("All detections should have the same timestamp")
+            warnings.warn("All detections should have the same timestamp", stacklevel=2)
 
-        hypotheses = list()
+        hypotheses = []
         component_weight_sum = Probability.sum(
-                component.weight for component in track.state.components)
+            component.weight for component in track.state.components
+        )
         for component in track.state.components:
             # Get hypotheses for that component for all measurements
             component_hypotheses = self.hypothesiser.hypothesise(
-                component, detections, timestamp, **kwargs)
+                component, detections, timestamp, **kwargs
+            )
             for hypothesis in component_hypotheses:
                 # Update component tag and weight
                 det_idx = detections_tuple.index(hypothesis.measurement) + 1 if hypothesis else 0
                 new_weight = Probability(component.weight * hypothesis.weight)
                 new_weight /= component_weight_sum
-                hypothesis.prediction = \
-                    Prediction.from_state(
-                        hypothesis.prediction,
-                        tag=[*component.tag, det_idx],  # TODO: Avoid dependency on indexes
-                        weight=new_weight,
-                    )
+                hypothesis.prediction = Prediction.from_state(
+                    hypothesis.prediction,
+                    tag=[*component.tag, det_idx],  # TODO: Avoid dependency on indexes
+                    weight=new_weight,
+                )
                 hypotheses.append(hypothesis)
         # Create Multiple Hypothesis and add to list
         hypotheses = MultipleHypothesis(hypotheses)

@@ -1,40 +1,35 @@
 """Tests for Viterbi Smoother"""
 
-import pytest
-import numpy as np
 from datetime import datetime, timedelta
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
-from stonesoup.smoother.viterbi import ViterbiSmoother
-from stonesoup.types.detection import Detection
-from stonesoup.types.state import GaussianState, State
-from stonesoup.types.track import Track
-from stonesoup.types.update import GaussianStateUpdate
-from stonesoup.types.prediction import GaussianStatePrediction
-from stonesoup.types.hypothesis import SingleHypothesis
+import numpy as np
+import pytest
+
+from stonesoup.models.measurement.linear import LinearGaussian
 from stonesoup.models.transition.linear import (
     CombinedLinearGaussianTransitionModel,
-    ConstantVelocity
+    ConstantVelocity,
 )
-from stonesoup.models.measurement.linear import LinearGaussian
+from stonesoup.smoother.viterbi import ViterbiSmoother
+from stonesoup.types.detection import Detection
+from stonesoup.types.hypothesis import SingleHypothesis
+from stonesoup.types.prediction import GaussianStatePrediction
+from stonesoup.types.state import GaussianState
+from stonesoup.types.track import Track
+from stonesoup.types.update import GaussianStateUpdate
 
 
 @pytest.fixture
 def transition_model():
     """Create a simple transition model for testing."""
-    return CombinedLinearGaussianTransitionModel(
-        [ConstantVelocity(0.1), ConstantVelocity(0.1)]
-    )
+    return CombinedLinearGaussianTransitionModel([ConstantVelocity(0.1), ConstantVelocity(0.1)])
 
 
 @pytest.fixture
 def measurement_model():
     """Create a simple measurement model for testing."""
-    return LinearGaussian(
-        ndim_state=4,
-        mapping=[0, 2],
-        noise_covar=np.eye(2) * 0.5
-    )
+    return LinearGaussian(ndim_state=4, mapping=[0, 2], noise_covar=np.eye(2) * 0.5)
 
 
 @pytest.fixture
@@ -50,10 +45,10 @@ def simple_track(measurement_model):
         np.array([[2.0], [1.0], [3.5], [1.5]]),
         np.array([[3.0], [1.0], [5.0], [1.5]]),
         np.array([[4.0], [1.0], [6.5], [1.5]]),
-        np.array([[5.0], [1.0], [8.0], [1.5]])
+        np.array([[5.0], [1.0], [8.0], [1.5]]),
     ]
 
-    for state_vec, timestamp in zip(state_vectors, times):
+    for state_vec, timestamp in zip(state_vectors, times, strict=False):
         covar = np.eye(4) * 0.1
         detection = Detection(state_vec[[0, 2]], timestamp=timestamp)
         pred = GaussianStatePrediction(state_vec, covar, timestamp=timestamp)
@@ -67,8 +62,7 @@ def simple_track(measurement_model):
 def test_viterbi_smoother_instantiation(transition_model, measurement_model):
     """Test that ViterbiSmoother can be instantiated with required models."""
     smoother = ViterbiSmoother(
-        transition_model=transition_model,
-        measurement_model=measurement_model
+        transition_model=transition_model, measurement_model=measurement_model
     )
 
     assert smoother.transition_model is transition_model
@@ -85,7 +79,7 @@ def test_viterbi_smoother_instantiation_with_params(transition_model, measuremen
         transition_model=transition_model,
         measurement_model=measurement_model,
         num_states=50,
-        state_bounds=bounds
+        state_bounds=bounds,
     )
 
     assert smoother.num_states == 50
@@ -95,8 +89,7 @@ def test_viterbi_smoother_instantiation_with_params(transition_model, measuremen
 def test_viterbi_smoother_empty_track(transition_model, measurement_model):
     """Test that ViterbiSmoother raises ValueError for empty track."""
     smoother = ViterbiSmoother(
-        transition_model=transition_model,
-        measurement_model=measurement_model
+        transition_model=transition_model, measurement_model=measurement_model
     )
 
     empty_track = Track()
@@ -110,7 +103,7 @@ def test_viterbi_smoother_smooth_basic(transition_model, measurement_model, simp
     smoother = ViterbiSmoother(
         transition_model=transition_model,
         measurement_model=measurement_model,
-        num_states=10  # Use smaller grid for faster testing
+        num_states=10,  # Use smaller grid for faster testing
     )
 
     # Smooth the track
@@ -127,17 +120,16 @@ def test_viterbi_smoother_smooth_basic(transition_model, measurement_model, simp
         assert isinstance(state, GaussianStateUpdate)
 
     # Check that timestamps are preserved
-    for orig_state, smooth_state in zip(simple_track, smoothed_track):
+    for orig_state, smooth_state in zip(simple_track, smoothed_track, strict=False):
         assert orig_state.timestamp == smooth_state.timestamp
 
 
-def test_viterbi_smoother_discretize_state_space(transition_model, measurement_model,
-                                                   simple_track):
+def test_viterbi_smoother_discretize_state_space(
+    transition_model, measurement_model, simple_track
+):
     """Test state space discretization."""
     smoother = ViterbiSmoother(
-        transition_model=transition_model,
-        measurement_model=measurement_model,
-        num_states=10
+        transition_model=transition_model, measurement_model=measurement_model, num_states=10
     )
 
     # Test discretization without bounds (auto-estimated)
@@ -157,8 +149,7 @@ def test_viterbi_smoother_discretize_state_space(transition_model, measurement_m
 def test_viterbi_smoother_log_transition_probability(transition_model, measurement_model):
     """Test log transition probability computation."""
     smoother = ViterbiSmoother(
-        transition_model=transition_model,
-        measurement_model=measurement_model
+        transition_model=transition_model, measurement_model=measurement_model
     )
 
     state_from = np.array([[1.0], [1.0], [2.0], [1.5]])
@@ -176,8 +167,7 @@ def test_viterbi_smoother_log_transition_probability(transition_model, measureme
 def test_viterbi_smoother_log_observation_likelihood(transition_model, measurement_model):
     """Test log observation likelihood computation."""
     smoother = ViterbiSmoother(
-        transition_model=transition_model,
-        measurement_model=measurement_model
+        transition_model=transition_model, measurement_model=measurement_model
     )
 
     state = np.array([[1.0], [1.0], [2.0], [1.5]])
@@ -191,20 +181,18 @@ def test_viterbi_smoother_log_observation_likelihood(transition_model, measureme
     assert log_likelihood <= 0.0
 
 
-def test_viterbi_smoother_log_observation_likelihood_with_state(transition_model,
-                                                                 measurement_model):
+def test_viterbi_smoother_log_observation_likelihood_with_state(
+    transition_model, measurement_model
+):
     """Test log observation likelihood with state instead of detection."""
     smoother = ViterbiSmoother(
-        transition_model=transition_model,
-        measurement_model=measurement_model
+        transition_model=transition_model, measurement_model=measurement_model
     )
 
     state = np.array([[1.0], [1.0], [2.0], [1.5]])
     # Pass a state with full state vector
     measurement_state = GaussianState(
-        np.array([[1.1], [1.0], [2.1], [1.5]]),
-        np.eye(4),
-        timestamp=datetime.now()
+        np.array([[1.1], [1.0], [2.1], [1.5]]), np.eye(4), timestamp=datetime.now()
     )
 
     log_likelihood = smoother._log_observation_likelihood(state, measurement_state)
@@ -215,9 +203,7 @@ def test_viterbi_smoother_log_observation_likelihood_with_state(transition_model
 def test_viterbi_smoother_with_predictions(transition_model, measurement_model):
     """Test smoothing with prediction states (no measurements)."""
     smoother = ViterbiSmoother(
-        transition_model=transition_model,
-        measurement_model=measurement_model,
-        num_states=10
+        transition_model=transition_model, measurement_model=measurement_model, num_states=10
     )
 
     start = datetime.now()
@@ -228,10 +214,10 @@ def test_viterbi_smoother_with_predictions(transition_model, measurement_model):
     state_vectors = [
         np.array([[1.0], [1.0], [2.0], [1.5]]),
         np.array([[2.0], [1.0], [3.5], [1.5]]),
-        np.array([[3.0], [1.0], [5.0], [1.5]])
+        np.array([[3.0], [1.0], [5.0], [1.5]]),
     ]
 
-    for i, (state_vec, timestamp) in enumerate(zip(state_vectors, times)):
+    for i, (state_vec, timestamp) in enumerate(zip(state_vectors, times, strict=False)):
         covar = np.eye(4) * 0.1
         if i == 1:
             # Add a prediction without measurement
@@ -254,9 +240,7 @@ def test_viterbi_smoother_with_predictions(transition_model, measurement_model):
 def test_viterbi_smoother_preserves_state_type(transition_model, measurement_model):
     """Test that smoother preserves the state type."""
     smoother = ViterbiSmoother(
-        transition_model=transition_model,
-        measurement_model=measurement_model,
-        num_states=5
+        transition_model=transition_model, measurement_model=measurement_model, num_states=5
     )
 
     start = datetime.now()
@@ -285,7 +269,7 @@ def test_viterbi_smoother_with_custom_bounds(transition_model, measurement_model
         transition_model=transition_model,
         measurement_model=measurement_model,
         num_states=5,
-        state_bounds=bounds
+        state_bounds=bounds,
     )
 
     start = datetime.now()
@@ -295,10 +279,10 @@ def test_viterbi_smoother_with_custom_bounds(transition_model, measurement_model
     state_vectors = [
         np.array([[1.0], [1.0], [2.0], [1.5]]),
         np.array([[2.0], [1.0], [3.5], [1.5]]),
-        np.array([[3.0], [1.0], [5.0], [1.5]])
+        np.array([[3.0], [1.0], [5.0], [1.5]]),
     ]
 
-    for state_vec, timestamp in zip(state_vectors, times):
+    for state_vec, timestamp in zip(state_vectors, times, strict=False):
         covar = np.eye(4) * 0.1
         state = GaussianState(state_vec, covar, timestamp=timestamp)
         track.append(state)
@@ -316,19 +300,13 @@ def test_viterbi_smoother_with_custom_bounds(transition_model, measurement_model
 def test_viterbi_smoother_non_gaussian_transition():
     """Test smoother with non-Gaussian transition model (no covar method)."""
     # Create a mock transition model without covar
-    mock_transition = Mock(spec=['function'])  # Only has function attribute
+    mock_transition = Mock(spec=["function"])  # Only has function attribute
     mock_transition.function = Mock(return_value=np.array([[1.0], [1.0], [2.0], [1.5]]))
 
-    measurement_model = LinearGaussian(
-        ndim_state=4,
-        mapping=[0, 2],
-        noise_covar=np.eye(2) * 0.5
-    )
+    measurement_model = LinearGaussian(ndim_state=4, mapping=[0, 2], noise_covar=np.eye(2) * 0.5)
 
     smoother = ViterbiSmoother(
-        transition_model=mock_transition,
-        measurement_model=measurement_model,
-        num_states=5
+        transition_model=mock_transition, measurement_model=measurement_model, num_states=5
     )
 
     state_from = np.array([[1.0], [1.0], [2.0], [1.5]])
@@ -347,16 +325,10 @@ def test_viterbi_smoother_numerical_stability():
     transition_model = CombinedLinearGaussianTransitionModel(
         [ConstantVelocity(0.1), ConstantVelocity(0.1)]
     )
-    measurement_model = LinearGaussian(
-        ndim_state=4,
-        mapping=[0, 2],
-        noise_covar=np.eye(2) * 0.5
-    )
+    measurement_model = LinearGaussian(ndim_state=4, mapping=[0, 2], noise_covar=np.eye(2) * 0.5)
 
     smoother = ViterbiSmoother(
-        transition_model=transition_model,
-        measurement_model=measurement_model,
-        num_states=10
+        transition_model=transition_model, measurement_model=measurement_model, num_states=10
     )
 
     # Create track with very similar states (potential numerical issues)
@@ -367,10 +339,10 @@ def test_viterbi_smoother_numerical_stability():
     state_vectors = [
         np.array([[1.0], [1.0], [2.0], [1.5]]),
         np.array([[1.001], [1.0], [2.001], [1.5]]),  # Very close
-        np.array([[1.002], [1.0], [2.002], [1.5]])   # Very close
+        np.array([[1.002], [1.0], [2.002], [1.5]]),  # Very close
     ]
 
-    for state_vec, timestamp in zip(state_vectors, times):
+    for state_vec, timestamp in zip(state_vectors, times, strict=False):
         covar = np.eye(4) * 0.1
         state = GaussianState(state_vec, covar, timestamp=timestamp)
         track.append(state)

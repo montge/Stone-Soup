@@ -1,15 +1,15 @@
 import copy
-import numpy as np
 from collections.abc import Callable, Sequence
 
+import numpy as np
 from scipy.stats import multivariate_normal, uniform
 
-from .base import Regulariser
 from ..base import Property
 from ..functions import cholesky_eps
 from ..models.transition import TransitionModel
 from ..predictor.particle import MultiModelPredictor
 from ..types.state import ParticleState
+from .base import Regulariser
 
 
 class MCMCRegulariser(Regulariser):
@@ -30,24 +30,28 @@ class MCMCRegulariser(Regulariser):
     .. [1] Robert, Christian P. & Casella, George, Monte Carlo Statistical Methods, Springer, 1999.
 
     .. [2] Ristic, Branko & Arulampalam, Sanjeev & Gordon, Neil, Beyond the Kalman Filter:
-        Particle Filters for Target Tracking Applications, Artech House, 2004. """
+        Particle Filters for Target Tracking Applications, Artech House, 2004."""
 
-    transition_model: TransitionModel = Property(doc="Transition model used for prediction",
-                                                 default=None)
+    transition_model: TransitionModel = Property(
+        doc="Transition model used for prediction", default=None
+    )
     constraint_func: Callable = Property(
         default=None,
         doc="Callable, user defined function for applying "
-            "constraints to particle states. This is done by reverting particles "
-            "that are moved to a state outside of the defined constraints "
-            "back to the state prior to the move step. Particle states that are "
-            "input are assumed to be constrained. This function provides indices "
-            "of the unconstrained particles and should accept a :class:`~.ParticleState` "
-            "object and return an array-like object of logical indices. "
+        "constraints to particle states. This is done by reverting particles "
+        "that are moved to a state outside of the defined constraints "
+        "back to the state prior to the move step. Particle states that are "
+        "input are assumed to be constrained. This function provides indices "
+        "of the unconstrained particles and should accept a :class:`~.ParticleState` "
+        "object and return an array-like object of logical indices. ",
     )
 
     def _transition_prior(self, prior, posterior, **kwargs):
-        hypothesis = posterior.hypothesis[0] if isinstance(posterior.hypothesis, Sequence) \
+        hypothesis = (
+            posterior.hypothesis[0]
+            if isinstance(posterior.hypothesis, Sequence)
             else posterior.hypothesis
+        )
         transition_model = hypothesis.prediction.transition_model
         if not transition_model:
             transition_model = self.transition_model
@@ -55,7 +59,8 @@ class MCMCRegulariser(Regulariser):
         if transition_model:
             transitioned_prior = copy.copy(prior)
             transitioned_prior.state_vector = transition_model.function(
-                prior, noise=False, time_interval=posterior.timestamp - prior.timestamp)
+                prior, noise=False, time_interval=posterior.timestamp - prior.timestamp
+            )
             return transitioned_prior
         else:
             return prior
@@ -77,13 +82,16 @@ class MCMCRegulariser(Regulariser):
         """
 
         if not isinstance(posterior, ParticleState):
-            raise TypeError('Only ParticleState type is supported!')
+            raise TypeError("Only ParticleState type is supported!")
 
         if not isinstance(prior, ParticleState):
-            raise TypeError('Only ParticleState type is supported!')
+            raise TypeError("Only ParticleState type is supported!")
 
-        hypotheses = posterior.hypothesis if isinstance(posterior.hypothesis, Sequence) \
+        hypotheses = (
+            posterior.hypothesis
+            if isinstance(posterior.hypothesis, Sequence)
             else [posterior.hypothesis]
+        )
         detections = {hypothesis.measurement for hypothesis in hypotheses if hypothesis}
 
         if detections:
@@ -93,13 +101,14 @@ class MCMCRegulariser(Regulariser):
             measurement_model = next(iter(detections)).measurement_model
 
             # calculate the optimal bandwidth for the Gaussian kernel
-            hopt = (4/(ndim+2))**(1/(ndim+4))*nparticles**(-1/(ndim+4))
+            hopt = (4 / (ndim + 2)) ** (1 / (ndim + 4)) * nparticles ** (-1 / (ndim + 4))
             covar_est = posterior.covar
 
             # move particles
             moved_particles = copy.copy(posterior)
-            moved_particles.state_vector = moved_particles.state_vector + \
-                hopt * cholesky_eps(covar_est) @ np.random.randn(ndim, nparticles)
+            moved_particles.state_vector = moved_particles.state_vector + hopt * cholesky_eps(
+                covar_est
+            ) @ np.random.randn(ndim, nparticles)
 
             # Apply constraints if defined
             if self.constraint_func is not None:
@@ -109,11 +118,9 @@ class MCMCRegulariser(Regulariser):
             # Evaluate likelihoods
             transitioned_prior = self._transition_prior(prior, posterior, **kwargs)
             part_diff = moved_particles.state_vector - transitioned_prior.state_vector
-            move_likelihood = multivariate_normal.logpdf(part_diff.T,
-                                                         cov=covar_est)
+            move_likelihood = multivariate_normal.logpdf(part_diff.T, cov=covar_est)
             post_part_diff = posterior.state_vector - transitioned_prior.state_vector
-            post_likelihood = multivariate_normal.logpdf(post_part_diff.T,
-                                                         cov=covar_est)
+            post_likelihood = multivariate_normal.logpdf(post_part_diff.T, cov=covar_est)
 
             # Evaluate measurement likelihoods
             move_meas_likelihood = []
@@ -128,9 +135,11 @@ class MCMCRegulariser(Regulariser):
 
             # Calculate acceptance probability (alpha)
             # with np.errstate(invalid="ignore"):
-            with np.errstate(invalid='ignore', over='ignore'):
-                alpha = np.exp((move_meas_likelihood[max_likelihood_idx] + move_likelihood) -
-                               (post_meas_likelihood[max_likelihood_idx] + post_likelihood))
+            with np.errstate(invalid="ignore", over="ignore"):
+                alpha = np.exp(
+                    (move_meas_likelihood[max_likelihood_idx] + move_likelihood)
+                    - (post_meas_likelihood[max_likelihood_idx] + post_likelihood)
+                )
 
             # All 'jittered' particles that are above the alpha threshold are kept, the rest are
             # rejected and the original posterior used
@@ -150,17 +159,19 @@ class MultiModelMCMCRegulariser(MCMCRegulariser):
     This is a version of the :class:`~.MCMCRegulariser` that supports case where multiple
     models are used i.e. with :class:`~.MultiModelParticleUpdater`.
     """
+
     transition_model = None
     transition_models: Sequence[TransitionModel] = Property(
         doc="Transition models used to for particle transition, selected by model index on "
-            "particle. Models dimensions can be subset of the overall state space, by "
-            "using :attr:`model_mappings`."
+        "particle. Models dimensions can be subset of the overall state space, by "
+        "using :attr:`model_mappings`."
     )
     model_mappings: Sequence[Sequence[int]] = Property(
         doc="Sequence of mappings associated with each transition model. This enables mapping "
-            "between model and state space, enabling use of models that may have different "
-            "dimensions (e.g. velocity or acceleration). Parts of the state that aren't mapped "
-            "are set to zero.")
+        "between model and state space, enabling use of models that may have different "
+        "dimensions (e.g. velocity or acceleration). Parts of the state that aren't mapped "
+        "are set to zero."
+    )
 
     def _transition_prior(self, prior, posterior, **kwargs):
         transitioned_prior = copy.copy(prior)
@@ -172,8 +183,12 @@ class MultiModelMCMCRegulariser(MCMCRegulariser):
                 continue
 
             new_state_vector = MultiModelPredictor.apply_model(
-                prior[current_model_indices], transition_model, posterior.timestamp,
-                self.model_mappings[model_index], noise=False)
+                prior[current_model_indices],
+                transition_model,
+                posterior.timestamp,
+                self.model_mappings[model_index],
+                noise=False,
+            )
 
             transitioned_prior.state_vector[:, current_model_indices] = new_state_vector
         return transitioned_prior

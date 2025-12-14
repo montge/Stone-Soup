@@ -82,20 +82,22 @@ Use a specific realization for high-precision applications:
     xyz = geodetic_to_ecef(lat_rad, lon_rad, alt_m, ellipsoid=WGS84_G2139)
 
 """
-from typing import ClassVar, Optional, Callable, Dict, List, Tuple, Type
-from datetime import datetime
+
 from abc import abstractmethod
 from collections import defaultdict
+from collections.abc import Callable
+from datetime import datetime
+from typing import ClassVar
 
 import numpy as np
 
 from ..base import Base, Property
 from .array import StateVector
 
-
 # =============================================================================
 # Frame Transformation Composition System
 # =============================================================================
+
 
 class TransformationPath:
     """Represents a sequence of frame transformations.
@@ -121,7 +123,7 @@ class TransformationPath:
 
     """
 
-    def __init__(self, frames: list, transforms: list = None):
+    def __init__(self, frames: list, transforms: list | None = None):
         self.frames = frames
         self.transforms = transforms or []
 
@@ -129,11 +131,12 @@ class TransformationPath:
         return len(self.frames) - 1  # Number of transformation steps
 
     def __repr__(self):
-        frame_names = [getattr(f, 'name', str(f)) for f in self.frames]
+        frame_names = [getattr(f, "name", str(f)) for f in self.frames]
         return f"TransformationPath({' -> '.join(frame_names)})"
 
-    def apply(self, position: np.ndarray, velocity: np.ndarray = None,
-              timestamp: datetime = None) -> Tuple[np.ndarray, np.ndarray]:
+    def apply(
+        self, position: np.ndarray, velocity: np.ndarray = None, timestamp: datetime | None = None
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Apply all transformations in the path sequentially.
 
         Parameters
@@ -156,7 +159,7 @@ class TransformationPath:
         pos = position
         vel = velocity
 
-        for i, transform in enumerate(self.transforms):
+        for _i, transform in enumerate(self.transforms):
             pos, vel = transform(pos, vel, timestamp)
 
         return pos, vel
@@ -187,9 +190,9 @@ class FrameTransformationRegistry:
 
     def __init__(self):
         # Graph of transformations: {source_key: {target_key: transform_func}}
-        self._transforms: Dict[str, Dict[str, Callable]] = defaultdict(dict)
+        self._transforms: dict[str, dict[str, Callable]] = defaultdict(dict)
         # Store frame type mappings
-        self._frame_types: Dict[str, Type] = {}
+        self._frame_types: dict[str, type] = {}
 
     def _get_key(self, frame) -> str:
         """Get a unique key for a frame type or instance."""
@@ -200,9 +203,14 @@ class FrameTransformationRegistry:
         else:
             return type(frame).__name__
 
-    def register(self, source, target, transform: Callable,
-                 bidirectional: bool = False,
-                 inverse_transform: Callable = None):
+    def register(
+        self,
+        source,
+        target,
+        transform: Callable,
+        bidirectional: bool = False,
+        inverse_transform: Callable | None = None,
+    ):
         """Register a transformation between two frame types.
 
         Parameters
@@ -234,11 +242,10 @@ class FrameTransformationRegistry:
 
         if bidirectional:
             if inverse_transform is None:
-                raise ValueError(
-                    "inverse_transform required for bidirectional registration")
+                raise ValueError("inverse_transform required for bidirectional registration")
             self._transforms[target_key][source_key] = inverse_transform
 
-    def get_direct_transform(self, source, target) -> Optional[Callable]:
+    def get_direct_transform(self, source, target) -> Callable | None:
         """Get a direct transformation if one exists.
 
         Parameters
@@ -259,7 +266,7 @@ class FrameTransformationRegistry:
 
         return self._transforms.get(source_key, {}).get(target_key)
 
-    def find_path(self, source, target) -> Optional[TransformationPath]:
+    def find_path(self, source, target) -> TransformationPath | None:
         """Find a transformation path between two frames.
 
         Uses breadth-first search to find the shortest path through
@@ -284,10 +291,7 @@ class FrameTransformationRegistry:
 
         if source_key == target_key:
             # Identity transformation
-            return TransformationPath(
-                frames=[source],
-                transforms=[lambda p, v, t: (p, v)]
-            )
+            return TransformationPath(frames=[source], transforms=[lambda p, v, t: (p, v)])
 
         # BFS to find shortest path
         visited = {source_key}
@@ -299,25 +303,26 @@ class FrameTransformationRegistry:
             for neighbor in self._transforms.get(current, {}):
                 if neighbor == target_key:
                     # Found path
-                    full_path = path + [neighbor]
+                    full_path = [*path, neighbor]
                     transforms = []
                     for i in range(len(full_path) - 1):
-                        transforms.append(
-                            self._transforms[full_path[i]][full_path[i + 1]])
-                    return TransformationPath(
-                        frames=full_path,
-                        transforms=transforms
-                    )
+                        transforms.append(self._transforms[full_path[i]][full_path[i + 1]])
+                    return TransformationPath(frames=full_path, transforms=transforms)
 
                 if neighbor not in visited:
                     visited.add(neighbor)
-                    queue.append((neighbor, path + [neighbor]))
+                    queue.append((neighbor, [*path, neighbor]))
 
         return None  # No path found
 
-    def transform(self, source, target, position: np.ndarray,
-                  velocity: np.ndarray = None,
-                  timestamp: datetime = None) -> Tuple[np.ndarray, np.ndarray]:
+    def transform(
+        self,
+        source,
+        target,
+        position: np.ndarray,
+        velocity: np.ndarray = None,
+        timestamp: datetime | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Transform position/velocity between frames.
 
         Parameters
@@ -350,17 +355,18 @@ class FrameTransformationRegistry:
         if path is None:
             raise ValueError(
                 f"No transformation path from {self._get_key(source)} "
-                f"to {self._get_key(target)}")
+                f"to {self._get_key(target)}"
+            )
         return path.apply(position, velocity, timestamp)
 
-    def list_frames(self) -> List[str]:
+    def list_frames(self) -> list[str]:
         """List all registered frame types."""
         frames = set(self._transforms.keys())
         for targets in self._transforms.values():
             frames.update(targets.keys())
         return sorted(frames)
 
-    def list_transforms(self) -> List[Tuple[str, str]]:
+    def list_transforms(self) -> list[tuple[str, str]]:
         """List all registered direct transformations."""
         transforms = []
         for source, targets in self._transforms.items():
@@ -385,9 +391,13 @@ def get_frame_registry() -> FrameTransformationRegistry:
     return _global_registry
 
 
-def register_transform(source, target, transform: Callable,
-                       bidirectional: bool = False,
-                       inverse_transform: Callable = None):
+def register_transform(
+    source,
+    target,
+    transform: Callable,
+    bidirectional: bool = False,
+    inverse_transform: Callable | None = None,
+):
     """Register a transformation in the global registry.
 
     This is a convenience function for registering transformations
@@ -407,8 +417,7 @@ def register_transform(source, target, transform: Callable,
         Inverse transformation function.
 
     """
-    _global_registry.register(source, target, transform,
-                              bidirectional, inverse_transform)
+    _global_registry.register(source, target, transform, bidirectional, inverse_transform)
 
 
 def compose_transformations(*transforms: Callable) -> Callable:
@@ -432,6 +441,7 @@ def compose_transformations(*transforms: Callable) -> Callable:
     >>> pos_eci, vel_eci = enu_to_eci(pos_enu, vel_enu, timestamp)
 
     """
+
     def composed(position, velocity=None, timestamp=None):
         pos, vel = position, velocity
         for transform in transforms:
@@ -471,7 +481,7 @@ class TimeVaryingTransform:
 
     """
 
-    def __init__(self, reference_epoch: datetime = None):
+    def __init__(self, reference_epoch: datetime | None = None):
         if reference_epoch is None:
             self.reference_epoch = datetime(2000, 1, 1, 12, 0, 0)
         else:
@@ -513,8 +523,9 @@ class TimeVaryingTransform:
         # Default: zero rotation rate (identity velocity transformation)
         return np.zeros((3, 3))
 
-    def __call__(self, position: np.ndarray, velocity: np.ndarray = None,
-                 timestamp: datetime = None) -> Tuple[np.ndarray, np.ndarray]:
+    def __call__(
+        self, position: np.ndarray, velocity: np.ndarray = None, timestamp: datetime | None = None
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Apply the time-varying transformation.
 
         Parameters
@@ -578,8 +589,13 @@ class RotationRateTransform(TimeVaryingTransform):
 
     """
 
-    def __init__(self, rotation_axis: np.ndarray, rotation_rate: float,
-                 reference_epoch: datetime = None, initial_angle: float = 0.0):
+    def __init__(
+        self,
+        rotation_axis: np.ndarray,
+        rotation_rate: float,
+        reference_epoch: datetime | None = None,
+        initial_angle: float = 0.0,
+    ):
         super().__init__(reference_epoch)
         self.rotation_axis = rotation_axis / np.linalg.norm(rotation_axis)
         self.rotation_rate = rotation_rate
@@ -620,11 +636,7 @@ class RotationRateTransform(TimeVaryingTransform):
         k = self.rotation_axis
 
         # Skew-symmetric matrix [k×]
-        K = np.array([
-            [0, -k[2], k[1]],
-            [k[2], 0, -k[0]],
-            [-k[1], k[0], 0]
-        ])
+        K = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
 
         # Rodrigues' rotation formula: R = I + sin(θ)K + (1-cos(θ))K²
         R = np.eye(3) + np.sin(angle) * K + (1 - np.cos(angle)) * (K @ K)
@@ -649,11 +661,9 @@ class RotationRateTransform(TimeVaryingTransform):
         omega = self.rotation_rate * self.rotation_axis
 
         # Skew-symmetric matrix [ω×]
-        omega_matrix = np.array([
-            [0, -omega[2], omega[1]],
-            [omega[2], 0, -omega[0]],
-            [-omega[1], omega[0], 0]
-        ])
+        omega_matrix = np.array(
+            [[0, -omega[2], omega[1]], [omega[2], 0, -omega[0]], [-omega[1], omega[0], 0]]
+        )
 
         # R_dot @ position = R @ [ω×] @ position for constant rotation rate
         R = self.get_rotation_matrix(timestamp)
@@ -687,15 +697,19 @@ class InterpolatedTransform(TimeVaryingTransform):
 
     """
 
-    def __init__(self, epochs: List[datetime], rotation_matrices: List[np.ndarray],
-                 extrapolate: bool = False):
+    def __init__(
+        self,
+        epochs: list[datetime],
+        rotation_matrices: list[np.ndarray],
+        extrapolate: bool = False,
+    ):
         if len(epochs) != len(rotation_matrices):
             raise ValueError("epochs and rotation_matrices must have same length")
         if len(epochs) < 2:
             raise ValueError("At least 2 epochs required for interpolation")
 
         # Sort by epoch
-        sorted_pairs = sorted(zip(epochs, rotation_matrices), key=lambda x: x[0])
+        sorted_pairs = sorted(zip(epochs, rotation_matrices, strict=False), key=lambda x: x[0])
         self.epochs = [e for e, _ in sorted_pairs]
         self.rotation_matrices = [r for _, r in sorted_pairs]
         self.extrapolate = extrapolate
@@ -738,11 +752,13 @@ class InterpolatedTransform(TimeVaryingTransform):
         """Convert quaternion [w, x, y, z] to rotation matrix."""
         w, x, y, z = q / np.linalg.norm(q)
 
-        return np.array([
-            [1 - 2*(y**2 + z**2), 2*(x*y - w*z), 2*(x*z + w*y)],
-            [2*(x*y + w*z), 1 - 2*(x**2 + z**2), 2*(y*z - w*x)],
-            [2*(x*z - w*y), 2*(y*z + w*x), 1 - 2*(x**2 + y**2)]
-        ])
+        return np.array(
+            [
+                [1 - 2 * (y**2 + z**2), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+                [2 * (x * y + w * z), 1 - 2 * (x**2 + z**2), 2 * (y * z - w * x)],
+                [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x**2 + y**2)],
+            ]
+        )
 
     def _slerp(self, q0: np.ndarray, q1: np.ndarray, t: float) -> np.ndarray:
         """Spherical linear interpolation between quaternions."""
@@ -844,8 +860,8 @@ class EpochCachedTransform(TimeVaryingTransform):
     def __init__(self, base_transform: TimeVaryingTransform, cache_size: int = 100):
         self.base_transform = base_transform
         self.cache_size = cache_size
-        self._rotation_cache: Dict[datetime, np.ndarray] = {}
-        self._rate_cache: Dict[datetime, np.ndarray] = {}
+        self._rotation_cache: dict[datetime, np.ndarray] = {}
+        self._rate_cache: dict[datetime, np.ndarray] = {}
 
         super().__init__(base_transform.reference_epoch)
 
@@ -857,8 +873,7 @@ class EpochCachedTransform(TimeVaryingTransform):
                 oldest = next(iter(self._rotation_cache))
                 del self._rotation_cache[oldest]
 
-            self._rotation_cache[timestamp] = \
-                self.base_transform.get_rotation_matrix(timestamp)
+            self._rotation_cache[timestamp] = self.base_transform.get_rotation_matrix(timestamp)
 
         return self._rotation_cache[timestamp]
 
@@ -869,8 +884,7 @@ class EpochCachedTransform(TimeVaryingTransform):
                 oldest = next(iter(self._rate_cache))
                 del self._rate_cache[oldest]
 
-            self._rate_cache[timestamp] = \
-                self.base_transform.get_rotation_rate_matrix(timestamp)
+            self._rate_cache[timestamp] = self.base_transform.get_rotation_rate_matrix(timestamp)
 
         return self._rate_cache[timestamp]
 
@@ -942,7 +956,7 @@ class ReferenceEllipsoid(Base):
 
         where :math:`f` is the flattening.
         """
-        return np.sqrt(2.0 * self.flattening - self.flattening ** 2)
+        return np.sqrt(2.0 * self.flattening - self.flattening**2)
 
     @property
     def eccentricity_squared(self) -> float:
@@ -956,7 +970,7 @@ class ReferenceEllipsoid(Base):
 
         where :math:`f` is the flattening.
         """
-        return 2.0 * self.flattening - self.flattening ** 2
+        return 2.0 * self.flattening - self.flattening**2
 
     @property
     def second_eccentricity_squared(self) -> float:
@@ -993,9 +1007,7 @@ class ReferenceEllipsoid(Base):
 # Reference: https://earth-info.nga.mil/index.php?dir=wgs84&action=wgs84
 
 WGS84_G730: ClassVar[ReferenceEllipsoid] = ReferenceEllipsoid(
-    name="WGS84 (G730)",
-    semi_major_axis=6378137.0,
-    flattening=1.0 / 298.257223563
+    name="WGS84 (G730)", semi_major_axis=6378137.0, flattening=1.0 / 298.257223563
 )
 """WGS 84 (G730) - World Geodetic System 1984, original realization (1987).
 
@@ -1003,9 +1015,7 @@ Reference epoch: 1994.0
 """
 
 WGS84_G873: ClassVar[ReferenceEllipsoid] = ReferenceEllipsoid(
-    name="WGS84 (G873)",
-    semi_major_axis=6378137.0,
-    flattening=1.0 / 298.257223563
+    name="WGS84 (G873)", semi_major_axis=6378137.0, flattening=1.0 / 298.257223563
 )
 """WGS 84 (G873) - Refined realization (1996).
 
@@ -1013,9 +1023,7 @@ Reference epoch: 1997.0
 """
 
 WGS84_G1150: ClassVar[ReferenceEllipsoid] = ReferenceEllipsoid(
-    name="WGS84 (G1150)",
-    semi_major_axis=6378137.0,
-    flattening=1.0 / 298.257223563
+    name="WGS84 (G1150)", semi_major_axis=6378137.0, flattening=1.0 / 298.257223563
 )
 """WGS 84 (G1150) - Refined realization (2002).
 
@@ -1023,9 +1031,7 @@ Reference epoch: 2001.0
 """
 
 WGS84_G1674: ClassVar[ReferenceEllipsoid] = ReferenceEllipsoid(
-    name="WGS84 (G1674)",
-    semi_major_axis=6378137.0,
-    flattening=1.0 / 298.257223563
+    name="WGS84 (G1674)", semi_major_axis=6378137.0, flattening=1.0 / 298.257223563
 )
 """WGS 84 (G1674) - Refined realization (2012).
 
@@ -1033,9 +1039,7 @@ Reference epoch: 2005.0
 """
 
 WGS84_G1762: ClassVar[ReferenceEllipsoid] = ReferenceEllipsoid(
-    name="WGS84 (G1762)",
-    semi_major_axis=6378137.0,
-    flattening=1.0 / 298.257223563
+    name="WGS84 (G1762)", semi_major_axis=6378137.0, flattening=1.0 / 298.257223563
 )
 """WGS 84 (G1762) - Refined realization (2013).
 
@@ -1043,9 +1047,7 @@ Reference epoch: 2005.0
 """
 
 WGS84_G2139: ClassVar[ReferenceEllipsoid] = ReferenceEllipsoid(
-    name="WGS84 (G2139)",
-    semi_major_axis=6378137.0,
-    flattening=1.0 / 298.257223563
+    name="WGS84 (G2139)", semi_major_axis=6378137.0, flattening=1.0 / 298.257223563
 )
 """WGS 84 (G2139) - Latest realization (2021).
 
@@ -1068,9 +1070,7 @@ their reference frames and realization epochs.
 
 # GRS80 - Geodetic Reference System 1980
 GRS80: ClassVar[ReferenceEllipsoid] = ReferenceEllipsoid(
-    name="GRS80",
-    semi_major_axis=6378137.0,
-    flattening=1.0 / 298.257222101
+    name="GRS80", semi_major_axis=6378137.0, flattening=1.0 / 298.257222101
 )
 """GRS 80 - Geodetic Reference System 1980.
 
@@ -1085,9 +1085,7 @@ flattening (difference of ~0.1 mm in semi-minor axis).
 
 # WGS72 - World Geodetic System 1972
 WGS72: ClassVar[ReferenceEllipsoid] = ReferenceEllipsoid(
-    name="WGS72",
-    semi_major_axis=6378135.0,
-    flattening=1.0 / 298.26
+    name="WGS72", semi_major_axis=6378135.0, flattening=1.0 / 298.26
 )
 """WGS 72 - World Geodetic System 1972 (predecessor to WGS84).
 
@@ -1099,9 +1097,7 @@ Parameters:
 
 # PZ90 - Parametry Zemli 1990 (Russian Geodetic System)
 PZ90: ClassVar[ReferenceEllipsoid] = ReferenceEllipsoid(
-    name="PZ90",
-    semi_major_axis=6378136.0,
-    flattening=1.0 / 298.257839303
+    name="PZ90", semi_major_axis=6378136.0, flattening=1.0 / 298.257839303
 )
 """PZ-90 - Parametry Zemli 1990 (Parameters of the Earth 1990).
 
@@ -1113,9 +1109,7 @@ Russian geodetic system used by GLONASS. Parameters:
 
 # CGCS2000 - China Geodetic Coordinate System 2000
 CGCS2000: ClassVar[ReferenceEllipsoid] = ReferenceEllipsoid(
-    name="CGCS2000",
-    semi_major_axis=6378137.0,
-    flattening=1.0 / 298.257222101
+    name="CGCS2000", semi_major_axis=6378137.0, flattening=1.0 / 298.257222101
 )
 """CGCS2000 - China Geodetic Coordinate System 2000.
 
@@ -1150,9 +1144,13 @@ class ReferenceFrame(Base):
     name: str = Property(doc="Name of the reference frame")
 
     @abstractmethod
-    def transform_to(self, other_frame: 'ReferenceFrame', position: np.ndarray,
-                     velocity: np.ndarray = None,
-                     timestamp: datetime = None) -> tuple[np.ndarray, np.ndarray]:
+    def transform_to(
+        self,
+        other_frame: "ReferenceFrame",
+        position: np.ndarray,
+        velocity: np.ndarray = None,
+        timestamp: datetime | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Transform position and velocity to another reference frame.
 
         Parameters
@@ -1222,9 +1220,13 @@ class GCRS(ReferenceFrame):
 
     name: str = Property(default="GCRS", doc="Name of the reference frame")
 
-    def transform_to(self, other_frame: ReferenceFrame, position: np.ndarray,
-                     velocity: np.ndarray = None,
-                     timestamp: datetime = None) -> tuple[np.ndarray, np.ndarray]:
+    def transform_to(
+        self,
+        other_frame: ReferenceFrame,
+        position: np.ndarray,
+        velocity: np.ndarray = None,
+        timestamp: datetime | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Transform from GCRS to another reference frame.
 
         Parameters
@@ -1253,6 +1255,7 @@ class GCRS(ReferenceFrame):
         if isinstance(other_frame, J2000):
             # Import here to avoid circular dependency
             from ..functions.coordinates import gcrs_to_j2000
+
             return gcrs_to_j2000(position, velocity, timestamp)
 
         if isinstance(other_frame, ICRS):
@@ -1303,9 +1306,13 @@ class J2000(ReferenceFrame):
 
     name: str = Property(default="J2000", doc="Name of the reference frame")
 
-    def transform_to(self, other_frame: ReferenceFrame, position: np.ndarray,
-                     velocity: np.ndarray = None,
-                     timestamp: datetime = None) -> tuple[np.ndarray, np.ndarray]:
+    def transform_to(
+        self,
+        other_frame: ReferenceFrame,
+        position: np.ndarray,
+        velocity: np.ndarray = None,
+        timestamp: datetime | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Transform from J2000 to another reference frame.
 
         Parameters
@@ -1334,12 +1341,14 @@ class J2000(ReferenceFrame):
         if isinstance(other_frame, GCRS):
             # Import here to avoid circular dependency
             from ..functions.coordinates import j2000_to_gcrs
+
             return j2000_to_gcrs(position, velocity, timestamp)
 
         if isinstance(other_frame, ICRS):
             # J2000 to ICRS requires frame bias correction
             # For most applications, the difference is small
             from ..functions.coordinates import compute_frame_bias_matrix
+
             bias_matrix = compute_frame_bias_matrix()
             pos_icrs = bias_matrix @ position
             vel_icrs = bias_matrix @ velocity if velocity is not None else None
@@ -1387,9 +1396,13 @@ class ICRS(ReferenceFrame):
 
     name: str = Property(default="ICRS", doc="Name of the reference frame")
 
-    def transform_to(self, other_frame: ReferenceFrame, position: np.ndarray,
-                     velocity: np.ndarray = None,
-                     timestamp: datetime = None) -> tuple[np.ndarray, np.ndarray]:
+    def transform_to(
+        self,
+        other_frame: ReferenceFrame,
+        position: np.ndarray,
+        velocity: np.ndarray = None,
+        timestamp: datetime | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Transform from ICRS to another reference frame.
 
         Parameters
@@ -1423,6 +1436,7 @@ class ICRS(ReferenceFrame):
         if isinstance(other_frame, J2000):
             # ICRS to J2000 requires inverse frame bias correction
             from ..functions.coordinates import compute_frame_bias_matrix
+
             bias_matrix = compute_frame_bias_matrix()
             # Inverse is transpose for rotation matrix
             pos_j2000 = bias_matrix.T @ position
@@ -1515,39 +1529,32 @@ class KinematicState(Base):
 
     """
 
-    position: np.ndarray = Property(
-        doc="Position vector [x, y, z] in meters"
-    )
+    position: np.ndarray = Property(doc="Position vector [x, y, z] in meters")
     velocity: np.ndarray = Property(
-        default=None,
-        doc="Velocity vector [vx, vy, vz] in m/s. Default is zeros."
+        default=None, doc="Velocity vector [vx, vy, vz] in m/s. Default is zeros."
     )
     acceleration: np.ndarray = Property(
         default=None,
-        doc="Acceleration vector [ax, ay, az] in m/s². Default is None (not tracked)."
+        doc="Acceleration vector [ax, ay, az] in m/s². Default is None (not tracked).",
     )
-    timestamp: Optional[datetime] = Property(
-        default=None,
-        doc="Time at which the state is defined"
-    )
-    frame: Optional[ReferenceFrame] = Property(
-        default=None,
-        doc="Reference frame in which the state is defined"
+    timestamp: datetime | None = Property(default=None, doc="Time at which the state is defined")
+    frame: ReferenceFrame | None = Property(
+        default=None, doc="Reference frame in which the state is defined"
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Ensure position is numpy array
         if not isinstance(self.position, np.ndarray):
-            object.__setattr__(self, 'position', np.asarray(self.position))
+            object.__setattr__(self, "position", np.asarray(self.position))
         # Ensure velocity is numpy array or zeros
         if self.velocity is None:
-            object.__setattr__(self, 'velocity', np.zeros(3))
+            object.__setattr__(self, "velocity", np.zeros(3))
         elif not isinstance(self.velocity, np.ndarray):
-            object.__setattr__(self, 'velocity', np.asarray(self.velocity))
+            object.__setattr__(self, "velocity", np.asarray(self.velocity))
         # Ensure acceleration is numpy array if provided
         if self.acceleration is not None and not isinstance(self.acceleration, np.ndarray):
-            object.__setattr__(self, 'acceleration', np.asarray(self.acceleration))
+            object.__setattr__(self, "acceleration", np.asarray(self.acceleration))
 
     @property
     def state_vector(self) -> StateVector:
@@ -1561,16 +1568,15 @@ class KinematicState(Base):
             - Without acceleration: [x, y, z, vx, vy, vz]
         """
         if self.has_acceleration:
-            return StateVector(np.concatenate([
-                self.position.flatten(),
-                self.velocity.flatten(),
-                self.acceleration.flatten()
-            ]).reshape(-1, 1))
+            return StateVector(
+                np.concatenate(
+                    [self.position.flatten(), self.velocity.flatten(), self.acceleration.flatten()]
+                ).reshape(-1, 1)
+            )
         else:
-            return StateVector(np.concatenate([
-                self.position.flatten(),
-                self.velocity.flatten()
-            ]).reshape(-1, 1))
+            return StateVector(
+                np.concatenate([self.position.flatten(), self.velocity.flatten()]).reshape(-1, 1)
+            )
 
     @property
     def ndim(self) -> int:
@@ -1588,17 +1594,20 @@ class KinematicState(Base):
         return float(np.linalg.norm(self.velocity))
 
     @property
-    def acceleration_magnitude(self) -> Optional[float]:
+    def acceleration_magnitude(self) -> float | None:
         """Magnitude of acceleration vector in m/s², or None if not tracked."""
         if self.acceleration is None:
             return None
         return float(np.linalg.norm(self.acceleration))
 
     @classmethod
-    def from_state_vector(cls, state_vector: np.ndarray,
-                          timestamp: datetime = None,
-                          frame: ReferenceFrame = None,
-                          has_acceleration: bool = True) -> 'KinematicState':
+    def from_state_vector(
+        cls,
+        state_vector: np.ndarray,
+        timestamp: datetime | None = None,
+        frame: ReferenceFrame = None,
+        has_acceleration: bool = True,
+    ) -> "KinematicState":
         """Create KinematicState from a combined state vector.
 
         Parameters
@@ -1633,7 +1642,7 @@ class KinematicState(Base):
                 velocity=sv[3:6],
                 acceleration=None,
                 timestamp=timestamp,
-                frame=frame
+                frame=frame,
             )
         elif len(sv) == 9 and has_acceleration:
             return cls(
@@ -1641,7 +1650,7 @@ class KinematicState(Base):
                 velocity=sv[3:6],
                 acceleration=sv[6:9],
                 timestamp=timestamp,
-                frame=frame
+                frame=frame,
             )
         elif len(sv) == 9:
             return cls(
@@ -1649,14 +1658,12 @@ class KinematicState(Base):
                 velocity=sv[3:6],
                 acceleration=None,
                 timestamp=timestamp,
-                frame=frame
+                frame=frame,
             )
         else:
-            raise ValueError(
-                f"State vector must have 6 or 9 elements, got {len(sv)}"
-            )
+            raise ValueError(f"State vector must have 6 or 9 elements, got {len(sv)}")
 
-    def transform_to(self, target_frame: ReferenceFrame) -> 'KinematicState':
+    def transform_to(self, target_frame: ReferenceFrame) -> "KinematicState":
         """Transform kinematic state to another reference frame.
 
         This method properly handles the transformation of position, velocity,
@@ -1683,22 +1690,19 @@ class KinematicState(Base):
         if self.frame is None:
             raise ValueError("Cannot transform state without a defined frame")
 
-        if type(self.frame) == type(target_frame):
+        if type(self.frame) is type(target_frame):
             # Same frame type, no transformation needed
             return KinematicState(
                 position=self.position.copy(),
                 velocity=self.velocity.copy(),
                 acceleration=self.acceleration.copy() if self.acceleration is not None else None,
                 timestamp=self.timestamp,
-                frame=target_frame
+                frame=target_frame,
             )
 
         # Use the frame's transform_to method for position and velocity
         new_pos, new_vel = self.frame.transform_to(
-            target_frame,
-            self.position,
-            self.velocity,
-            self.timestamp
+            target_frame, self.position, self.velocity, self.timestamp
         )
 
         # For acceleration, apply the same rotation (simplified approach)
@@ -1711,7 +1715,7 @@ class KinematicState(Base):
                 target_frame,
                 np.zeros(3),  # Dummy position
                 self.acceleration,  # Treat acceleration like velocity for rotation
-                self.timestamp
+                self.timestamp,
             )
             new_acc = acc_transformed
         else:
@@ -1722,10 +1726,10 @@ class KinematicState(Base):
             velocity=new_vel,
             acceleration=new_acc,
             timestamp=self.timestamp,
-            frame=target_frame
+            frame=target_frame,
         )
 
-    def propagate(self, dt: float) -> 'KinematicState':
+    def propagate(self, dt: float) -> "KinematicState":
         """Propagate the kinematic state forward in time.
 
         Uses simple kinematic equations:
@@ -1762,7 +1766,7 @@ class KinematicState(Base):
             velocity=new_vel,
             acceleration=new_acc,
             timestamp=new_timestamp,
-            frame=self.frame
+            frame=self.frame,
         )
 
 
@@ -1822,11 +1826,9 @@ class RelativeFrame(ReferenceFrame):
         super().__init__(*args, **kwargs)
         # Ensure arrays
         if not isinstance(self.reference_position, np.ndarray):
-            object.__setattr__(self, 'reference_position',
-                               np.asarray(self.reference_position))
+            object.__setattr__(self, "reference_position", np.asarray(self.reference_position))
         if not isinstance(self.reference_velocity, np.ndarray):
-            object.__setattr__(self, 'reference_velocity',
-                               np.asarray(self.reference_velocity))
+            object.__setattr__(self, "reference_velocity", np.asarray(self.reference_velocity))
 
     @property
     @abstractmethod
@@ -1834,8 +1836,7 @@ class RelativeFrame(ReferenceFrame):
         """3x3 rotation matrix from inertial frame to this relative frame."""
         raise NotImplementedError
 
-    def inertial_to_relative(self, position: np.ndarray,
-                             velocity: np.ndarray = None) -> tuple:
+    def inertial_to_relative(self, position: np.ndarray, velocity: np.ndarray = None) -> tuple:
         """Transform position/velocity from inertial to relative frame.
 
         Parameters
@@ -1867,8 +1868,7 @@ class RelativeFrame(ReferenceFrame):
 
         return rel_pos, rel_vel
 
-    def relative_to_inertial(self, position: np.ndarray,
-                             velocity: np.ndarray = None) -> tuple:
+    def relative_to_inertial(self, position: np.ndarray, velocity: np.ndarray = None) -> tuple:
         """Transform position/velocity from relative to inertial frame.
 
         Parameters
@@ -1899,15 +1899,19 @@ class RelativeFrame(ReferenceFrame):
 
         return inertial_pos, inertial_vel
 
-    def transform_to(self, other_frame: ReferenceFrame, position: np.ndarray,
-                     velocity: np.ndarray = None,
-                     timestamp: datetime = None) -> tuple[np.ndarray, np.ndarray]:
+    def transform_to(
+        self,
+        other_frame: ReferenceFrame,
+        position: np.ndarray,
+        velocity: np.ndarray = None,
+        timestamp: datetime | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Transform position and velocity to another reference frame.
 
         For relative frames, this first transforms to the inertial frame,
         then to the target frame if needed.
         """
-        if type(self) == type(other_frame):
+        if type(self) is type(other_frame):
             # Same frame type - direct transformation via inertial
             if isinstance(other_frame, RelativeFrame):
                 # Transform to inertial then to other relative frame
@@ -2128,9 +2132,13 @@ class LVLHFrame(RelativeFrame):
         return np.array([x_hat, y_hat, z_hat])
 
 
-def compute_relative_state(target_position: np.ndarray, target_velocity: np.ndarray,
-                           chaser_position: np.ndarray, chaser_velocity: np.ndarray,
-                           frame_type: str = 'RIC') -> tuple[np.ndarray, np.ndarray]:
+def compute_relative_state(
+    target_position: np.ndarray,
+    target_velocity: np.ndarray,
+    chaser_position: np.ndarray,
+    chaser_velocity: np.ndarray,
+    frame_type: str = "RIC",
+) -> tuple[np.ndarray, np.ndarray]:
     """Compute relative state of chaser with respect to target in a relative frame.
 
     This is a convenience function for computing relative position and velocity
@@ -2174,21 +2182,18 @@ def compute_relative_state(target_position: np.ndarray, target_velocity: np.ndar
     >>> print(f"Relative position (RIC): {rel_pos}")
 
     """
-    frame_classes = {
-        'RIC': RICFrame,
-        'RSW': RSWFrame,
-        'LVLH': LVLHFrame
-    }
+    frame_classes = {"RIC": RICFrame, "RSW": RSWFrame, "LVLH": LVLHFrame}
 
     if frame_type.upper() not in frame_classes:
-        raise ValueError(f"Unknown frame type '{frame_type}'. "
-                         f"Must be one of: {list(frame_classes.keys())}")
+        raise ValueError(
+            f"Unknown frame type '{frame_type}'. " f"Must be one of: {list(frame_classes.keys())}"
+        )
 
     frame_class = frame_classes[frame_type.upper()]
     frame = frame_class(
         name=frame_type.upper(),
         reference_position=target_position,
-        reference_velocity=target_velocity
+        reference_velocity=target_velocity,
     )
 
     return frame.inertial_to_relative(chaser_position, chaser_velocity)
@@ -2300,11 +2305,7 @@ def kinematic_ecef_to_eci(state: KinematicState, timestamp: datetime) -> Kinemat
     sin_era = np.sin(era)
 
     # Rotation matrix from ECEF to ECI (transpose of ECI-to-ECEF)
-    R = np.array([
-        [cos_era, -sin_era, 0.0],
-        [sin_era, cos_era, 0.0],
-        [0.0, 0.0, 1.0]
-    ])
+    R = np.array([[cos_era, -sin_era, 0.0], [sin_era, cos_era, 0.0], [0.0, 0.0, 1.0]])
 
     # Transform velocity: v_eci = R * v_ecef + omega x r_eci
     vel_ecef_in_eci = R @ state.velocity
@@ -2325,7 +2326,7 @@ def kinematic_ecef_to_eci(state: KinematicState, timestamp: datetime) -> Kinemat
         velocity=vel_eci,
         acceleration=acc_eci,
         timestamp=timestamp,
-        frame=None  # Could set to an ECI frame instance
+        frame=None,  # Could set to an ECI frame instance
     )
 
 
@@ -2391,7 +2392,6 @@ def kinematic_eci_to_ecef(state: KinematicState, timestamp: datetime) -> Kinemat
            4th ed., Microcosm Press, Chapter 3.
 
     """
-    from ..functions.coordinates import eci_to_ecef
 
     # Compute ERA for rotation
     j2000_epoch = datetime(2000, 1, 1, 12, 0, 0)
@@ -2404,11 +2404,7 @@ def kinematic_eci_to_ecef(state: KinematicState, timestamp: datetime) -> Kinemat
     sin_era = np.sin(era)
 
     # Rotation matrix from ECI to ECEF
-    R = np.array([
-        [cos_era, sin_era, 0.0],
-        [-sin_era, cos_era, 0.0],
-        [0.0, 0.0, 1.0]
-    ])
+    R = np.array([[cos_era, sin_era, 0.0], [-sin_era, cos_era, 0.0], [0.0, 0.0, 1.0]])
 
     # Transform position
     pos_ecef = R @ state.position
@@ -2430,13 +2426,14 @@ def kinematic_eci_to_ecef(state: KinematicState, timestamp: datetime) -> Kinemat
         velocity=vel_ecef,
         acceleration=acc_ecef,
         timestamp=timestamp,
-        frame=None  # Could set to an ECEF frame instance
+        frame=None,  # Could set to an ECEF frame instance
     )
 
 
 # =============================================================================
 # Proximity Operations Utilities
 # =============================================================================
+
 
 def compute_range(position1: np.ndarray, position2: np.ndarray) -> float:
     """Compute the range (distance) between two positions.
@@ -2466,8 +2463,9 @@ def compute_range(position1: np.ndarray, position2: np.ndarray) -> float:
     return float(np.linalg.norm(relative))
 
 
-def compute_range_rate(position1: np.ndarray, velocity1: np.ndarray,
-                       position2: np.ndarray, velocity2: np.ndarray) -> float:
+def compute_range_rate(
+    position1: np.ndarray, velocity1: np.ndarray, position2: np.ndarray, velocity2: np.ndarray
+) -> float:
     """Compute the range-rate (time derivative of range) between two objects.
 
     The range-rate is positive when the objects are separating and negative
@@ -2515,9 +2513,13 @@ def compute_range_rate(position1: np.ndarray, velocity1: np.ndarray,
     return float(np.dot(relative_vel, line_of_sight))
 
 
-def compute_closest_approach(position1: np.ndarray, velocity1: np.ndarray,
-                             position2: np.ndarray, velocity2: np.ndarray,
-                             max_time: float = 86400.0) -> tuple:
+def compute_closest_approach(
+    position1: np.ndarray,
+    velocity1: np.ndarray,
+    position2: np.ndarray,
+    velocity2: np.ndarray,
+    max_time: float = 86400.0,
+) -> tuple:
     """Compute the time and distance of closest approach.
 
     Assumes straight-line (constant velocity) motion for both objects.
@@ -2605,8 +2607,9 @@ def compute_closest_approach(position1: np.ndarray, velocity1: np.ndarray,
     return t_ca, d_ca
 
 
-def compute_miss_distance(position1: np.ndarray, velocity1: np.ndarray,
-                          position2: np.ndarray, velocity2: np.ndarray) -> float:
+def compute_miss_distance(
+    position1: np.ndarray, velocity1: np.ndarray, position2: np.ndarray, velocity2: np.ndarray
+) -> float:
     """Compute the miss distance (minimum separation distance).
 
     The miss distance is the perpendicular distance between the two
@@ -2646,13 +2649,11 @@ def compute_miss_distance(position1: np.ndarray, velocity1: np.ndarray,
     100.0
 
     """
-    _, miss_dist = compute_closest_approach(position1, velocity1,
-                                            position2, velocity2)
+    _, miss_dist = compute_closest_approach(position1, velocity1, position2, velocity2)
     return miss_dist
 
 
-def is_in_keep_out_zone(position: np.ndarray, zone_center: np.ndarray,
-                        zone_radius: float) -> bool:
+def is_in_keep_out_zone(position: np.ndarray, zone_center: np.ndarray, zone_radius: float) -> bool:
     """Check if a position is within a spherical keep-out zone.
 
     Parameters
@@ -2684,10 +2685,12 @@ def is_in_keep_out_zone(position: np.ndarray, zone_center: np.ndarray,
     return distance < zone_radius
 
 
-def is_in_ellipsoidal_keep_out_zone(position: np.ndarray,
-                                    zone_center: np.ndarray,
-                                    semi_axes: np.ndarray,
-                                    rotation_matrix: np.ndarray = None) -> bool:
+def is_in_ellipsoidal_keep_out_zone(
+    position: np.ndarray,
+    zone_center: np.ndarray,
+    semi_axes: np.ndarray,
+    rotation_matrix: np.ndarray = None,
+) -> bool:
     """Check if a position is within an ellipsoidal keep-out zone.
 
     This is useful for defining anisotropic safety zones, such as
@@ -2747,10 +2750,14 @@ def is_in_ellipsoidal_keep_out_zone(position: np.ndarray,
     return normalized_dist_sq < 1.0
 
 
-def compute_conjunction_geometry(position1: np.ndarray, velocity1: np.ndarray,
-                                 position2: np.ndarray, velocity2: np.ndarray,
-                                 covariance1: np.ndarray = None,
-                                 covariance2: np.ndarray = None) -> dict:
+def compute_conjunction_geometry(
+    position1: np.ndarray,
+    velocity1: np.ndarray,
+    position2: np.ndarray,
+    velocity2: np.ndarray,
+    covariance1: np.ndarray = None,
+    covariance2: np.ndarray = None,
+) -> dict:
     """Compute comprehensive conjunction geometry parameters.
 
     This function computes all standard conjunction assessment metrics
@@ -2818,34 +2825,33 @@ def compute_conjunction_geometry(position1: np.ndarray, velocity1: np.ndarray,
 
     # Approach angle (angle between relative position and velocity)
     if current_range > 1e-10 and rel_vel_mag > 1e-10:
-        cos_angle = np.dot(relative_pos, relative_vel) / (
-            current_range * rel_vel_mag)
+        cos_angle = np.dot(relative_pos, relative_vel) / (current_range * rel_vel_mag)
         cos_angle = np.clip(cos_angle, -1.0, 1.0)
         approach_angle = float(np.arccos(cos_angle))
     else:
         approach_angle = 0.0
 
     result = {
-        'range': current_range,
-        'range_rate': range_rate,
-        'time_to_closest_approach': t_ca,
-        'miss_distance': miss_dist,
-        'relative_velocity_magnitude': rel_vel_mag,
-        'approach_angle': approach_angle,
+        "range": current_range,
+        "range_rate": range_rate,
+        "time_to_closest_approach": t_ca,
+        "miss_distance": miss_dist,
+        "relative_velocity_magnitude": rel_vel_mag,
+        "approach_angle": approach_angle,
     }
 
     # Add covariance-based metrics if provided
     if covariance1 is not None and covariance2 is not None:
         combined_cov = np.asarray(covariance1) + np.asarray(covariance2)
-        result['combined_covariance'] = combined_cov
+        result["combined_covariance"] = combined_cov
 
         # Mahalanobis distance
         try:
             cov_inv = np.linalg.inv(combined_cov)
             mahal_sq = relative_pos @ cov_inv @ relative_pos
-            result['mahalanobis_distance'] = float(np.sqrt(mahal_sq))
+            result["mahalanobis_distance"] = float(np.sqrt(mahal_sq))
         except np.linalg.LinAlgError:
-            result['mahalanobis_distance'] = None
+            result["mahalanobis_distance"] = None
 
     return result
 
@@ -2853,6 +2859,7 @@ def compute_conjunction_geometry(position1: np.ndarray, velocity1: np.ndarray,
 # =============================================================================
 # Topocentric Frames
 # =============================================================================
+
 
 class TopocentricFrame(ReferenceFrame):
     r"""Base class for topocentric (observer-centered) reference frames.
@@ -2879,23 +2886,21 @@ class TopocentricFrame(ReferenceFrame):
 
     """
 
-    latitude: float = Property(
-        doc="Observer's geodetic latitude in radians (positive North)")
-    longitude: float = Property(
-        doc="Observer's geodetic longitude in radians (positive East)")
+    latitude: float = Property(doc="Observer's geodetic latitude in radians (positive North)")
+    longitude: float = Property(doc="Observer's geodetic longitude in radians (positive East)")
     altitude: float = Property(
-        default=0.0,
-        doc="Observer's altitude above the reference ellipsoid in meters")
+        default=0.0, doc="Observer's altitude above the reference ellipsoid in meters"
+    )
     ellipsoid: ReferenceEllipsoid = Property(
-        default=WGS84,
-        doc="Reference ellipsoid for the observer position")
+        default=WGS84, doc="Reference ellipsoid for the observer position"
+    )
 
     @property
     def observer_ecef(self) -> np.ndarray:
         """Observer position in ECEF coordinates (meters)."""
         from ..functions.coordinates import geodetic_to_ecef
-        ecef = geodetic_to_ecef(self.latitude, self.longitude, self.altitude,
-                                self.ellipsoid)
+
+        ecef = geodetic_to_ecef(self.latitude, self.longitude, self.altitude, self.ellipsoid)
         return np.array(ecef)
 
     @property
@@ -2904,8 +2909,7 @@ class TopocentricFrame(ReferenceFrame):
         """3x3 rotation matrix from ECEF to this local frame."""
         raise NotImplementedError
 
-    def ecef_to_local(self, position_ecef: np.ndarray,
-                      velocity_ecef: np.ndarray = None) -> tuple:
+    def ecef_to_local(self, position_ecef: np.ndarray, velocity_ecef: np.ndarray = None) -> tuple:
         """Transform ECEF position/velocity to local topocentric frame.
 
         Parameters
@@ -2935,8 +2939,9 @@ class TopocentricFrame(ReferenceFrame):
 
         return pos_local, vel_local
 
-    def local_to_ecef(self, position_local: np.ndarray,
-                      velocity_local: np.ndarray = None) -> tuple:
+    def local_to_ecef(
+        self, position_local: np.ndarray, velocity_local: np.ndarray = None
+    ) -> tuple:
         """Transform local topocentric position/velocity to ECEF.
 
         Parameters
@@ -2965,9 +2970,13 @@ class TopocentricFrame(ReferenceFrame):
 
         return pos_ecef, vel_ecef
 
-    def transform_to(self, other_frame: ReferenceFrame, position: np.ndarray,
-                     velocity: np.ndarray = None,
-                     timestamp: datetime = None) -> tuple:
+    def transform_to(
+        self,
+        other_frame: ReferenceFrame,
+        position: np.ndarray,
+        velocity: np.ndarray = None,
+        timestamp: datetime | None = None,
+    ) -> tuple:
         """Transform position and velocity to another reference frame.
 
         Transformations go through ECEF as an intermediate frame.
@@ -3060,11 +3069,13 @@ class SEZFrame(TopocentricFrame):
         sin_lon = np.sin(lon)
 
         # SEZ rotation matrix
-        R = np.array([
-            [cos_lat * cos_lon, cos_lat * sin_lon, -sin_lat],
-            [-sin_lon, cos_lon, 0.0],
-            [sin_lat * cos_lon, sin_lat * sin_lon, cos_lat]
-        ])
+        R = np.array(
+            [
+                [cos_lat * cos_lon, cos_lat * sin_lon, -sin_lat],
+                [-sin_lon, cos_lon, 0.0],
+                [sin_lat * cos_lon, sin_lat * sin_lon, cos_lat],
+            ]
+        )
         return R
 
 
@@ -3129,11 +3140,13 @@ class ENUFrame(TopocentricFrame):
         sin_lon = np.sin(lon)
 
         # ENU rotation matrix
-        R = np.array([
-            [-sin_lon, cos_lon, 0.0],
-            [-sin_lat * cos_lon, -sin_lat * sin_lon, cos_lat],
-            [cos_lat * cos_lon, cos_lat * sin_lon, sin_lat]
-        ])
+        R = np.array(
+            [
+                [-sin_lon, cos_lon, 0.0],
+                [-sin_lat * cos_lon, -sin_lat * sin_lon, cos_lat],
+                [cos_lat * cos_lon, cos_lat * sin_lon, sin_lat],
+            ]
+        )
         return R
 
 
@@ -3190,11 +3203,13 @@ class NEDFrame(TopocentricFrame):
         sin_lon = np.sin(lon)
 
         # NED rotation matrix
-        R = np.array([
-            [-sin_lat * cos_lon, -sin_lat * sin_lon, cos_lat],
-            [-sin_lon, cos_lon, 0.0],
-            [-cos_lat * cos_lon, -cos_lat * sin_lon, -sin_lat]
-        ])
+        R = np.array(
+            [
+                [-sin_lat * cos_lon, -sin_lat * sin_lon, cos_lat],
+                [-sin_lon, cos_lon, 0.0],
+                [-cos_lat * cos_lon, -cos_lat * sin_lon, -sin_lat],
+            ]
+        )
         return R
 
 
@@ -3202,10 +3217,14 @@ class NEDFrame(TopocentricFrame):
 # Radar/Sensor Line-of-Sight Calculations
 # =============================================================================
 
-def compute_azimuth_elevation(observer_lat: float, observer_lon: float,
-                              observer_alt: float,
-                              target_ecef: np.ndarray,
-                              ellipsoid: ReferenceEllipsoid = WGS84) -> tuple:
+
+def compute_azimuth_elevation(
+    observer_lat: float,
+    observer_lon: float,
+    observer_alt: float,
+    target_ecef: np.ndarray,
+    ellipsoid: ReferenceEllipsoid = WGS84,
+) -> tuple:
     """Compute azimuth and elevation angles from observer to target.
 
     Parameters
@@ -3251,7 +3270,7 @@ def compute_azimuth_elevation(observer_lat: float, observer_lon: float,
         latitude=observer_lat,
         longitude=observer_lon,
         altitude=observer_alt,
-        ellipsoid=ellipsoid
+        ellipsoid=ellipsoid,
     )
 
     # Transform target to ENU
@@ -3276,10 +3295,13 @@ def compute_azimuth_elevation(observer_lat: float, observer_lon: float,
     return azimuth, elevation, range_
 
 
-def compute_look_angles(observer_lat: float, observer_lon: float,
-                        observer_alt: float,
-                        target_ecef: np.ndarray,
-                        ellipsoid: ReferenceEllipsoid = WGS84) -> dict:
+def compute_look_angles(
+    observer_lat: float,
+    observer_lon: float,
+    observer_alt: float,
+    target_ecef: np.ndarray,
+    ellipsoid: ReferenceEllipsoid = WGS84,
+) -> dict:
     """Compute comprehensive look angle information from observer to target.
 
     This function provides all common representations of the viewing
@@ -3330,12 +3352,27 @@ def compute_look_angles(observer_lat: float, observer_lon: float,
 
     """
     # Create frames
-    enu = ENUFrame(name="ENU", latitude=observer_lat, longitude=observer_lon,
-                   altitude=observer_alt, ellipsoid=ellipsoid)
-    sez = SEZFrame(name="SEZ", latitude=observer_lat, longitude=observer_lon,
-                   altitude=observer_alt, ellipsoid=ellipsoid)
-    ned = NEDFrame(name="NED", latitude=observer_lat, longitude=observer_lon,
-                   altitude=observer_alt, ellipsoid=ellipsoid)
+    enu = ENUFrame(
+        name="ENU",
+        latitude=observer_lat,
+        longitude=observer_lon,
+        altitude=observer_alt,
+        ellipsoid=ellipsoid,
+    )
+    sez = SEZFrame(
+        name="SEZ",
+        latitude=observer_lat,
+        longitude=observer_lon,
+        altitude=observer_alt,
+        ellipsoid=ellipsoid,
+    )
+    ned = NEDFrame(
+        name="NED",
+        latitude=observer_lat,
+        longitude=observer_lon,
+        altitude=observer_alt,
+        ellipsoid=ellipsoid,
+    )
 
     # Transform to all frames
     pos_enu, _ = enu.ecef_to_local(target_ecef)
@@ -3344,25 +3381,29 @@ def compute_look_angles(observer_lat: float, observer_lon: float,
 
     # Compute azimuth/elevation
     azimuth, elevation, range_ = compute_azimuth_elevation(
-        observer_lat, observer_lon, observer_alt, target_ecef, ellipsoid)
+        observer_lat, observer_lon, observer_alt, target_ecef, ellipsoid
+    )
 
     return {
-        'azimuth': azimuth,
-        'azimuth_deg': float(np.degrees(azimuth)),
-        'elevation': elevation,
-        'elevation_deg': float(np.degrees(elevation)),
-        'range': range_,
-        'position_enu': pos_enu,
-        'position_sez': pos_sez,
-        'position_ned': pos_ned,
-        'visible': elevation > 0
+        "azimuth": azimuth,
+        "azimuth_deg": float(np.degrees(azimuth)),
+        "elevation": elevation,
+        "elevation_deg": float(np.degrees(elevation)),
+        "range": range_,
+        "position_enu": pos_enu,
+        "position_sez": pos_sez,
+        "position_ned": pos_ned,
+        "visible": elevation > 0,
     }
 
 
-def ecef_to_aer(target_ecef: np.ndarray,
-                observer_lat: float, observer_lon: float,
-                observer_alt: float,
-                ellipsoid: ReferenceEllipsoid = WGS84) -> tuple:
+def ecef_to_aer(
+    target_ecef: np.ndarray,
+    observer_lat: float,
+    observer_lon: float,
+    observer_alt: float,
+    ellipsoid: ReferenceEllipsoid = WGS84,
+) -> tuple:
     """Convert ECEF position to Azimuth-Elevation-Range (AER) coordinates.
 
     This is a convenience function for radar/sensor applications.
@@ -3390,14 +3431,20 @@ def ecef_to_aer(target_ecef: np.ndarray,
         Slant range in meters.
 
     """
-    return compute_azimuth_elevation(observer_lat, observer_lon, observer_alt,
-                                     target_ecef, ellipsoid)
+    return compute_azimuth_elevation(
+        observer_lat, observer_lon, observer_alt, target_ecef, ellipsoid
+    )
 
 
-def aer_to_ecef(azimuth: float, elevation: float, range_: float,
-                observer_lat: float, observer_lon: float,
-                observer_alt: float,
-                ellipsoid: ReferenceEllipsoid = WGS84) -> np.ndarray:
+def aer_to_ecef(
+    azimuth: float,
+    elevation: float,
+    range_: float,
+    observer_lat: float,
+    observer_lon: float,
+    observer_alt: float,
+    ellipsoid: ReferenceEllipsoid = WGS84,
+) -> np.ndarray:
     """Convert Azimuth-Elevation-Range (AER) to ECEF coordinates.
 
     Parameters
@@ -3446,8 +3493,13 @@ def aer_to_ecef(azimuth: float, elevation: float, range_: float,
     pos_enu = np.array([east, north, up])
 
     # Create ENU frame and transform to ECEF
-    enu = ENUFrame(name="temp", latitude=observer_lat, longitude=observer_lon,
-                   altitude=observer_alt, ellipsoid=ellipsoid)
+    enu = ENUFrame(
+        name="temp",
+        latitude=observer_lat,
+        longitude=observer_lon,
+        altitude=observer_alt,
+        ellipsoid=ellipsoid,
+    )
     pos_ecef, _ = enu.local_to_ecef(pos_enu)
 
     return pos_ecef

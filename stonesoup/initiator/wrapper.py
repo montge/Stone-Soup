@@ -1,6 +1,7 @@
 import collections
-from .base import Initiator
+
 from ..base import Property
+from .base import Initiator
 
 
 class StatesLengthLimiter(Initiator):
@@ -20,6 +21,7 @@ class StatesLengthLimiter(Initiator):
         initiator = StatesLengthLimiter(<initiator model>, max_length)
 
     """
+
     initiator: Initiator = Property(doc="Stone Soup Initiator")
     max_length: int = Property(doc="Length of track history to be stored in memory")
 

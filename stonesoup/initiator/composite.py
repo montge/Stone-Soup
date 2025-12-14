@@ -1,13 +1,13 @@
 import warnings
 from collections.abc import Sequence
 
-from .base import Initiator
 from ..base import Property
 from ..types.detection import MissedDetection
-from ..types.hypothesis import SingleHypothesis, CompositeHypothesis
+from ..types.hypothesis import CompositeHypothesis, SingleHypothesis
 from ..types.state import CompositeState
 from ..types.track import Track
 from ..types.update import CompositeUpdate, Update
+from .base import Initiator
 
 
 class CompositeUpdateInitiator(Initiator):
@@ -49,9 +49,9 @@ class CompositeUpdateInitiator(Initiator):
         tracks = set()
 
         # Store sub-tracks for each composite detection
-        detection_hyps_states = dict()
+        detection_hyps_states = {}
         for detection in detections:
-            detection_hyps_states[detection] = {'sub-hypotheses': list(), 'sub-states': list()}
+            detection_hyps_states[detection] = {"sub-hypotheses": [], "sub-states": []}
 
         for sub_state_index, sub_initiator in enumerate(self.sub_initiators):
 
@@ -59,7 +59,7 @@ class CompositeUpdateInitiator(Initiator):
             sub_state_detections = set()
 
             # Get all composite detections that have sub-detection for this index
-            relevant_detections = dict()
+            relevant_detections = {}
 
             # Get sub-prior state for this index
             sub_prior = self.prior_state[sub_state_index]
@@ -74,11 +74,11 @@ class CompositeUpdateInitiator(Initiator):
                 else:
                     # Consider it a missed detection otherwise
                     # Add null hypothesis to its sub-hypotheses list
-                    detection_hyps_states[detection]['sub-hypotheses'].append(
+                    detection_hyps_states[detection]["sub-hypotheses"].append(
                         SingleHypothesis(None, MissedDetection(timestamp=detection.timestamp))
                     )
                     # Add sub-prior to its sub-states list
-                    detection_hyps_states[detection]['sub-states'].append(sub_prior)
+                    detection_hyps_states[detection]["sub-states"].append(sub_prior)
 
             if relevant_detections:
 
@@ -90,16 +90,19 @@ class CompositeUpdateInitiator(Initiator):
 
                     # Get detection that initiated this sub_track
                     # Expecting single measurement initiation
-                    sub_track_detections = {state.hypothesis.measurement
-                                            for state in sub_track
-                                            if isinstance(state, Update)}
+                    sub_track_detections = {
+                        state.hypothesis.measurement
+                        for state in sub_track
+                        if isinstance(state, Update)
+                    }
 
                     if len(sub_track_detections) != 1:
                         # Ambiguity in which detection caused this track
                         # Should not have case where == 0 as this would imply track initiated on
                         # no measurement
                         warnings.warn(
-                            "Attempted to initiate sub-track with more than one detection"
+                            "Attempted to initiate sub-track with more than one detection",
+                            stacklevel=2,
                         )
 
                     sub_track_detection = sub_track_detections.pop()
@@ -110,22 +113,25 @@ class CompositeUpdateInitiator(Initiator):
                     update = sub_track[-1]
 
                     # Add to sub-hypotheses list for this composite detection
-                    detection_hyps_states[full_detection]['sub-hypotheses'].append(
+                    detection_hyps_states[full_detection]["sub-hypotheses"].append(
                         SingleHypothesis(None, sub_track_detection)
                     )
                     # Add update to the sub-states list for this composite detection
-                    detection_hyps_states[full_detection]['sub-states'].append(update)
+                    detection_hyps_states[full_detection]["sub-states"].append(update)
 
         # For each composite detection, create a track from its corresponding sub-hypotheses and
         # sub-states
         for detection, hyps_states in detection_hyps_states.items():
             # Create composite hypothesis from list of sub-hypotheses
-            hypothesis = CompositeHypothesis(prediction=None,
-                                             sub_hypotheses=hyps_states['sub-hypotheses'],
-                                             measurement=detection)
+            hypothesis = CompositeHypothesis(
+                prediction=None,
+                sub_hypotheses=hyps_states["sub-hypotheses"],
+                measurement=detection,
+            )
             # Create composite update from list of sub-states
-            composite_update = CompositeUpdate(sub_states=hyps_states['sub-states'],
-                                               hypothesis=hypothesis)
+            composite_update = CompositeUpdate(
+                sub_states=hyps_states["sub-states"], hypothesis=hypothesis
+            )
 
             tracks.add(Track([composite_update]))
         return tracks

@@ -1,16 +1,15 @@
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import numpy as np
 import pytest
 
 from ...models.measurement.linear import LinearGaussian
 from ...models.transition.linear import ConstantVelocity
-from ...updater.kalman import KalmanUpdater
+from ...predictor.kalman import KalmanPredictor
 from ...types.detection import Detection
 from ...types.hypothesis import SingleHypothesis
 from ...types.state import GaussianState
-from ...predictor.kalman import KalmanPredictor
+from ...updater.kalman import KalmanUpdater
 from ..simple import SinglePointInitiator
 from ..wrapper import StatesLengthLimiter
 
@@ -23,9 +22,13 @@ def test_states_length_limiter(max_len):
     start_time = datetime.now()
     measurements = []
     for i in range(10):
-        measurements.append(Detection(np.array([[i*2.0]]),
-                                      timestamp=start_time+timedelta(seconds=i*100),
-                                      metadata={"colour": np.random.choice(["red", "blue"])}))
+        measurements.append(
+            Detection(
+                np.array([[i * 2.0]]),
+                timestamp=start_time + timedelta(seconds=i * 100),
+                metadata={"colour": np.random.choice(["red", "blue"])},
+            )
+        )
 
     # Tracking components
     # ===================
@@ -39,12 +42,8 @@ def test_states_length_limiter(max_len):
     updater = KalmanUpdater(measurement_model)
 
     # Track initiator
-    prior = GaussianState(
-        np.array([[0], [0]]),
-        np.array([[100, 0], [0, 1]]), timestamp=start_time)
-    initiator = StatesLengthLimiter(SinglePointInitiator(
-        prior,
-        measurement_model), max_len)
+    prior = GaussianState(np.array([[0], [0]]), np.array([[100, 0], [0, 1]]), timestamp=start_time)
+    initiator = StatesLengthLimiter(SinglePointInitiator(prior, measurement_model), max_len)
 
     track = None
     # Do tracking ...

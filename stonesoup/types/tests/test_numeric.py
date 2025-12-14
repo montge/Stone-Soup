@@ -1,9 +1,9 @@
-from math import log, floor, ceil, trunc, sqrt
+import warnings
+from math import ceil, floor, log, sqrt, trunc
 
 import numpy as np
 import pytest
 from pytest import approx
-import warnings
 
 from ..numeric import Probability
 
@@ -24,7 +24,7 @@ def test_probability_init():
     assert probability.log_value == log(0.2)
 
     probabilities = Probability.from_log_ufunc(np.log(np.array([0.2, 0.3])))
-    for probability, val in zip(probabilities, [0.2, 0.3]):
+    for probability, val in zip(probabilities, [0.2, 0.3], strict=False):
         assert float(probability) == pytest.approx(val)
         assert probability.log_value == pytest.approx(log(val))
 
@@ -35,11 +35,11 @@ def test_probability_init():
 def test_probability_string():
     probability1 = Probability(0.2)
     probability2 = Probability(-1000, log_value=True)
-    assert "Probability(0.2)" == repr(probability1)
-    assert "Probability(-1000, log_value=True)" == repr(probability2)
+    assert repr(probability1) == "Probability(0.2)"
+    assert repr(probability2) == "Probability(-1000, log_value=True)"
 
-    assert "0.2" == str(probability1)
-    assert "exp(-1000)" == str(probability2)
+    assert str(probability1) == "0.2"
+    assert str(probability2) == "exp(-1000)"
 
 
 def test_probability_comparison():
@@ -47,7 +47,7 @@ def test_probability_comparison():
     probability2 = Probability(0.3)
 
     assert probability1 == probability1
-    assert not probability1 == -1
+    assert probability1 != -1
     assert probability1 != probability2
     assert probability1 != -1
 
@@ -114,8 +114,8 @@ def test_probability_multiply():
     assert approx(-0.4) == probability1 * -2
     assert approx(-0.6) == -2 * probability2
 
-    assert isinstance(probability1*value1, float)
-    assert approx(45.0) == probability2*value1
+    assert isinstance(probability1 * value1, float)
+    assert approx(45.0) == probability2 * value1
 
     probability1 *= 0.5
     assert isinstance(probability1, Probability)
@@ -126,22 +126,22 @@ def test_probability_multiply():
             "error", r".*invalid value encountered in multiply.*", RuntimeWarning
         )
 
-        assert approx(-0.6) == np.array([-2.]) * probability2
-        assert approx(-0.6) == probability2 * np.array([-2.])
+        assert approx(-0.6) == np.array([-2.0]) * probability2
+        assert approx(-0.6) == probability2 * np.array([-2.0])
 
 
 def test_probability_divide():
     probability1 = Probability(0.2)
     probability2 = Probability(0.3)
 
-    assert approx(2/3) == probability1 / probability2
+    assert approx(2 / 3) == probability1 / probability2
     assert (probability1 / probability2).log_value == log(0.2) - log(0.3)
 
-    assert approx(2/3) == probability1 / 0.3
-    assert approx(2/3) == 0.2 / probability2
+    assert approx(2 / 3) == probability1 / 0.3
+    assert approx(2 / 3) == 0.2 / probability2
 
-    assert approx(-2/3) == probability1 / -0.3
-    assert approx(-2/3) == -0.2 / probability2
+    assert approx(-2 / 3) == probability1 / -0.3
+    assert approx(-2 / 3) == -0.2 / probability2
 
     assert approx(0) == probability1 // probability2
     assert approx(0) == 0.2 // probability2
@@ -155,8 +155,8 @@ def test_probability_divide():
             "error", r".*invalid value encountered in divide.*", RuntimeWarning
         )
 
-        assert approx(-2/3) == np.array([-0.2]) / probability2
-        assert approx(-3/2) == probability2 / np.array([-0.2])
+        assert approx(-2 / 3) == np.array([-0.2]) / probability2
+        assert approx(-3 / 2) == probability2 / np.array([-0.2])
 
 
 def test_probability_mod():
@@ -175,21 +175,21 @@ def test_probability_power():
     probability1 = Probability(0.2)
     probability2 = Probability(0.3)
 
-    assert approx(0.2**0.3) == probability1 ** probability2
-    assert approx(0.2**0.3) == 0.2 ** probability2
-    assert approx(0.2**0.3) == probability1 ** 0.3
+    assert approx(0.2**0.3) == probability1**probability2
+    assert approx(0.2**0.3) == 0.2**probability2
+    assert approx(0.2**0.3) == probability1**0.3
 
-    assert approx(-0.2**0.3) == -0.2 ** probability2
-    assert approx(0.2**-0.3) == probability1 ** -0.3
+    assert approx(-(0.2**0.3)) == -(0.2**probability2)
+    assert approx(0.2**-0.3) == probability1**-0.3
 
 
 def test_probability_integral():
     probability = Probability(0.55)
 
-    assert 0 == floor(probability)
-    assert 0 == trunc(probability)
-    assert 1 == ceil(probability)
-    assert 1 == round(probability)
+    assert floor(probability) == 0
+    assert trunc(probability) == 0
+    assert ceil(probability) == 1
+    assert round(probability) == 1
     assert approx(0.6) == round(probability, 1)
 
 
@@ -211,9 +211,9 @@ def test_probability_sum():
     assert approx(0.5) == Probability.sum((probability1, probability2, 0))
 
     assert approx(0.2) == Probability.sum((Probability(0), probability1))
-    assert 0 == Probability.sum((Probability(0), ))
+    assert Probability.sum((Probability(0),)) == 0
 
-    assert 0 == Probability.sum([])
+    assert Probability.sum([]) == 0
 
 
 def test_probability_numpy_methods():
@@ -228,11 +228,11 @@ def test_probability_hash():
 
     assert hash(probability) == hash(0.2)
 
-    probability = Probability(1E-100)**10
+    probability = Probability(1e-100) ** 10
     # Float value zero, but should use custom hash method now
     assert hash(probability) != hash(0)
     # But equally, shouldn't match raw log value either.
-    assert hash(probability) != hash(log(1E-100)*10)
+    assert hash(probability) != hash(log(1e-100) * 10)
 
     # Actual zero should match
     assert hash(Probability(0)) == hash(0)

@@ -1,20 +1,21 @@
+import datetime
 import itertools
 
-import datetime
 import numpy as np
+
+from stonesoup.models.measurement.linear import LinearGaussian
+from stonesoup.models.transition.linear import ConstantVelocity
+from stonesoup.predictor.kalman import KalmanPredictor
+from stonesoup.predictor.particle import ParticlePredictor
 
 # Import the proposals
 from stonesoup.proposal.simple import DynamicsProposal, KalmanProposal
-from stonesoup.models.transition.linear import ConstantVelocity
+from stonesoup.types.detection import Detection
+from stonesoup.types.hypothesis import SingleHypothesis
 from stonesoup.types.particle import Particle
 from stonesoup.types.prediction import ParticleStatePrediction
-from stonesoup.predictor.kalman import KalmanPredictor
+from stonesoup.types.state import GaussianState, ParticleState
 from stonesoup.updater.kalman import KalmanUpdater
-from stonesoup.types.state import ParticleState, GaussianState
-from stonesoup.predictor.particle import ParticlePredictor
-from stonesoup.types.detection import Detection
-from stonesoup.models.measurement.linear import LinearGaussian
-from stonesoup.types.hypothesis import SingleHypothesis
 
 
 def test_prior_proposal():
@@ -33,26 +34,29 @@ def test_prior_proposal():
     num_particles = 9  # Number of particles
 
     # Define prior state
-    prior_particles = [Particle(np.array([[i], [j]]), 1/num_particles)
-                       for i, j in itertools.product([10, 20, 30], [10, 20, 30])]
+    prior_particles = [
+        Particle(np.array([[i], [j]]), 1 / num_particles)
+        for i, j in itertools.product([10, 20, 30], [10, 20, 30])
+    ]
     prior = ParticleState(None, particle_list=prior_particles, timestamp=timestamp)
 
     # predictors prior and standard stone soup
-    predictor_prior = ParticlePredictor(cv,
-                                        proposal=DynamicsProposal(cv))
+    predictor_prior = ParticlePredictor(cv, proposal=DynamicsProposal(cv))
 
     # Check that the predictor without prior specified works with the prior as
     # proposal
     predictor_base = ParticlePredictor(cv)
 
     # basic transition model evaluations
-    eval_particles = [Particle(cv.matrix(timestamp=new_timestamp,
-                                         time_interval=time_interval)
-                               @ particle.state_vector,
-                               1 / 9)
-                      for particle in prior_particles]
-    eval_mean = np.mean(np.hstack([i.state_vector for i in eval_particles]),
-                        axis=1).reshape(2, 1)
+    eval_particles = [
+        Particle(
+            cv.matrix(timestamp=new_timestamp, time_interval=time_interval)
+            @ particle.state_vector,
+            1 / 9,
+        )
+        for particle in prior_particles
+    ]
+    eval_mean = np.mean(np.hstack([i.state_vector for i in eval_particles]), axis=1).reshape(2, 1)
 
     # construct the evaluation prediction
     eval_prediction = ParticleStatePrediction(None, new_timestamp, particle_list=eval_particles)
@@ -60,14 +64,22 @@ def test_prior_proposal():
     prediction_base = predictor_base.predict(prior, timestamp=new_timestamp)
     prediction_prior = predictor_prior.predict(prior, timestamp=new_timestamp)
 
-    assert np.all([eval_prediction.state_vector[:, i] ==
-                   prediction_base.state_vector[:, i] for i in range(9)])
+    assert np.all(
+        [
+            eval_prediction.state_vector[:, i] == prediction_base.state_vector[:, i]
+            for i in range(9)
+        ]
+    )
     assert np.all([prediction_base.weight[i] == 1 / 9 for i in range(9)])
 
     assert np.allclose(prediction_prior.mean, eval_mean)
     assert prediction_prior.timestamp == new_timestamp
-    assert np.all([eval_prediction.state_vector[:, i] ==
-                   prediction_prior.state_vector[:, i] for i in range(9)])
+    assert np.all(
+        [
+            eval_prediction.state_vector[:, i] == prediction_prior.state_vector[:, i]
+            for i in range(9)
+        ]
+    )
     assert np.all([prediction_prior.weight[i] == 1 / 9 for i in range(9)])
 
 
@@ -77,9 +89,7 @@ def test_kf_proposal():
     cv = ConstantVelocity(noise_diff_coeff=0.1)
 
     # initialise the measurement model
-    lg = LinearGaussian(ndim_state=2,
-                        mapping=[0],
-                        noise_covar=np.diag([0.1]))
+    lg = LinearGaussian(ndim_state=2, mapping=[0], noise_covar=np.diag([0.1]))
 
     # Define time related variables
     timestamp = datetime.datetime.now()
@@ -90,8 +100,10 @@ def test_kf_proposal():
     num_particles = 9  # Number of particles
 
     # Define prior state
-    prior_particles = [Particle(np.array([[i], [j]]), 1/num_particles)
-                       for i, j in itertools.product([1, 2, 3], [1, 2, 3])]
+    prior_particles = [
+        Particle(np.array([[i], [j]]), 1 / num_particles)
+        for i, j in itertools.product([1, 2, 3], [1, 2, 3])
+    ]
 
     prior = ParticleState(None, particle_list=prior_particles, timestamp=timestamp)
 
@@ -107,15 +119,15 @@ def test_kf_proposal():
     prediction = kf_predictor.predict(prior_kf, timestamp=new_timestamp)
 
     # state prediction
-    new_state = GaussianState(state_vector=cv.function(prior_kf, noise=True,
-                                                       time_interval=time_interval),
-                              covar=np.diag([1, 1]),
-                              timestamp=new_timestamp)
+    new_state = GaussianState(
+        state_vector=cv.function(prior_kf, noise=True, time_interval=time_interval),
+        covar=np.diag([1, 1]),
+        timestamp=new_timestamp,
+    )
 
-    detection = Detection(lg.function(new_state,
-                                      noise=True),
-                          timestamp=new_timestamp,
-                          measurement_model=lg)
+    detection = Detection(
+        lg.function(new_state, noise=True), timestamp=new_timestamp, measurement_model=lg
+    )
 
     eval_state = kf_updater.update(SingleHypothesis(prediction, detection))
 

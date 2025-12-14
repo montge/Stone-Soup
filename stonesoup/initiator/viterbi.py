@@ -3,18 +3,18 @@
 This module implements track-before-detect (TBD) using the Viterbi algorithm
 to find the most likely target trajectories directly from detection data.
 """
+
 import datetime
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy as np
 
 from ..base import Property
-from ..models.transition import TransitionModel
 from ..models.measurement import MeasurementModel
+from ..models.transition import TransitionModel
 from ..types.detection import Detection
-from ..types.state import State, GaussianState
+from ..types.state import GaussianState
 from ..types.track import Track
-from ..types.numeric import Probability
 from .base import Initiator
 
 
@@ -123,41 +123,41 @@ class ViterbiTrackInitiator(Initiator):
 
     transition_model: TransitionModel = Property(
         doc="Transition model for state evolution. Defines the dynamic constraints "
-            "for feasible trajectories."
+        "for feasible trajectories."
     )
     measurement_model: MeasurementModel = Property(
         doc="Measurement model. Used to compute state estimates from detections "
-            "and evaluate detection likelihoods."
+        "and evaluate detection likelihoods."
     )
     num_scans: int = Property(
         default=5,
         doc="Number of consecutive scans to use for track initiation. Larger values "
-            "improve discrimination between targets and clutter but increase latency "
-            "and computational cost. Typical values: 3-10. Default is 5."
+        "improve discrimination between targets and clutter but increase latency "
+        "and computational cost. Typical values: 3-10. Default is 5.",
     )
     detection_threshold: float = Property(
         default=10.0,
         doc="Minimum cumulative log-likelihood threshold for track initiation. "
-            "Trajectories with cumulative score below this threshold are rejected. "
-            "Higher values reduce false tracks but may miss weak targets. "
-            "Default is 10.0."
+        "Trajectories with cumulative score below this threshold are rejected. "
+        "Higher values reduce false tracks but may miss weak targets. "
+        "Default is 10.0.",
     )
     max_detections_per_scan: int = Property(
         default=100,
         doc="Maximum number of detections to consider per scan. Limits computational "
-            "cost in high-clutter scenarios. Detections are selected by strength if "
-            "this limit is exceeded. Default is 100."
+        "cost in high-clutter scenarios. Detections are selected by strength if "
+        "this limit is exceeded. Default is 100.",
     )
     missed_detection_penalty: float = Property(
         default=-5.0,
         doc="Log-likelihood penalty for missed detections. Allows tracks to skip "
-            "time steps where no detection is associated. More negative values make "
-            "missed detections less likely. Default is -5.0."
+        "time steps where no detection is associated. More negative values make "
+        "missed detections less likely. Default is -5.0.",
     )
     prior_state_covar: np.ndarray = Property(
         default=None,
         doc="Prior state covariance for initiated tracks. If None, a default "
-            "identity matrix scaled by 100 is used. Should match state dimensions."
+        "identity matrix scaled by 100 is used. Should match state dimensions.",
     )
 
     def _compute_detection_score(self, detection):
@@ -174,8 +174,8 @@ class ViterbiTrackInitiator(Initiator):
             Log-likelihood score for the detection
         """
         # If detection has a metadata score, use it
-        if hasattr(detection, 'metadata') and 'score' in detection.metadata:
-            return np.log(max(detection.metadata['score'], 1e-10))
+        if hasattr(detection, "metadata") and "score" in detection.metadata:
+            return np.log(max(detection.metadata["score"], 1e-10))
 
         # Otherwise, return a default moderate score
         # In practice, this should be based on detection SNR or similar
@@ -202,7 +202,7 @@ class ViterbiTrackInitiator(Initiator):
         predicted = self.transition_model.function(state_from, time_interval=time_interval)
 
         # Compute likelihood of reaching state_to
-        if hasattr(self.transition_model, 'covar'):
+        if hasattr(self.transition_model, "covar"):
             covar = self.transition_model.covar(time_interval=time_interval)
             diff = state_to.state_vector - predicted
             try:
@@ -239,6 +239,7 @@ class ViterbiTrackInitiator(Initiator):
         # Map detection to state space
         # For simplicity, use pseudo-inverse for linear models
         from ..models.base import LinearModel
+
         if isinstance(meas_model, LinearModel):
             H = meas_model.matrix()
             state_vector = np.linalg.pinv(H) @ detection.state_vector
@@ -282,8 +283,9 @@ class ViterbiTrackInitiator(Initiator):
         # returns empty set
         return set()
 
-    def initiate_from_scans(self, detection_sets: Sequence[set[Detection]],
-                           timestamps: Sequence[datetime.datetime]) -> set[Track]:
+    def initiate_from_scans(
+        self, detection_sets: Sequence[set[Detection]], timestamps: Sequence[datetime.datetime]
+    ) -> set[Track]:
         """Initiate tracks from multiple scans using Viterbi algorithm.
 
         This is the main method for Viterbi track-before-detect. It processes
@@ -311,12 +313,14 @@ class ViterbiTrackInitiator(Initiator):
             raise ValueError("Number of detection sets must match number of timestamps")
 
         if len(detection_sets) < self.num_scans:
-            raise ValueError(f"Need at least {self.num_scans} scans for initiation, "
-                           f"got {len(detection_sets)}")
+            raise ValueError(
+                f"Need at least {self.num_scans} scans for initiation, "
+                f"got {len(detection_sets)}"
+            )
 
         # Use only the required number of scans
-        detection_sets = detection_sets[:self.num_scans]
-        timestamps = timestamps[:self.num_scans]
+        detection_sets = detection_sets[: self.num_scans]
+        timestamps = timestamps[: self.num_scans]
 
         # Limit detections per scan if needed
         processed_detections = []
@@ -324,9 +328,13 @@ class ViterbiTrackInitiator(Initiator):
             det_list = list(det_set)
             if len(det_list) > self.max_detections_per_scan:
                 # Sort by detection score if available, otherwise keep first N
-                if det_list and hasattr(det_list[0], 'metadata') and 'score' in det_list[0].metadata:
-                    det_list.sort(key=lambda d: d.metadata.get('score', 0), reverse=True)
-                det_list = det_list[:self.max_detections_per_scan]
+                if (
+                    det_list
+                    and hasattr(det_list[0], "metadata")
+                    and "score" in det_list[0].metadata
+                ):
+                    det_list.sort(key=lambda d: d.metadata.get("score", 0), reverse=True)
+                det_list = det_list[: self.max_detections_per_scan]
             processed_detections.append(det_list)
 
         # Build trellis structure
@@ -349,12 +357,12 @@ class ViterbiTrackInitiator(Initiator):
 
         # Forward recursion
         for k in range(1, num_scans):
-            num_prev = len(processed_detections[k-1])
+            len(processed_detections[k - 1])
             num_curr = len(processed_detections[k])
             delta_k = np.zeros(num_curr)
             psi_k = np.zeros(num_curr, dtype=int)
 
-            time_interval = timestamps[k] - timestamps[k-1]
+            time_interval = timestamps[k] - timestamps[k - 1]
 
             for i, det_curr in enumerate(processed_detections[k]):
                 state_curr = self._detection_to_state(det_curr)
@@ -364,15 +372,16 @@ class ViterbiTrackInitiator(Initiator):
                 best_score = -np.inf
                 best_prev = 0
 
-                for j, det_prev in enumerate(processed_detections[k-1]):
+                for j, det_prev in enumerate(processed_detections[k - 1]):
                     state_prev = self._detection_to_state(det_prev)
 
                     # Transition score
                     trans_score = self._compute_transition_score(
-                        state_prev, state_curr, time_interval)
+                        state_prev, state_curr, time_interval
+                    )
 
                     # Total score
-                    total_score = delta[k-1][j] + trans_score + det_score
+                    total_score = delta[k - 1][j] + trans_score + det_score
 
                     if total_score > best_score:
                         best_score = total_score
@@ -414,7 +423,7 @@ class ViterbiTrackInitiator(Initiator):
             is_unique = True
             for existing_path in extracted_paths:
                 # Paths are considered duplicates if they share most detections
-                shared = sum(1 for d1, d2 in zip(path, existing_path) if d1 is d2)
+                shared = sum(1 for d1, d2 in zip(path, existing_path, strict=False) if d1 is d2)
                 if shared >= len(path) * 0.8:  # 80% overlap threshold
                     is_unique = False
                     break

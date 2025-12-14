@@ -1,13 +1,17 @@
 import datetime
 
-from stonesoup.tracker.particle import SingleTargetExpectedLikelihoodParticleFilter, \
-    MultiTargetExpectedLikelihoodParticleFilter
+from stonesoup.tracker.particle import (
+    MultiTargetExpectedLikelihoodParticleFilter,
+    SingleTargetExpectedLikelihoodParticleFilter,
+)
 
 
 def test_single_target_expected_likelihood_tracker(
-        particle_initiator, deleter, detector, data_particle_associator, particle_updater):
+    particle_initiator, deleter, detector, data_particle_associator, particle_updater
+):
     tracker = SingleTargetExpectedLikelihoodParticleFilter(
-        particle_initiator, deleter, detector, data_particle_associator, particle_updater)
+        particle_initiator, deleter, detector, data_particle_associator, particle_updater
+    )
 
     previous_time = datetime.datetime(2018, 1, 1, 13, 59)
     total_tracks = set()
@@ -24,9 +28,11 @@ def test_single_target_expected_likelihood_tracker(
 
 
 def test_multi_target_expected_likelihood_tracker(
-        particle_initiator, deleter, detector, data_particle_associator, particle_updater):
+    particle_initiator, deleter, detector, data_particle_associator, particle_updater
+):
     tracker = MultiTargetExpectedLikelihoodParticleFilter(
-        particle_initiator, deleter, detector, data_particle_associator, particle_updater)
+        particle_initiator, deleter, detector, data_particle_associator, particle_updater
+    )
 
     previous_time = datetime.datetime(2018, 1, 1, 13, 59)
     max_tracks = 0

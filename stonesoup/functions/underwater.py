@@ -1975,7 +1975,7 @@ def create_flat_bathymetry(depth, x_range, y_range, resolution=100.0):
     """
     x = np.arange(x_range[0], x_range[1] + resolution, resolution)
     y = np.arange(y_range[0], y_range[1] + resolution, resolution)
-    X, Y = np.meshgrid(x, y)
+    X, _Y = np.meshgrid(x, y)
     depths = np.full(X.shape, depth)
 
     return {"x": x, "y": y, "depth": depths}
@@ -2018,7 +2018,7 @@ def create_sloped_bathymetry(
     """
     x = np.arange(x_range[0], x_range[1] + resolution, resolution)
     y = np.arange(y_range[0], y_range[1] + resolution, resolution)
-    X, Y = np.meshgrid(x, y)
+    X, _Y = np.meshgrid(x, y)
 
     depths = np.zeros(X.shape)
     for i in range(X.shape[0]):
@@ -2065,7 +2065,7 @@ def create_canyon_bathymetry(
     """
     x = np.arange(x_range[0], x_range[1] + resolution, resolution)
     y = np.arange(y_range[0], y_range[1] + resolution, resolution)
-    X, Y = np.meshgrid(x, y)
+    _X, Y = np.meshgrid(x, y)
 
     # Gaussian canyon profile
     canyon_profile = canyon_depth * np.exp(

@@ -1,10 +1,14 @@
 """Tests for road and rail network graph utilities."""
+
 import pytest
-import numpy as np
 
 from ..network_graphs import (
-    RoadNetworkBuilder, RailNetworkBuilder,
-    graph_from_geojson, simplify_graph, create_grid_network, merge_graphs
+    RailNetworkBuilder,
+    RoadNetworkBuilder,
+    create_grid_network,
+    graph_from_geojson,
+    merge_graphs,
+    simplify_graph,
 )
 
 
@@ -48,8 +52,8 @@ def test_road_builder_add_road():
     assert len(node_ids) == 3
 
     graph = builder.build_graph()
-    assert len(graph['nodes']) == 3
-    assert len(graph['edges']) == 2  # 2 edges connecting 3 nodes
+    assert len(graph["nodes"]) == 3
+    assert len(graph["edges"]) == 2  # 2 edges connecting 3 nodes
 
 
 def test_road_builder_add_road_minimum_coords():
@@ -71,7 +75,7 @@ def test_road_builder_intersection():
     graph = builder.build_graph()
 
     # (100, 0) should be shared - only 5 unique nodes
-    assert len(graph['nodes']) == 5
+    assert len(graph["nodes"]) == 5
 
 
 def test_road_builder_explicit_intersection():
@@ -91,16 +95,16 @@ def test_road_builder_connect_roads():
 
     # Get node IDs
     graph = builder.build_graph()
-    node_ids = list(graph['nodes'].keys())
+    list(graph["nodes"].keys())
 
     # Connect them
     builder = RoadNetworkBuilder()
-    n1 = builder.add_node((100, 0), "end1")
-    n2 = builder.add_node((200, 0), "start2")
+    builder.add_node((100, 0), "end1")
+    builder.add_node((200, 0), "start2")
     builder.connect_roads("end1", "start2")
 
     graph = builder.build_graph()
-    assert len(graph['edges']) == 1
+    assert len(graph["edges"]) == 1
 
 
 def test_road_builder_connect_nonexistent():
@@ -121,7 +125,7 @@ def test_road_builder_directed():
 
     # Directed graph should have edges in both directions added separately
     # But build_graph deduplicates for the simple dict format
-    assert len(graph['edges']) == 1
+    assert len(graph["edges"]) == 1
 
 
 def test_rail_builder_creation():
@@ -140,8 +144,8 @@ def test_rail_builder_add_track():
     assert len(node_ids) == 3
 
     graph = builder.build_graph()
-    assert len(graph['nodes']) == 3
-    assert len(graph['edges']) == 2
+    assert len(graph["nodes"]) == 3
+    assert len(graph["edges"]) == 2
 
 
 def test_rail_builder_add_track_minimum():
@@ -157,12 +161,12 @@ def test_rail_builder_add_station():
     builder = RailNetworkBuilder()
 
     builder.add_track([(0, 0), (1000, 0), (2000, 0)])
-    station_id = builder.add_station((1000, 0), "Central Station")
+    builder.add_station((1000, 0), "Central Station")
 
     graph = builder.build_graph()
 
-    assert 'stations' in graph
-    assert "Central Station" in graph['stations']
+    assert "stations" in graph
+    assert "Central Station" in graph["stations"]
 
 
 def test_rail_builder_add_junction():
@@ -180,7 +184,7 @@ def test_rail_builder_no_stations():
     builder.add_station((500, 0), "Hidden Station")
 
     graph = builder.build_graph()
-    assert 'stations' not in graph
+    assert "stations" not in graph
 
 
 def test_graph_from_geojson_linestring():
@@ -190,19 +194,16 @@ def test_graph_from_geojson_linestring():
         "features": [
             {
                 "type": "Feature",
-                "geometry": {
-                    "type": "LineString",
-                    "coordinates": [[0, 0], [100, 0], [200, 50]]
-                },
-                "properties": {"name": "Main Street"}
+                "geometry": {"type": "LineString", "coordinates": [[0, 0], [100, 0], [200, 50]]},
+                "properties": {"name": "Main Street"},
             }
-        ]
+        ],
     }
 
     graph = graph_from_geojson(geojson)
 
-    assert len(graph['nodes']) == 3
-    assert len(graph['edges']) == 2
+    assert len(graph["nodes"]) == 3
+    assert len(graph["edges"]) == 2
 
 
 def test_graph_from_geojson_multilinestring():
@@ -211,18 +212,15 @@ def test_graph_from_geojson_multilinestring():
         "type": "Feature",
         "geometry": {
             "type": "MultiLineString",
-            "coordinates": [
-                [[0, 0], [100, 0]],
-                [[200, 0], [300, 0]]
-            ]
+            "coordinates": [[[0, 0], [100, 0]], [[200, 0], [300, 0]]],
         },
-        "properties": {}
+        "properties": {},
     }
 
     graph = graph_from_geojson(geojson)
 
-    assert len(graph['nodes']) == 4
-    assert len(graph['edges']) == 2
+    assert len(graph["nodes"]) == 4
+    assert len(graph["edges"]) == 2
 
 
 def test_graph_from_geojson_rail():
@@ -232,19 +230,16 @@ def test_graph_from_geojson_rail():
         "features": [
             {
                 "type": "Feature",
-                "geometry": {
-                    "type": "LineString",
-                    "coordinates": [[0, 0], [1000, 0]]
-                },
-                "properties": {"track_type": "main"}
+                "geometry": {"type": "LineString", "coordinates": [[0, 0], [1000, 0]]},
+                "properties": {"track_type": "main"},
             }
-        ]
+        ],
     }
 
-    graph = graph_from_geojson(geojson, network_type='rail')
+    graph = graph_from_geojson(geojson, network_type="rail")
 
-    assert len(graph['nodes']) == 2
-    assert len(graph['edges']) == 1
+    assert len(graph["nodes"]) == 2
+    assert len(graph["edges"]) == 1
 
 
 def test_create_grid_network():
@@ -252,12 +247,12 @@ def test_create_grid_network():
     graph = create_grid_network(0, 200, 0, 200, 100)
 
     # 3x3 grid = 9 nodes
-    assert len(graph['nodes']) == 9
+    assert len(graph["nodes"]) == 9
 
     # Horizontal: 2 per row * 3 rows = 6
     # Vertical: 3 per column * 2 columns = 6
     # But edges are undirected, so counted once
-    assert len(graph['edges']) == 12
+    assert len(graph["edges"]) == 12
 
 
 def test_create_grid_network_small():
@@ -265,107 +260,90 @@ def test_create_grid_network_small():
     graph = create_grid_network(0, 100, 0, 100, 100)
 
     # 2x2 grid = 4 nodes
-    assert len(graph['nodes']) == 4
+    assert len(graph["nodes"]) == 4
     # 4 edges (forming a square)
-    assert len(graph['edges']) == 4
+    assert len(graph["edges"]) == 4
 
 
 def test_merge_graphs():
     """Test merging multiple graphs."""
-    graph1 = {
-        'nodes': {'a': (0, 0), 'b': (100, 0)},
-        'edges': [('a', 'b')]
-    }
-    graph2 = {
-        'nodes': {'c': (200, 0), 'd': (300, 0)},
-        'edges': [('c', 'd')]
-    }
+    graph1 = {"nodes": {"a": (0, 0), "b": (100, 0)}, "edges": [("a", "b")]}
+    graph2 = {"nodes": {"c": (200, 0), "d": (300, 0)}, "edges": [("c", "d")]}
 
     merged = merge_graphs(graph1, graph2)
 
-    assert len(merged['nodes']) == 4
-    assert len(merged['edges']) == 2
+    assert len(merged["nodes"]) == 4
+    assert len(merged["edges"]) == 2
 
 
 def test_merge_graphs_shared_position():
     """Test merging graphs with shared node positions."""
-    graph1 = {
-        'nodes': {'a': (0, 0), 'b': (100, 0)},
-        'edges': [('a', 'b')]
-    }
+    graph1 = {"nodes": {"a": (0, 0), "b": (100, 0)}, "edges": [("a", "b")]}
     graph2 = {
-        'nodes': {'c': (100, 0), 'd': (200, 0)},  # c is at same position as b
-        'edges': [('c', 'd')]
+        "nodes": {"c": (100, 0), "d": (200, 0)},  # c is at same position as b
+        "edges": [("c", "d")],
     }
 
     merged = merge_graphs(graph1, graph2)
 
     # Should have 3 nodes (shared position merged)
-    assert len(merged['nodes']) == 3
-    assert len(merged['edges']) == 2
+    assert len(merged["nodes"]) == 3
+    assert len(merged["edges"]) == 2
 
 
 def test_simplify_graph_collinear():
     """Test simplifying graph with collinear nodes."""
     # Three collinear points
     graph = {
-        'nodes': {
-            'a': (0, 0),
-            'b': (100, 0),  # Intermediate, should be removed
-            'c': (200, 0)
-        },
-        'edges': [('a', 'b'), ('b', 'c')]
+        "nodes": {"a": (0, 0), "b": (100, 0), "c": (200, 0)},  # Intermediate, should be removed
+        "edges": [("a", "b"), ("b", "c")],
     }
 
     # With very small tolerance, collinear points should be kept
     simplified = simplify_graph(graph, tolerance=0.01)
 
     # The collinear point should be removed
-    assert len(simplified['nodes']) == 2
-    assert len(simplified['edges']) == 1
+    assert len(simplified["nodes"]) == 2
+    assert len(simplified["edges"]) == 1
 
 
 def test_simplify_graph_not_collinear():
     """Test simplifying graph keeps non-collinear nodes."""
     graph = {
-        'nodes': {
-            'a': (0, 0),
-            'b': (100, 50),  # Not collinear
-            'c': (200, 0)
-        },
-        'edges': [('a', 'b'), ('b', 'c')]
+        "nodes": {"a": (0, 0), "b": (100, 50), "c": (200, 0)},  # Not collinear
+        "edges": [("a", "b"), ("b", "c")],
     }
 
     simplified = simplify_graph(graph, tolerance=0.01)
 
     # Non-collinear point should be kept
-    assert len(simplified['nodes']) == 3
-    assert len(simplified['edges']) == 2
+    assert len(simplified["nodes"]) == 3
+    assert len(simplified["edges"]) == 2
 
 
 def test_simplify_graph_junction():
     """Test simplifying preserves junctions."""
     graph = {
-        'nodes': {
-            'a': (0, 0),
-            'b': (100, 0),  # Junction (degree 3)
-            'c': (200, 0),
-            'd': (100, 100)
+        "nodes": {
+            "a": (0, 0),
+            "b": (100, 0),  # Junction (degree 3)
+            "c": (200, 0),
+            "d": (100, 100),
         },
-        'edges': [('a', 'b'), ('b', 'c'), ('b', 'd')]
+        "edges": [("a", "b"), ("b", "c"), ("b", "d")],
     }
 
     simplified = simplify_graph(graph, tolerance=0.01)
 
     # Junction (degree 3) should be preserved
-    assert len(simplified['nodes']) == 4
+    assert len(simplified["nodes"]) == 4
 
 
 def test_road_builder_attributes():
     """Test road attributes are stored."""
     builder = RoadNetworkBuilder()
 
-    attrs = {'speed_limit': 50, 'lanes': 2}
+    attrs = {"speed_limit": 50, "lanes": 2}
     builder.add_road([(0, 0), (100, 0)], road_id="test_road", attributes=attrs)
 
     # Build with networkx if available to check attributes
@@ -374,7 +352,7 @@ def test_road_builder_attributes():
         # Check edge has length attribute
         edges = list(G.edges(data=True))
         assert len(edges) == 1
-        assert 'length' in edges[0][2]
+        assert "length" in edges[0][2]
     except ImportError:
         pass  # NetworkX not available
 
@@ -404,7 +382,7 @@ def test_road_builder_to_networkx():
 
         # Check nodes have pos attribute
         for node in G.nodes:
-            assert 'pos' in G.nodes[node]
+            assert "pos" in G.nodes[node]
     except ImportError:
         pytest.skip("NetworkX not available")
 
@@ -414,7 +392,7 @@ def test_grid_network_positions():
     graph = create_grid_network(0, 100, 0, 100, 50)
 
     # Check corner positions exist
-    positions = set(graph['nodes'].values())
+    positions = set(graph["nodes"].values())
 
     assert (0.0, 0.0) in positions
     assert (100.0, 0.0) in positions
@@ -425,11 +403,8 @@ def test_grid_network_positions():
 
 def test_geojson_empty():
     """Test handling empty GeoJSON."""
-    geojson = {
-        "type": "FeatureCollection",
-        "features": []
-    }
+    geojson = {"type": "FeatureCollection", "features": []}
 
     graph = graph_from_geojson(geojson)
-    assert len(graph['nodes']) == 0
-    assert len(graph['edges']) == 0
+    assert len(graph["nodes"]) == 0
+    assert len(graph["edges"]) == 0

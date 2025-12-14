@@ -5,25 +5,26 @@ import datetime
 import numpy as np
 import pytest
 
+from ...buffered_generator import BufferedGenerator
+from ...functions.coordinates import ecef_to_geodetic, geodetic_to_ecef
+from ...reader import DetectionReader, GroundTruthReader
+from ...types.coordinates import GRS80, WGS84
+from ...types.detection import Detection
+from ...types.groundtruth import GroundTruthPath, GroundTruthState
 from ..coordinate import (
-    GeodeticToECEFConverter,
+    ECEFToECIConverter,
     ECEFToGeodeticConverter,
     ECIToECEFConverter,
-    ECEFToECIConverter,
-    GeodeticToECIConverter,
     ECIToGeodeticConverter,
+    GeodeticToECEFConverter,
+    GeodeticToECIConverter,
 )
-from ...buffered_generator import BufferedGenerator
-from ...reader import DetectionReader, GroundTruthReader
-from ...types.detection import Detection
-from ...types.groundtruth import GroundTruthState, GroundTruthPath
-from ...types.coordinates import WGS84, GRS80
-from ...functions.coordinates import geodetic_to_ecef, ecef_to_geodetic
 
 
 @pytest.fixture()
 def geodetic_detector():
     """Detector with geodetic coordinates (lat, lon, alt) in radians."""
+
     class Detector(DetectionReader):
         @BufferedGenerator.generator_method
         def detections_gen(self):
@@ -63,6 +64,7 @@ def geodetic_detector():
 @pytest.fixture()
 def ecef_detector():
     """Detector with ECEF coordinates (x, y, z) in meters."""
+
     class Detector(DetectionReader):
         @BufferedGenerator.generator_method
         def detections_gen(self):
@@ -90,6 +92,7 @@ def ecef_detector():
 @pytest.fixture()
 def eci_detector():
     """Detector with ECI coordinates (x, y, z) in meters."""
+
     class Detector(DetectionReader):
         @BufferedGenerator.generator_method
         def detections_gen(self):
@@ -111,6 +114,7 @@ def eci_detector():
 @pytest.fixture()
 def geodetic_groundtruth():
     """Ground truth reader with geodetic coordinates."""
+
     class GroundTruth(GroundTruthReader):
         @BufferedGenerator.generator_method
         def groundtruth_paths_gen(self):
@@ -140,6 +144,7 @@ def geodetic_groundtruth():
 
 # GeodeticToECEFConverter tests
 
+
 def test_geodetic_to_ecef_instantiation(geodetic_detector):
     """Test that GeodeticToECEFConverter can be instantiated."""
     converter = GeodeticToECEFConverter(reader=geodetic_detector)
@@ -150,9 +155,7 @@ def test_geodetic_to_ecef_instantiation(geodetic_detector):
 def test_geodetic_to_ecef_custom_params(geodetic_detector):
     """Test GeodeticToECEFConverter with custom parameters."""
     converter = GeodeticToECEFConverter(
-        reader=geodetic_detector,
-        mapping=(2, 0, 1),
-        ellipsoid=GRS80
+        reader=geodetic_detector, mapping=(2, 0, 1), ellipsoid=GRS80
     )
     assert converter.mapping == (2, 0, 1)
     assert converter.ellipsoid is GRS80
@@ -165,7 +168,7 @@ def test_geodetic_to_ecef_equator_prime_meridian(geodetic_detector):
     # Skip first detection, get second (equator at prime meridian)
     gen = iter(converter)
     next(gen)
-    time, detections = next(gen)
+    _time, detections = next(gen)
 
     detection = detections.pop()
     x = detection.state_vector[0, 0]
@@ -187,7 +190,7 @@ def test_geodetic_to_ecef_north_pole(geodetic_detector):
     gen = iter(converter)
     next(gen)
     next(gen)
-    time, detections = next(gen)
+    _time, detections = next(gen)
 
     detection = detections.pop()
     x = detection.state_vector[0, 0]
@@ -225,6 +228,7 @@ def test_geodetic_to_ecef_round_trip():
 
 # ECEFToGeodeticConverter tests
 
+
 def test_ecef_to_geodetic_instantiation(ecef_detector):
     """Test that ECEFToGeodeticConverter can be instantiated."""
     converter = ECEFToGeodeticConverter(reader=ecef_detector)
@@ -236,7 +240,7 @@ def test_ecef_to_geodetic_equator_prime_meridian(ecef_detector):
     """Test ECEF to geodetic conversion at equator on prime meridian."""
     converter = ECEFToGeodeticConverter(reader=ecef_detector)
 
-    time, detections = next(iter(converter))
+    _time, detections = next(iter(converter))
     detection = detections.pop()
 
     lat = detection.state_vector[0, 0]
@@ -255,7 +259,7 @@ def test_ecef_to_geodetic_equator_90_east(ecef_detector):
 
     gen = iter(converter)
     next(gen)
-    time, detections = next(gen)
+    _time, detections = next(gen)
     detection = detections.pop()
 
     lat = detection.state_vector[0, 0]
@@ -275,7 +279,7 @@ def test_ecef_to_geodetic_north_pole(ecef_detector):
     gen = iter(converter)
     next(gen)
     next(gen)
-    time, detections = next(gen)
+    _time, detections = next(gen)
     detection = detections.pop()
 
     lat = detection.state_vector[0, 0]
@@ -288,6 +292,7 @@ def test_ecef_to_geodetic_north_pole(ecef_detector):
 
 # ECIToECEFConverter tests
 
+
 def test_eci_to_ecef_instantiation(eci_detector):
     """Test that ECIToECEFConverter can be instantiated."""
     converter = ECIToECEFConverter(reader=eci_detector)
@@ -298,7 +303,7 @@ def test_eci_to_ecef_preserves_magnitude(eci_detector):
     """Test that ECI→ECEF preserves position magnitude."""
     converter = ECIToECEFConverter(reader=eci_detector)
 
-    for time, detections in converter:
+    for _time, detections in converter:
         for detection in detections:
             x = detection.state_vector[0, 0]
             y = detection.state_vector[1, 0]
@@ -316,7 +321,7 @@ def test_eci_to_ecef_z_unchanged(eci_detector):
     converter = ECIToECEFConverter(reader=eci_detector)
 
     gen = iter(converter)
-    time, detections = next(gen)
+    _time, detections = next(gen)
     detection = detections.pop()
 
     # Z should be unchanged (0.0 for first detection)
@@ -326,6 +331,7 @@ def test_eci_to_ecef_z_unchanged(eci_detector):
 
 def test_eci_to_ecef_requires_timestamp():
     """Test that ECI to ECEF converter requires timestamp on states."""
+
     class NoTimestampDetector(DetectionReader):
         @BufferedGenerator.generator_method
         def detections_gen(self):
@@ -339,6 +345,7 @@ def test_eci_to_ecef_requires_timestamp():
 
 # ECEFToECIConverter tests
 
+
 def test_ecef_to_eci_instantiation(ecef_detector):
     """Test that ECEFToECIConverter can be instantiated."""
     converter = ECEFToECIConverter(reader=ecef_detector)
@@ -347,7 +354,7 @@ def test_ecef_to_eci_instantiation(ecef_detector):
 
 def test_eci_ecef_round_trip():
     """Test that ECI → ECEF → ECI is identity using coordinate functions."""
-    from ...functions.coordinates import eci_to_ecef, ecef_to_eci
+    from ...functions.coordinates import ecef_to_eci, eci_to_ecef
 
     timestamp = datetime.datetime(2024, 1, 1, 12, 0, 0)
 
@@ -374,6 +381,7 @@ def test_eci_ecef_round_trip():
 
 # GeodeticToECIConverter tests
 
+
 def test_geodetic_to_eci_instantiation(geodetic_detector):
     """Test that GeodeticToECIConverter can be instantiated."""
     converter = GeodeticToECIConverter(reader=geodetic_detector)
@@ -385,7 +393,7 @@ def test_geodetic_to_eci_produces_valid_coordinates(geodetic_detector):
     """Test that geodetic to ECI conversion produces valid coordinates."""
     converter = GeodeticToECIConverter(reader=geodetic_detector)
 
-    for time, detections in converter:
+    for _time, detections in converter:
         for detection in detections:
             x = detection.state_vector[0, 0]
             y = detection.state_vector[1, 0]
@@ -399,6 +407,7 @@ def test_geodetic_to_eci_produces_valid_coordinates(geodetic_detector):
 
 def test_geodetic_to_eci_requires_timestamp():
     """Test that geodetic to ECI converter requires timestamp on states."""
+
     class NoTimestampDetector(DetectionReader):
         @BufferedGenerator.generator_method
         def detections_gen(self):
@@ -412,6 +421,7 @@ def test_geodetic_to_eci_requires_timestamp():
 
 # ECIToGeodeticConverter tests
 
+
 def test_eci_to_geodetic_instantiation(eci_detector):
     """Test that ECIToGeodeticConverter can be instantiated."""
     converter = ECIToGeodeticConverter(reader=eci_detector)
@@ -423,7 +433,7 @@ def test_eci_to_geodetic_produces_valid_coordinates(eci_detector):
     """Test that ECI to geodetic conversion produces valid coordinates."""
     converter = ECIToGeodeticConverter(reader=eci_detector)
 
-    for time, detections in converter:
+    for _time, detections in converter:
         for detection in detections:
             lat = detection.state_vector[0, 0]
             lon = detection.state_vector[1, 0]
@@ -442,12 +452,13 @@ def test_eci_to_geodetic_produces_valid_coordinates(eci_detector):
 
 # Ground truth tests
 
+
 def test_geodetic_to_ecef_groundtruth(geodetic_groundtruth):
     """Test GeodeticToECEFConverter with ground truth."""
     converter = GeodeticToECEFConverter(reader=geodetic_groundtruth)
 
     paths_seen = 0
-    for time, paths in converter:
+    for _time, paths in converter:
         paths_seen += 1
         for path in paths:
             # Check that states in path have been converted
@@ -466,8 +477,10 @@ def test_geodetic_to_ecef_groundtruth(geodetic_groundtruth):
 
 # Custom mapping tests
 
+
 def test_geodetic_to_ecef_custom_mapping():
     """Test GeodeticToECEFConverter with non-standard mapping."""
+
     class CustomDetector(DetectionReader):
         @BufferedGenerator.generator_method
         def detections_gen(self):
@@ -479,11 +492,10 @@ def test_geodetic_to_ecef_custom_mapping():
             yield time, {Detection([[999.0], [lat], [888.0], [lon], [alt]], timestamp=time)}
 
     converter = GeodeticToECEFConverter(
-        reader=CustomDetector(),
-        mapping=(1, 3, 4)  # lat at index 1, lon at 3, alt at 4
+        reader=CustomDetector(), mapping=(1, 3, 4)  # lat at index 1, lon at 3, alt at 4
     )
 
-    time, detections = next(iter(converter))
+    _time, detections = next(iter(converter))
     detection = detections.pop()
 
     # Original values at indices 0 and 2 should be unchanged

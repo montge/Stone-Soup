@@ -3,10 +3,11 @@ from datetime import datetime, timezone
 
 import numpy as np
 
+from stonesoup.buffered_generator import BufferedGenerator
+
+from ..types.detection import Detection
 from .base import DetectionReader
 from .file import TextFileReader
-from ..types.detection import Detection
-from stonesoup.buffered_generator import BufferedGenerator
 
 
 class JSON_AISDetectionReader(DetectionReader, TextFileReader):
@@ -50,27 +51,29 @@ class JSON_AISDetectionReader(DetectionReader, TextFileReader):
             file_data = file_data[1]
 
             # sort the imported AIS Detection list by time of detection
-            file_data.sort(key=lambda x: x['TIME'])
+            file_data.sort(key=lambda x: x["TIME"])
 
             for record in file_data:
 
                 # extract latitude and longitude values from JSON record
-                lat_value = float(record['LATITUDE'])/600000
-                lon_value = float(record['LONGITUDE'])/600000
+                lat_value = float(record["LATITUDE"]) / 600000
+                lon_value = float(record["LONGITUDE"]) / 600000
 
                 # extract timestamp values from JSON record
-                time_value = datetime.fromtimestamp(float(
-                        record['TIME']), timezone.utc).replace(tzinfo=None)
+                time_value = datetime.fromtimestamp(float(record["TIME"]), timezone.utc).replace(
+                    tzinfo=None
+                )
 
                 # delete lat, lon, timestamp from JSON record;
                 # the rest is metadata
-                del record['LATITUDE']
-                del record['LONGITUDE']
-                del record['TIME']
+                del record["LATITUDE"]
+                del record["LONGITUDE"]
+                del record["TIME"]
 
                 # form Detection object from JSON record
                 detect = Detection(
-                            np.array([[lon_value], [lat_value]],
-                                     dtype=np.float32),
-                            time_value, metadata=record)
+                    np.array([[lon_value], [lat_value]], dtype=np.float32),
+                    time_value,
+                    metadata=record,
+                )
                 yield time_value, {detect}

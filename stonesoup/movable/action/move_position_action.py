@@ -5,7 +5,7 @@ from itertools import product
 import numpy as np
 
 from ...base import Property
-from ...sensormanager.action import ActionGenerator, Action
+from ...sensormanager.action import Action, ActionGenerator
 from ...types.state import StateVector
 
 
@@ -23,34 +23,37 @@ class GridActionGenerator(ActionGenerator):
     action_space: np.ndarray = Property(
         default=None,
         doc="The bounds of the action space that should not be exceeded. Of shape (ndim, 2) "
-            "where ndim is the length of the action_mapping. For example, "
-            ":code:`np.array([[xmin, xmax], [ymin, ymax]])`."
+        "where ndim is the length of the action_mapping. For example, "
+        ":code:`np.array([[xmin, xmax], [ymin, ymax]])`.",
     )
 
     action_mapping: Sequence[int] = Property(
-        default=(0, 1),
-        doc="The state dimensions that actions are applied to."
+        default=(0, 1), doc="The state dimensions that actions are applied to."
     )
 
     resolution: float = Property(
-        default=1,
-        doc="The size of each grid cell. Cells are assumed square."
+        default=1, doc="The size of each grid cell. Cells are assumed square."
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.action_space is not None:
             if len(self.action_space) != len(self.action_mapping):
-                raise ValueError(f"Dimensions of action_space {self.action_space.shape} "
-                                 f"are not compatible with action_mapping of length "
-                                 f"{len(self.action_mapping)}. action_space should be "
-                                 f"of shape (ndim, 2) where ndim is the length of the "
-                                 f"action_mapping.")
+                raise ValueError(
+                    f"Dimensions of action_space {self.action_space.shape} "
+                    f"are not compatible with action_mapping of length "
+                    f"{len(self.action_mapping)}. action_space should be "
+                    f"of shape (ndim, 2) where ndim is the length of the "
+                    f"action_mapping."
+                )
 
-            if (np.any(self.current_value[self.action_mapping, :] < self.action_space[:, [0]])
-                    or np.any(self.current_value[self.action_mapping, :] > self.action_space[:, [1]])):  # noqa: E501
-                raise ValueError(f"Initial platform location {self.current_value} is not within "
-                                 f"the bounds of the action space {self.action_space}.")
+            if np.any(
+                self.current_value[self.action_mapping, :] < self.action_space[:, [0]]
+            ) or np.any(self.current_value[self.action_mapping, :] > self.action_space[:, [1]]):
+                raise ValueError(
+                    f"Initial platform location {self.current_value} is not within "
+                    f"the bounds of the action space {self.action_space}."
+                )
 
     def __contains__(self, item):
         return item in iter(self)
@@ -69,28 +72,27 @@ class NStepDirectionalGridActionGenerator(GridActionGenerator):
     n_steps: int = Property(
         default=1,
         doc="The number of steps that can be moved in either direction "
-            "along specified dimensions"
+        "along specified dimensions",
     )
 
-    step_size: int = Property(
-        default=1,
-        doc="The number of grid cells per step"
-    )
+    step_size: int = Property(default=1, doc="The number of grid cells per step")
 
     @property
     def default_action(self):
-        return MovePositionAction(generator=self,
-                                  end_time=self.end_time,
-                                  target_value=self.current_value)
+        return MovePositionAction(
+            generator=self, end_time=self.end_time, target_value=self.current_value
+        )
 
     def __iter__(self):
-        yield MovePositionAction(generator=self,
-                                 end_time=self.end_time,
-                                 target_value=self.current_value)
+        yield MovePositionAction(
+            generator=self, end_time=self.end_time, target_value=self.current_value
+        )
 
-        action_deltas = np.linspace(-1*self.n_steps*self.step_size*self.resolution,
-                                    self.n_steps*self.step_size*self.resolution,
-                                    2*self.n_steps+1)
+        action_deltas = np.linspace(
+            -1 * self.n_steps * self.step_size * self.resolution,
+            self.n_steps * self.step_size * self.resolution,
+            2 * self.n_steps + 1,
+        )
 
         for dim in self.action_mapping:
             for n in action_deltas:
@@ -99,12 +101,13 @@ class NStepDirectionalGridActionGenerator(GridActionGenerator):
                 value = StateVector(np.zeros(len(self.current_value)))
                 value[dim] += n
                 target_value = self.current_value + value
-                if self.action_space is None or \
-                    (np.all(target_value[self.action_mapping, :] >= self.action_space[:, [0]])
-                     and np.all(target_value[self.action_mapping, :] <= self.action_space[:, [1]])):  # noqa: E501
-                    yield MovePositionAction(generator=self,
-                                             end_time=self.end_time,
-                                             target_value=target_value)
+                if self.action_space is None or (
+                    np.all(target_value[self.action_mapping, :] >= self.action_space[:, [0]])
+                    and np.all(target_value[self.action_mapping, :] <= self.action_space[:, [1]])
+                ):
+                    yield MovePositionAction(
+                        generator=self, end_time=self.end_time, target_value=target_value
+                    )
 
 
 class SamplePositionActionGenerator(ActionGenerator):
@@ -115,20 +118,19 @@ class SamplePositionActionGenerator(ActionGenerator):
     action_space: np.ndarray = Property(
         default=None,
         doc="The bounds of the action space that should not be exceeded. Of shape (ndim, 2) "
-            "where ndim is the length of the action_mapping. For example, "
-            ":code:`np.array([[xmin, xmax], [ymin, ymax]])`."
+        "where ndim is the length of the action_mapping. For example, "
+        ":code:`np.array([[xmin, xmax], [ymin, ymax]])`.",
     )
 
     action_mapping: Sequence[int] = Property(
-        default=(0, 1),
-        doc="The state dimensions that actions are applied to."
+        default=(0, 1), doc="The state dimensions that actions are applied to."
     )
 
     n_samples: int = Property(
         default=10,
         doc="Number of samples to generate. This does not include the action "
         "to remain at the current position, meaning :attr:`n_samples` +1 "
-        "actions will be generated."
+        "actions will be generated.",
     )
 
     def __init__(self, *args, **kwargs):
@@ -136,22 +138,27 @@ class SamplePositionActionGenerator(ActionGenerator):
 
         if self.action_space is not None:
             if len(self.action_space) != len(self.action_mapping):
-                raise ValueError(f"Dimensions of action_space {self.action_space.shape} "
-                                 f"are not compatible with action_mapping of length "
-                                 f"{len(self.action_mapping)}. action_space should be "
-                                 f"of shape (ndim, 2) where ndim is the length of the "
-                                 f"action_mapping.")
+                raise ValueError(
+                    f"Dimensions of action_space {self.action_space.shape} "
+                    f"are not compatible with action_mapping of length "
+                    f"{len(self.action_mapping)}. action_space should be "
+                    f"of shape (ndim, 2) where ndim is the length of the "
+                    f"action_mapping."
+                )
 
-            if (np.any(self.current_value[self.action_mapping, :] < self.action_space[:, [0]])
-                    or np.any(self.current_value[self.action_mapping, :] > self.action_space[:, [1]])):  # noqa: E501
-                raise ValueError(f"Initial platform location {self.current_value} is not within "
-                                 f"the bounds of the action space {self.action_space}.")
+            if np.any(
+                self.current_value[self.action_mapping, :] < self.action_space[:, [0]]
+            ) or np.any(self.current_value[self.action_mapping, :] > self.action_space[:, [1]]):
+                raise ValueError(
+                    f"Initial platform location {self.current_value} is not within "
+                    f"the bounds of the action space {self.action_space}."
+                )
 
     @property
     def default_action(self):
-        return MovePositionAction(generator=self,
-                                  end_time=self.end_time,
-                                  target_value=self.current_value)
+        return MovePositionAction(
+            generator=self, end_time=self.end_time, target_value=self.current_value
+        )
 
     def __contains__(self, item):
         return item in iter(self)
@@ -169,53 +176,65 @@ class CircleSamplePositionActionGenerator(SamplePositionActionGenerator):
 
     maximum_travel: float = Property(
         default=1.0,
-        doc="Maximum possible travel distance. Specifies the radius of "
-        "sampling area."
+        doc="Maximum possible travel distance. Specifies the radius of " "sampling area.",
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         if len(self.action_mapping) != 2:
-            raise ValueError(f"Action mapping {self.action_mapping} does "
-                             f"not have 2 dimensions. "
-                             f":class:`~.CircleSamplePositionActionGenerator` "
-                             f"is designed for 2D action generation only.")
+            raise ValueError(
+                f"Action mapping {self.action_mapping} does "
+                f"not have 2 dimensions. "
+                f":class:`~.CircleSamplePositionActionGenerator` "
+                f"is designed for 2D action generation only."
+            )
 
     def __iter__(self):
 
-        yield MovePositionAction(generator=self,
-                                 end_time=self.end_time,
-                                 target_value=self.current_value)
+        yield MovePositionAction(
+            generator=self, end_time=self.end_time, target_value=self.current_value
+        )
 
-        radius_angle_samples = np.random.uniform([0, 0], [1, 2*np.pi], (self.n_samples, 2))
+        radius_angle_samples = np.random.uniform([0, 0], [1, 2 * np.pi], (self.n_samples, 2))
 
-        sample_values = self.maximum_travel*np.sqrt(radius_angle_samples[:, 0]) *\
-            np.array([np.sin(radius_angle_samples[:, 1]), np.cos(radius_angle_samples[:, 1])])
+        sample_values = (
+            self.maximum_travel
+            * np.sqrt(radius_angle_samples[:, 0])
+            * np.array([np.sin(radius_angle_samples[:, 1]), np.cos(radius_angle_samples[:, 1])])
+        )
         values = np.zeros((self.current_value.shape[0], self.n_samples))
         values[self.action_mapping,] = sample_values
 
         target_values = self.current_value + values
 
         if self.action_space is not None:
-            while (np.any(target_values[self.action_mapping, :] < self.action_space[:, [0]])
-                    or np.any(target_values[self.action_mapping, :] > self.action_space[:, [1]])):
+            while np.any(
+                target_values[self.action_mapping, :] < self.action_space[:, [0]]
+            ) or np.any(target_values[self.action_mapping, :] > self.action_space[:, [1]]):
 
-                _, idx = np.where(np.logical_or(
-                    target_values[self.action_mapping, :] > self.action_space[:, [1]],
-                    target_values[self.action_mapping, :] < self.action_space[:, [0]]))
-                radius_angle_samples = np.random.uniform([0, 0], [1, 2*np.pi], (len(idx), 2))
-                sample_values = self.maximum_travel*np.sqrt(radius_angle_samples[:, 0]) *\
-                    np.array([np.sin(radius_angle_samples[:, 1]),
-                              np.cos(radius_angle_samples[:, 1])])
+                _, idx = np.where(
+                    np.logical_or(
+                        target_values[self.action_mapping, :] > self.action_space[:, [1]],
+                        target_values[self.action_mapping, :] < self.action_space[:, [0]],
+                    )
+                )
+                radius_angle_samples = np.random.uniform([0, 0], [1, 2 * np.pi], (len(idx), 2))
+                sample_values = (
+                    self.maximum_travel
+                    * np.sqrt(radius_angle_samples[:, 0])
+                    * np.array(
+                        [np.sin(radius_angle_samples[:, 1]), np.cos(radius_angle_samples[:, 1])]
+                    )
+                )
                 values = np.zeros((self.current_value.shape[0], len(idx)))
                 values[self.action_mapping,] = sample_values
                 target_values[:, idx] = self.current_value + values
 
         for target_value in target_values.T:
-            yield MovePositionAction(generator=self,
-                                     end_time=self.end_time,
-                                     target_value=StateVector(target_value))
+            yield MovePositionAction(
+                generator=self, end_time=self.end_time, target_value=StateVector(target_value)
+            )
 
 
 class MaxSpeedPositionActionGenerator(ActionGenerator):
@@ -226,28 +245,24 @@ class MaxSpeedPositionActionGenerator(ActionGenerator):
     action_space: np.ndarray = Property(
         default=None,
         doc="The bounds of the action space that should not be exceeded. Of shape (ndim, 2) "
-            "where ndim is the length of the action_mapping. For example, "
-            ":code:`np.array([[xmin, xmax], [ymin, ymax]])`."
+        "where ndim is the length of the action_mapping. For example, "
+        ":code:`np.array([[xmin, xmax], [ymin, ymax]])`.",
     )
 
     action_mapping: Sequence[int] = Property(
-        default=(0, 1),
-        doc="The state dimensions that actions are applied to."
+        default=(0, 1), doc="The state dimensions that actions are applied to."
     )
 
     max_speed: float = Property(
-        default=1,
-        doc="The maximum speed that the platform can move in m/s."
+        default=1, doc="The maximum speed that the platform can move in m/s."
     )
 
     resolution: float = Property(
-        default=1,
-        doc="The interval in distance travelled for each action."
+        default=1, doc="The interval in distance travelled for each action."
     )
 
     angle_resolution: float = Property(
-        default=np.pi/2,
-        doc="The interval in angle for each action."
+        default=np.pi / 2, doc="The interval in angle for each action."
     )
 
     epsilon = 1e-6
@@ -256,21 +271,28 @@ class MaxSpeedPositionActionGenerator(ActionGenerator):
         super().__init__(*args, **kwargs)
 
         if len(self.action_mapping) != 2:
-            raise ValueError(f"Action mapping {self.action_mapping} does not have 2 dimensions."
-                             ":class:`~.RangeAngleActionGenerator` is designed for 2D action "
-                             "generation only.")
+            raise ValueError(
+                f"Action mapping {self.action_mapping} does not have 2 dimensions."
+                ":class:`~.RangeAngleActionGenerator` is designed for 2D action "
+                "generation only."
+            )
 
         if self.action_space is not None:
             if len(self.action_space) != len(self.action_mapping):
-                raise ValueError(f"Dimensions of action_space {self.action_space.shape} are not "
-                                 "compatible with action_mapping of length "
-                                 f"{len(self.action_mapping)}. action_space should be of shape "
-                                 "(ndim, 2) where ndim is the length of the action_mapping.")
+                raise ValueError(
+                    f"Dimensions of action_space {self.action_space.shape} are not "
+                    "compatible with action_mapping of length "
+                    f"{len(self.action_mapping)}. action_space should be of shape "
+                    "(ndim, 2) where ndim is the length of the action_mapping."
+                )
 
-            if (np.any(self.current_value[self.action_mapping, :] < self.action_space[:, [0]])
-                    or np.any(self.current_value[self.action_mapping, :] > self.action_space[:, [1]])):  # noqa: E501
-                raise ValueError(f"Initial platform location {self.current_value} is not within "
-                                 f"the bounds of the action space {self.action_space}.")
+            if np.any(
+                self.current_value[self.action_mapping, :] < self.action_space[:, [0]]
+            ) or np.any(self.current_value[self.action_mapping, :] > self.action_space[:, [1]]):
+                raise ValueError(
+                    f"Initial platform location {self.current_value} is not within "
+                    f"the bounds of the action space {self.action_space}."
+                )
 
     @property
     def duration(self):
@@ -282,7 +304,7 @@ class MaxSpeedPositionActionGenerator(ActionGenerator):
 
     @property
     def angle_deltas(self):
-        return np.arange(0, 2*np.pi, self.angle_resolution)
+        return np.arange(0, 2 * np.pi, self.angle_resolution)
 
     @property
     def range_deltas(self):
@@ -291,33 +313,35 @@ class MaxSpeedPositionActionGenerator(ActionGenerator):
     def __contains__(self, item):
         if isinstance(item, MovePositionAction):
             item = item.target_value
-        distance = np.sqrt(sum((item - self.current_value)**2))
+        distance = np.sqrt(sum((item - self.current_value) ** 2))
         return distance <= self.maximum_travel + self.epsilon
 
     @property
     def default_action(self):
-        return MovePositionAction(generator=self,
-                                  end_time=self.end_time,
-                                  target_value=self.current_value)
+        return MovePositionAction(
+            generator=self, end_time=self.end_time, target_value=self.current_value
+        )
 
     def __iter__(self):
-        yield MovePositionAction(generator=self,
-                                 end_time=self.end_time,
-                                 target_value=self.current_value)
+        yield MovePositionAction(
+            generator=self, end_time=self.end_time, target_value=self.current_value
+        )
 
         for angle_, range_ in product(self.angle_deltas, self.range_deltas):
             if range_ == 0:
                 continue
             value = np.zeros(self.current_value.shape)
-            value[self.action_mapping,] = np.array([[range_*np.cos(angle_)],
-                                                    [range_*np.sin(angle_)]])
+            value[self.action_mapping,] = np.array(
+                [[range_ * np.cos(angle_)], [range_ * np.sin(angle_)]]
+            )
             target_value = self.current_value + value
-            if self.action_space is None or \
-                    (np.all(target_value[self.action_mapping, :] >= self.action_space[:, [0]])
-                     and np.all(target_value[self.action_mapping, :] <= self.action_space[:, [1]])):  # noqa: E501
-                yield MovePositionAction(generator=self,
-                                         end_time=self.end_time,
-                                         target_value=target_value)
+            if self.action_space is None or (
+                np.all(target_value[self.action_mapping, :] >= self.action_space[:, [0]])
+                and np.all(target_value[self.action_mapping, :] <= self.action_space[:, [1]])
+            ):
+                yield MovePositionAction(
+                    generator=self, end_time=self.end_time, target_value=target_value
+                )
 
     def action_from_value(self, value=None) -> MovePositionAction:
         """
@@ -336,6 +360,4 @@ class MaxSpeedPositionActionGenerator(ActionGenerator):
         if value not in self:
             return None
 
-        return MovePositionAction(generator=self,
-                                  end_time=self.end_time,
-                                  target_value=value)
+        return MovePositionAction(generator=self, end_time=self.end_time, target_value=value)

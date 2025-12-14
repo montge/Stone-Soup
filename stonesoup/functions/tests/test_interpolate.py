@@ -3,34 +3,45 @@ import datetime
 import numpy as np
 import pytest
 
-from ..interpolate import time_range, interpolate_state_mutable_sequence
-from ...types.state import State, StateMutableSequence, GaussianState, StateVector
+from ...types.state import GaussianState, State, StateMutableSequence, StateVector
+from ..interpolate import interpolate_state_mutable_sequence, time_range
 
 
-@pytest.mark.parametrize("input_kwargs, expected",
-                         [(dict(start_time=datetime.datetime(2023, 1, 1, 0, 0),
-                                end_time=datetime.datetime(2023, 1, 1, 0, 0, 35),
-                                timestep=datetime.timedelta(seconds=7)),
-                           [datetime.datetime(2023, 1, 1, 0, 0),
-                            datetime.datetime(2023, 1, 1, 0, 0, 7),
-                            datetime.datetime(2023, 1, 1, 0, 0, 14),
-                            datetime.datetime(2023, 1, 1, 0, 0, 21),
-                            datetime.datetime(2023, 1, 1, 0, 0, 28),
-                            datetime.datetime(2023, 1, 1, 0, 0, 35)
-                            ]
-                           ),
-                          (dict(start_time=datetime.datetime(1970, 1, 1, 0, 0),
-                                end_time=datetime.datetime(1970, 1, 1, 0, 0, 6)),
-                           [datetime.datetime(1970, 1, 1, 0, 0),
-                            datetime.datetime(1970, 1, 1, 0, 0, 1),
-                            datetime.datetime(1970, 1, 1, 0, 0, 2),
-                            datetime.datetime(1970, 1, 1, 0, 0, 3),
-                            datetime.datetime(1970, 1, 1, 0, 0, 4),
-                            datetime.datetime(1970, 1, 1, 0, 0, 5),
-                            datetime.datetime(1970, 1, 1, 0, 0, 6)
-                            ]
-                           )
-                          ])
+@pytest.mark.parametrize(
+    "input_kwargs, expected",
+    [
+        (
+            {
+                "start_time": datetime.datetime(2023, 1, 1, 0, 0),
+                "end_time": datetime.datetime(2023, 1, 1, 0, 0, 35),
+                "timestep": datetime.timedelta(seconds=7),
+            },
+            [
+                datetime.datetime(2023, 1, 1, 0, 0),
+                datetime.datetime(2023, 1, 1, 0, 0, 7),
+                datetime.datetime(2023, 1, 1, 0, 0, 14),
+                datetime.datetime(2023, 1, 1, 0, 0, 21),
+                datetime.datetime(2023, 1, 1, 0, 0, 28),
+                datetime.datetime(2023, 1, 1, 0, 0, 35),
+            ],
+        ),
+        (
+            {
+                "start_time": datetime.datetime(1970, 1, 1, 0, 0),
+                "end_time": datetime.datetime(1970, 1, 1, 0, 0, 6),
+            },
+            [
+                datetime.datetime(1970, 1, 1, 0, 0),
+                datetime.datetime(1970, 1, 1, 0, 0, 1),
+                datetime.datetime(1970, 1, 1, 0, 0, 2),
+                datetime.datetime(1970, 1, 1, 0, 0, 3),
+                datetime.datetime(1970, 1, 1, 0, 0, 4),
+                datetime.datetime(1970, 1, 1, 0, 0, 5),
+                datetime.datetime(1970, 1, 1, 0, 0, 6),
+            ],
+        ),
+    ],
+)
 def test_time_range(input_kwargs, expected):
     generated_times = list(time_range(**input_kwargs))
     assert generated_times == expected
@@ -42,25 +53,25 @@ out_of_range_time = t_max + datetime.timedelta(seconds=10)
 
 
 def calculate_state(time: datetime.datetime) -> State:
-    """ This function maps a datetime.datetime to a State. This allows interpolated values to be
-    checked easily. """
-    n_seconds = (time-t0).seconds
+    """This function maps a datetime.datetime to a State. This allows interpolated values to be
+    checked easily."""
+    n_seconds = (time - t0).seconds
     return State(
         timestamp=time,
         state_vector=[
-            10 + n_seconds*1.3e-4,
-            94 - n_seconds*4.7e-5,
-            106 + n_seconds/43,
-        ]
+            10 + n_seconds * 1.3e-4,
+            94 - n_seconds * 4.7e-5,
+            106 + n_seconds / 43,
+        ],
     )
 
 
 @pytest.fixture
 def gen_test_data() -> tuple[StateMutableSequence, list[datetime.datetime]]:
 
-    sms = StateMutableSequence([calculate_state(time)
-                                for time in time_range(t0, t_max, datetime.timedelta(seconds=0.25))
-                                ])
+    sms = StateMutableSequence(
+        [calculate_state(time) for time in time_range(t0, t_max, datetime.timedelta(seconds=0.25))]
+    )
 
     interp_times = list(time_range(t0, t_max, datetime.timedelta(seconds=0.1)))
 
@@ -111,19 +122,22 @@ def test_interpolate_error(gen_test_data):
 def test_interpolate_state_other_properties():
     float_times = [0, 0.1, 0.4, 0.9, 1.6, 2.5, 3.6, 4.9, 6.4, 8.1, 10]
 
-    sms = StateMutableSequence([GaussianState(state_vector=[t],
-                                              covar=[[t]],
-                                              timestamp=t0+datetime.timedelta(seconds=t))
-                                for t in float_times
-                                ])
+    sms = StateMutableSequence(
+        [
+            GaussianState(
+                state_vector=[t], covar=[[t]], timestamp=t0 + datetime.timedelta(seconds=t)
+            )
+            for t in float_times
+        ]
+    )
 
     interp_float_times = [0, 2, 4, 6, 8, 10]
-    interp_datetime_times = [t0+datetime.timedelta(seconds=t) for t in interp_float_times]
+    interp_datetime_times = [t0 + datetime.timedelta(seconds=t) for t in interp_float_times]
 
     new_sms = interpolate_state_mutable_sequence(sms, interp_datetime_times)
 
     # Test state vector and times
-    for expected_value, state in zip(interp_float_times, new_sms.states):
+    for expected_value, state in zip(interp_float_times, new_sms.states, strict=False):
         assert state.timestamp == t0 + datetime.timedelta(seconds=expected_value)
         # assert state.state_vector[0] == expected_value
         np.testing.assert_allclose(state.state_vector, StateVector([expected_value]))

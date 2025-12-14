@@ -1,60 +1,67 @@
-import numpy as np
-from datetime import datetime, timedelta
-from ordered_set import OrderedSet
-from collections import defaultdict
 import copy
+from collections import defaultdict
+from datetime import datetime, timedelta
 
+import numpy as np
 import pytest
+from ordered_set import OrderedSet
 
-from ...types.array import StateVector, StateVectors
-from ...types.state import GaussianState, ParticleState, State
-from ...types.angle import Angle
-from ...types.track import Track
-from ...sensor.radar import RadarRotatingBearingRange
-from ...sensor.action.dwell_action import ChangeDwellAction
-from ...sensormanager import RandomSensorManager, BruteForceSensorManager, GreedySensorManager
-from stonesoup.sensormanager.tree_search import (MonteCarloTreeSearchSensorManager,
-                                                 MCTSRolloutSensorManager, MCTSBestChildPolicyEnum)
-from ...sensormanager.reward import UncertaintyRewardFunction, ExpectedKLDivergence, \
-    MultiUpdateExpectedKLDivergence
-from ...sensormanager.action import Actionable
-from ...sensormanager.optimise import OptimizeBruteSensorManager, \
-    OptimizeBasinHoppingSensorManager
-from ...predictor.kalman import KalmanPredictor
-from ...predictor.particle import ParticlePredictor
-from ...updater.kalman import ExtendedKalmanUpdater
-from ...updater.particle import ParticleUpdater
-from ...models.transition.linear import CombinedLinearGaussianTransitionModel, \
-                                    ConstantVelocity
+from stonesoup.sensormanager.tree_search import (
+    MCTSBestChildPolicyEnum,
+    MCTSRolloutSensorManager,
+    MonteCarloTreeSearchSensorManager,
+)
+
+from ...dataassociator.neighbour import GNNWith2DAssignment
 from ...hypothesiser.distance import DistanceHypothesiser
 from ...measures import Mahalanobis
-from ...dataassociator.neighbour import GNNWith2DAssignment
-from ...platform import Platform
+from ...models.transition.linear import CombinedLinearGaussianTransitionModel, ConstantVelocity
 from ...movable.grid import NStepDirectionalGridMovable
+from ...platform import Platform
+from ...predictor.kalman import KalmanPredictor
+from ...predictor.particle import ParticlePredictor
+from ...sensor.action.dwell_action import ChangeDwellAction
+from ...sensor.radar import RadarRotatingBearingRange
+from ...sensormanager import BruteForceSensorManager, GreedySensorManager, RandomSensorManager
+from ...sensormanager.action import Actionable
+from ...sensormanager.optimise import OptimizeBasinHoppingSensorManager, OptimizeBruteSensorManager
+from ...sensormanager.reward import (
+    ExpectedKLDivergence,
+    MultiUpdateExpectedKLDivergence,
+    UncertaintyRewardFunction,
+)
+from ...types.angle import Angle
+from ...types.array import StateVector, StateVectors
+from ...types.state import GaussianState, ParticleState, State
+from ...types.track import Track
+from ...updater.kalman import ExtendedKalmanUpdater
+from ...updater.particle import ParticleUpdater
 
 
 def test_random_choose_actions():
     time_start = datetime.now()
 
     dwell_centres = []
-    for i in range(3):
-        sensors = {RadarRotatingBearingRange(
-            position_mapping=(0, 2),
-            noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                                  [0, 0.75 ** 2]]),
-            ndim_state=4,
-            rpm=60,
-            fov_angle=np.radians(30),
-            dwell_centre=StateVector([0.0]),
-            max_range=100,
-        )}
+    for _i in range(3):
+        sensors = {
+            RadarRotatingBearingRange(
+                position_mapping=(0, 2),
+                noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
+                ndim_state=4,
+                rpm=60,
+                fov_angle=np.radians(30),
+                dwell_centre=StateVector([0.0]),
+                max_range=100,
+            )
+        }
 
         for sensor in sensors:
             sensor.timestamp = time_start
         sensor_manager = RandomSensorManager(sensors)
 
-        chosen_action_configs = sensor_manager.choose_actions({},
-                                                              time_start + timedelta(seconds=1))
+        chosen_action_configs = sensor_manager.choose_actions(
+            {}, time_start + timedelta(seconds=1)
+        )
 
         assert isinstance(chosen_action_configs, list)
 
@@ -77,197 +84,286 @@ def test_random_choose_actions():
             KalmanPredictor,  # predictor_obj
             ExtendedKalmanUpdater,  # updater_obj
             UncertaintyRewardFunction,  # reward_function_obj
-            GaussianState([[1], [1], [1], [1]],
-                          np.diag([1.5, 0.25, 1.5, 0.25]
-                                  + np.random.normal(0, 5e-4, 4))),  # track1_state1
-            GaussianState([[2], [1.5], [2], [1.5]],
-                          np.diag([3, 0.5, 3, 0.5]
-                                  + np.random.normal(0, 5e-4, 4))),  # track1_state2
-            GaussianState([[-1], [1], [-1], [1]],
-                          np.diag([3, 0.5, 3, 0.5]
-                                  + np.random.normal(0, 5e-4, 4))),  # track2_state1
-            GaussianState([[2], [1.5], [2], [1.5]],
-                          np.diag([1.5, 0.25, 1.5, 0.25]
-                                  + np.random.normal(0, 5e-4, 4)),  # track2_state2
-                          ),
+            GaussianState(
+                [[1], [1], [1], [1]],
+                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track1_state1
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track1_state2
+            GaussianState(
+                [[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)])
+            ),  # track2_state1
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),  # track2_state2
+            ),
             False,  # error_flag
             None,  # associator_obj
             None,  # hypothesiser_obj
-        ), (
+        ),
+        (
             ParticlePredictor,  # predictor_obj
             ParticleUpdater,  # updater_obj
             ExpectedKLDivergence,  # reward_function_obj
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([1, 1, 1, 1]),
-                cov=np.diag([1.5, 0.25, 1.5, 0.25]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track1_state1
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([2, 1.5, 2, 1.5]),
-                cov=np.diag([3, 0.5, 3, 0.5]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track1_state2
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([-1, 1, -1, 1]),
-                cov=np.diag([3, 0.5, 3, 0.5]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track2_state1
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([2, 1.5, 2, 1.5]),
-                cov=np.diag([1.5, 0.25, 1.5, 0.25]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track2_state2
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([1, 1, 1, 1]), cov=np.diag([1.5, 0.25, 1.5, 0.25]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track1_state1
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([2, 1.5, 2, 1.5]), cov=np.diag([3, 0.5, 3, 0.5]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track1_state2
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([-1, 1, -1, 1]), cov=np.diag([3, 0.5, 3, 0.5]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track2_state1
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([2, 1.5, 2, 1.5]),
+                        cov=np.diag([1.5, 0.25, 1.5, 0.25]),
+                        size=100,
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track2_state2
             False,  # error_flag
             None,  # associator_obj
             None,  # hypothesiser_obj
-        ), (
+        ),
+        (
             None,  # predictor_obj
             ParticleUpdater,  # updater_obj
             ExpectedKLDivergence,  # reward_function_obj
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([1, 1, 1, 1]),
-                cov=np.diag([1.5, 0.25, 1.5, 0.25]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track1_state1
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([2, 1.5, 2, 1.5]),
-                cov=np.diag([3, 0.5, 3, 0.5]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track1_state2
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([-1, 1, -1, 1]),
-                cov=np.diag([3, 0.5, 3, 0.5]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track2_state1
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([2, 1.5, 2, 1.5]),
-                cov=np.diag([1.5, 0.25, 1.5, 0.25]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track2_state2
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([1, 1, 1, 1]), cov=np.diag([1.5, 0.25, 1.5, 0.25]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track1_state1
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([2, 1.5, 2, 1.5]), cov=np.diag([3, 0.5, 3, 0.5]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track1_state2
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([-1, 1, -1, 1]), cov=np.diag([3, 0.5, 3, 0.5]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track2_state1
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([2, 1.5, 2, 1.5]),
+                        cov=np.diag([1.5, 0.25, 1.5, 0.25]),
+                        size=100,
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track2_state2
             False,  # error_flag
             None,  # associator_obj
             None,  # hypothesiser_obj
-        ), (
+        ),
+        (
             ParticlePredictor,  # predictor_obj
             ParticleUpdater,  # updater_obj
             MultiUpdateExpectedKLDivergence,  # reward_function_obj
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([1, 1, 1, 1]),
-                cov=np.diag([1.5, 0.25, 1.5, 0.25]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track1_state1
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([2, 1.5, 2, 1.5]),
-                cov=np.diag([3, 0.5, 3, 0.5]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track1_state2
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([-1, 1, -1, 1]),
-                cov=np.diag([3, 0.5, 3, 0.5]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track2_state1
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([2, 1.5, 2, 1.5]),
-                cov=np.diag([1.5, 0.25, 1.5, 0.25]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track2_state2
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([1, 1, 1, 1]), cov=np.diag([1.5, 0.25, 1.5, 0.25]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track1_state1
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([2, 1.5, 2, 1.5]), cov=np.diag([3, 0.5, 3, 0.5]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track1_state2
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([-1, 1, -1, 1]), cov=np.diag([3, 0.5, 3, 0.5]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track2_state1
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([2, 1.5, 2, 1.5]),
+                        cov=np.diag([1.5, 0.25, 1.5, 0.25]),
+                        size=100,
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track2_state2
             False,  # error_flag
             None,  # associator_obj
             None,  # hypothesiser_obj
-        ), (
+        ),
+        (
             KalmanPredictor,  # predictor_obj
             ExtendedKalmanUpdater,  # updater_obj
             ExpectedKLDivergence,  # reward_function_obj
-            GaussianState([[1], [1], [1], [1]],
-                          np.diag([1.5, 0.25, 1.5, 0.25]
-                                  + np.random.normal(0, 5e-4, 4))),  # track1_state1
-            GaussianState([[2], [1.5], [2], [1.5]],
-                          np.diag([3, 0.5, 3, 0.5]
-                                  + np.random.normal(0, 5e-4, 4))),  # track1_state2
-            GaussianState([[-1], [1], [-1], [1]],
-                          np.diag([3, 0.5, 3, 0.5]
-                                  + np.random.normal(0, 5e-4, 4))),  # track2_state1
-            GaussianState([[2], [1.5], [2], [1.5]],
-                          np.diag([1.5, 0.25, 1.5, 0.25]
-                                  + np.random.normal(0, 5e-4, 4))),  # track2_state2
+            GaussianState(
+                [[1], [1], [1], [1]],
+                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track1_state1
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track1_state2
+            GaussianState(
+                [[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)])
+            ),  # track2_state1
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track2_state2
             False,  # error_flag
             None,  # associator_obj
             None,  # hypothesiser_obj
-        ), (
+        ),
+        (
             KalmanPredictor,  # predictor_obj
             ExtendedKalmanUpdater,  # updater_obj
             MultiUpdateExpectedKLDivergence,  # reward_function_obj
-            GaussianState([[1], [1], [1], [1]],
-                          np.diag([1.5, 0.25, 1.5, 0.25]
-                                  + np.random.normal(0, 5e-4, 4))),  # track1_state1
-            GaussianState([[2], [1.5], [2], [1.5]],
-                          np.diag([3, 0.5, 3, 0.5]
-                                  + np.random.normal(0, 5e-4, 4))),  # track1_state2
-            GaussianState([[-1], [1], [-1], [1]],
-                          np.diag([3, 0.5, 3, 0.5]
-                                  + np.random.normal(0, 5e-4, 4))),  # track2_state1
-            GaussianState([[2], [1.5], [2], [1.5]],
-                          np.diag([1.5, 0.25, 1.5, 0.25]
-                                  + np.random.normal(0, 5e-4, 4))),  # track2_state2
+            GaussianState(
+                [[1], [1], [1], [1]],
+                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track1_state1
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track1_state2
+            GaussianState(
+                [[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)])
+            ),  # track2_state1
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track2_state2
             True,  # error_flag
             None,  # associator_obj
             None,  # hypothesiser_obj
-        ), (
+        ),
+        (
             ParticlePredictor,  # predictor_obj
             ParticleUpdater,  # updater_obj
             ExpectedKLDivergence,  # reward_function_obj
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([1, 1, 1, 1]),
-                cov=np.diag([1.5, 0.25, 1.5, 0.25]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track1_state1
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([2, 1.5, 2, 1.5]),
-                cov=np.diag([3, 0.5, 3, 0.5]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track1_state2
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([-1, 1, -1, 1]),
-                cov=np.diag([3, 0.5, 3, 0.5]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track2_state1
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([2, 1.5, 2, 1.5]),
-                cov=np.diag([1.5, 0.25, 1.5, 0.25]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track2_state2
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([1, 1, 1, 1]), cov=np.diag([1.5, 0.25, 1.5, 0.25]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track1_state1
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([2, 1.5, 2, 1.5]), cov=np.diag([3, 0.5, 3, 0.5]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track1_state2
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([-1, 1, -1, 1]), cov=np.diag([3, 0.5, 3, 0.5]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track2_state1
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([2, 1.5, 2, 1.5]),
+                        cov=np.diag([1.5, 0.25, 1.5, 0.25]),
+                        size=100,
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track2_state2
             False,  # error_flag
             GNNWith2DAssignment,  # associator_obj
             DistanceHypothesiser,  # hypothesiser_obj
-        ), (
+        ),
+        (
             KalmanPredictor,  # predictor_obj
             ExtendedKalmanUpdater,  # updater_obj
             ExpectedKLDivergence,  # reward_function_obj
-            GaussianState([[1], [1], [1], [1]],
-                          np.diag([1.5, 0.25, 1.5, 0.25]
-                                  + np.random.normal(0, 5e-4, 4))),  # track1_state1
-            GaussianState([[2], [1.5], [2], [1.5]],
-                          np.diag([3, 0.5, 3, 0.5]
-                                  + np.random.normal(0, 5e-4, 4))),  # track1_state2
-            GaussianState([[-1], [1], [-1], [1]],
-                          np.diag([3, 0.5, 3, 0.5]
-                                  + np.random.normal(0, 5e-4, 4))),  # track2_state1
-            GaussianState([[2], [1.5], [2], [1.5]],
-                          np.diag([1.5, 0.25, 1.5, 0.25]
-                                  + np.random.normal(0, 5e-4, 4))),  # track2_state2
+            GaussianState(
+                [[1], [1], [1], [1]],
+                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track1_state1
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track1_state2
+            GaussianState(
+                [[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)])
+            ),  # track2_state1
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track2_state2
             False,  # error_flag
             GNNWith2DAssignment,  # associator_obj
             DistanceHypothesiser,  # hypothesiser_obj
-        )
+        ),
     ],
-    ids=['UncertaintySMTest', 'KLDivergenceSMTest', 'KLDivergenceNoPred',
-         'MultiUpdateKLDivergenceSMTest', 'KLDivergenceGaussianTest',
-         'MultiUpdateKLDivergenceRaisesTest', 'KLDivergenceAssociationTest',
-         'KLDivergenceGaussianAssociationTest']
+    ids=[
+        "UncertaintySMTest",
+        "KLDivergenceSMTest",
+        "KLDivergenceNoPred",
+        "MultiUpdateKLDivergenceSMTest",
+        "KLDivergenceGaussianTest",
+        "MultiUpdateKLDivergenceRaisesTest",
+        "KLDivergenceAssociationTest",
+        "KLDivergenceGaussianAssociationTest",
+    ],
 )
-def test_sensor_managers(predictor_obj, updater_obj, reward_function_obj, track1_state1,
-                         track1_state2, track2_state1, track2_state2, error_flag, associator_obj,
-                         hypothesiser_obj):
+def test_sensor_managers(
+    predictor_obj,
+    updater_obj,
+    reward_function_obj,
+    track1_state1,
+    track1_state2,
+    track2_state1,
+    track2_state2,
+    error_flag,
+    associator_obj,
+    hypothesiser_obj,
+):
     time_start = datetime.now()
 
     track1_state1.timestamp = time_start
@@ -275,16 +371,14 @@ def test_sensor_managers(predictor_obj, updater_obj, reward_function_obj, track1
     track1_state2.timestamp = time_start + timedelta(seconds=1)
     track2_state2.timestamp = time_start + timedelta(seconds=1)
 
-    tracks = [Track(states=[
-        track1_state1,
-        track1_state2]),
-        Track(states=[
-            track2_state1,
-            track2_state2
-        ])]
+    tracks = [
+        Track(states=[track1_state1, track1_state2]),
+        Track(states=[track2_state1, track2_state2]),
+    ]
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     if predictor_obj is None:
         predictor = ParticlePredictor(transition_model)
     else:
@@ -295,27 +389,32 @@ def test_sensor_managers(predictor_obj, updater_obj, reward_function_obj, track1
         # Check that raises function as expected
         with pytest.raises(NotImplementedError) as e:
             reward_function = reward_function_obj(predictor, updater, method_sum=False)
-        assert 'Only ParticlePredictor types are currently compatible with this reward function'\
-               in str(e.value)
+        assert (
+            "Only ParticlePredictor types are currently compatible with this reward function"
+            in str(e.value)
+        )
         with pytest.raises(NotImplementedError) as e:
             reward_function = reward_function_obj(None, updater, method_sum=False)
-        assert 'Only ParticleUpdater types are currently compatible with this reward function'\
-               in str(e.value)
+        assert (
+            "Only ParticleUpdater types are currently compatible with this reward function"
+            in str(e.value)
+        )
         if reward_function_obj == MultiUpdateExpectedKLDivergence:
             with pytest.raises(ValueError) as e:
                 reward_function = reward_function_obj(method_sum=False, updates_per_track=1)
-            assert f'updates_per_track = {1}. This reward function only accepts >= 2' in \
-                   str(e.value)
+            assert f"updates_per_track = {1}. This reward function only accepts >= 2" in str(
+                e.value
+            )
         return
 
     if associator_obj is not None:
-        hypothesiser = hypothesiser_obj(predictor, updater, measure=Mahalanobis(),
-                                        missed_distance=5)
+        hypothesiser = hypothesiser_obj(
+            predictor, updater, measure=Mahalanobis(), missed_distance=5
+        )
         data_associator = associator_obj(hypothesiser)
-        reward_function = reward_function_obj(predictor,
-                                              updater,
-                                              method_sum=False,
-                                              data_associator=data_associator)
+        reward_function = reward_function_obj(
+            predictor, updater, method_sum=False, data_associator=data_associator
+        )
     else:
         if predictor_obj is None:
             reward_function = reward_function_obj(None, updater, method_sum=False)
@@ -323,8 +422,9 @@ def test_sensor_managers(predictor_obj, updater_obj, reward_function_obj, track1
             reward_function = reward_function_obj(predictor, updater, method_sum=False)
 
     if isinstance(reward_function, MultiUpdateExpectedKLDivergence):
-        reward_function = reward_function_obj(predictor, updater, method_sum=False,
-                                              updates_per_track=3)
+        reward_function = reward_function_obj(
+            predictor, updater, method_sum=False, updates_per_track=3
+        )
 
     timesteps = []
     for t in range(3):
@@ -332,81 +432,72 @@ def test_sensor_managers(predictor_obj, updater_obj, reward_function_obj, track1
 
     sensor_rpm = 5
 
-    sensorsA = {RadarRotatingBearingRange(
-        position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
-        position=np.array([[0], [0]]),
-        ndim_state=4,
-        rpm=sensor_rpm,
-        fov_angle=np.radians(30),
-        dwell_centre=StateVector([0.0]),
-        max_range=np.inf,
-    )}
+    sensorsA = {
+        RadarRotatingBearingRange(
+            position_mapping=(0, 2),
+            noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
+            position=np.array([[0], [0]]),
+            ndim_state=4,
+            rpm=sensor_rpm,
+            fov_angle=np.radians(30),
+            dwell_centre=StateVector([0.0]),
+            max_range=np.inf,
+        )
+    }
 
-    sensorsB = {RadarRotatingBearingRange(
-        position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
-        position=np.array([[0], [0]]),
-        ndim_state=4,
-        rpm=sensor_rpm,
-        fov_angle=np.radians(30),
-        dwell_centre=StateVector([0.0]),
-        max_range=np.inf,
-    )}
+    sensorsB = {
+        RadarRotatingBearingRange(
+            position_mapping=(0, 2),
+            noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
+            position=np.array([[0], [0]]),
+            ndim_state=4,
+            rpm=sensor_rpm,
+            fov_angle=np.radians(30),
+            dwell_centre=StateVector([0.0]),
+            max_range=np.inf,
+        )
+    }
 
-    sensorsC = {RadarRotatingBearingRange(
-        position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
-        position=np.array([[0], [0]]),
-        ndim_state=4,
-        rpm=sensor_rpm,
-        fov_angle=np.radians(30),
-        dwell_centre=StateVector([0.0]),
-        max_range=np.inf,
-    )}
+    sensorsC = {
+        RadarRotatingBearingRange(
+            position_mapping=(0, 2),
+            noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
+            position=np.array([[0], [0]]),
+            ndim_state=4,
+            rpm=sensor_rpm,
+            fov_angle=np.radians(30),
+            dwell_centre=StateVector([0.0]),
+            max_range=np.inf,
+        )
+    }
 
-    sensorsD = {RadarRotatingBearingRange(
-        position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
-        position=np.array([[0], [0]]),
-        ndim_state=4,
-        rpm=sensor_rpm,
-        fov_angle=np.radians(30),
-        dwell_centre=StateVector([0.0]),
-        max_range=np.inf,
-    )}
+    sensorsD = {
+        RadarRotatingBearingRange(
+            position_mapping=(0, 2),
+            noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
+            position=np.array([[0], [0]]),
+            ndim_state=4,
+            rpm=sensor_rpm,
+            fov_angle=np.radians(30),
+            dwell_centre=StateVector([0.0]),
+            max_range=np.inf,
+        )
+    }
 
     for sensor_set in [sensorsA, sensorsB, sensorsC, sensorsD]:
         for sensor in sensor_set:
             sensor.timestamp = time_start
 
-    sensor_managerA = BruteForceSensorManager(
-        sensors=sensorsA,
-        reward_function=reward_function
-    )
-    sensor_managerB = OptimizeBruteSensorManager(
-        sensors=sensorsB,
-        reward_function=reward_function
-    )
+    sensor_managerA = BruteForceSensorManager(sensors=sensorsA, reward_function=reward_function)
+    sensor_managerB = OptimizeBruteSensorManager(sensors=sensorsB, reward_function=reward_function)
     sensor_managerC = OptimizeBasinHoppingSensorManager(
-        sensors=sensorsC,
-        reward_function=reward_function
+        sensors=sensorsC, reward_function=reward_function
     )
     sensor_managerD = OptimizeBruteSensorManager(
-        sensors=sensorsD,
-        reward_function=reward_function,
-        generate_full_output=True,
-        finish=True
+        sensors=sensorsD, reward_function=reward_function, generate_full_output=True, finish=True
     )
 
-    sensor_managers = [sensor_managerA,
-                       sensor_managerB,
-                       sensor_managerC,
-                       sensor_managerD]
+    sensor_managers = [sensor_managerA, sensor_managerB, sensor_managerC, sensor_managerD]
 
     all_dwell_centres = []
     for sensor_manager in sensor_managers:
@@ -427,37 +518,50 @@ def test_sensor_managers(predictor_obj, updater_obj, reward_function_obj, track1
 
     for sm in range(3):
         # check that the sensors are not exceeding the maximum speed
-        difference_between_t1t2 = \
-            np.abs(np.min([all_dwell_centres[sm][0] - all_dwell_centres[sm][1],
-                           all_dwell_centres[sm][1] - all_dwell_centres[sm][0]]))
-        difference_between_t2t3 = \
-            np.abs(np.min([all_dwell_centres[sm][1] - all_dwell_centres[sm][2],
-                           all_dwell_centres[sm][2] - all_dwell_centres[sm][1]]))
-        assert np.round(difference_between_t1t2, decimals=4) <= \
-               np.round(np.radians(sensor_rpm*36/6), decimals=4)
-        assert np.round(difference_between_t2t3, decimals=4) <= \
-               np.round(np.radians(sensor_rpm*36/6), decimals=4)
+        difference_between_t1t2 = np.abs(
+            np.min(
+                [
+                    all_dwell_centres[sm][0] - all_dwell_centres[sm][1],
+                    all_dwell_centres[sm][1] - all_dwell_centres[sm][0],
+                ]
+            )
+        )
+        difference_between_t2t3 = np.abs(
+            np.min(
+                [
+                    all_dwell_centres[sm][1] - all_dwell_centres[sm][2],
+                    all_dwell_centres[sm][2] - all_dwell_centres[sm][1],
+                ]
+            )
+        )
+        assert np.round(difference_between_t1t2, decimals=4) <= np.round(
+            np.radians(sensor_rpm * 36 / 6), decimals=4
+        )
+        assert np.round(difference_between_t2t3, decimals=4) <= np.round(
+            np.radians(sensor_rpm * 36 / 6), decimals=4
+        )
 
     assert isinstance(sensor_managerD.get_full_output(), tuple)
 
 
 def test_greedy_manager(params):
-    predictor = params['predictor']
-    updater = params['updater']
-    sensor_set = params['sensor_set']
-    timesteps = params['timesteps']
-    tracks = params['tracks']
-    truths = params['truths']
+    predictor = params["predictor"]
+    updater = params["updater"]
+    sensor_set = params["sensor_set"]
+    timesteps = params["timesteps"]
+    tracks = params["tracks"]
+    truths = params["truths"]
 
     reward_function = UncertaintyRewardFunction(predictor, updater)
     greedysensormanager = GreedySensorManager(sensor_set, reward_function=reward_function)
 
-    hypothesiser = DistanceHypothesiser(predictor, updater, measure=Mahalanobis(),
-                                        missed_distance=5)
+    hypothesiser = DistanceHypothesiser(
+        predictor, updater, measure=Mahalanobis(), missed_distance=5
+    )
     data_associator = GNNWith2DAssignment(hypothesiser)
 
     sensor_history = defaultdict(dict)
-    dwell_centres = dict()
+    dwell_centres = {}
 
     for timestep in timesteps[1:]:
         chosen_actions = greedysensormanager.choose_actions(tracks, timestep)
@@ -469,11 +573,10 @@ def test_greedy_manager(params):
             sensor.act(timestep)
             sensor_history[timestep][sensor] = copy.copy(sensor)
             dwell_centres[timestep] = sensor.dwell_centre[0][0]
-            measurements |= sensor.measure(OrderedSet(truth[timestep] for truth in truths),
-                                           noise=False)
-        hypotheses = data_associator.associate(tracks,
-                                               measurements,
-                                               timestep)
+            measurements |= sensor.measure(
+                OrderedSet(truth[timestep] for truth in truths), noise=False
+            )
+        hypotheses = data_associator.associate(tracks, measurements, timestep)
         for track in tracks:
             hypothesis = hypotheses[track]
             if hypothesis.measurement:
@@ -498,27 +601,29 @@ def test_greedy_manager(params):
 
 
 def test_sensor_manager_with_platform(params):
-    start_time = params['start_time']
-    predictor = params['predictor']
-    updater = params['updater']
+    start_time = params["start_time"]
+    predictor = params["predictor"]
+    updater = params["updater"]
 
-    platform = Platform(movement_controller=NStepDirectionalGridMovable(
-        states=[State(StateVector([[-20], [0]]), start_time)],
-        position_mapping=(0, 1),
-        resolution=1,
-        n_steps=2,
-        step_size=2
-    ))
+    platform = Platform(
+        movement_controller=NStepDirectionalGridMovable(
+            states=[State(StateVector([[-20], [0]]), start_time)],
+            position_mapping=(0, 1),
+            resolution=1,
+            n_steps=2,
+            step_size=2,
+        )
+    )
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 1 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 1**2]]),
         ndim_state=4,
         rpm=60,
         fov_angle=np.radians(60),
         dwell_centre=StateVector([0.0]),
         max_range=50,
-        resolution=Angle(np.radians(60))
+        resolution=Angle(np.radians(60)),
     )
 
     sensor_set = set()
@@ -532,7 +637,7 @@ def test_sensor_manager_with_platform(params):
         sensors=sensor_set,
         platforms=platform_set,
         reward_function=reward_function,
-        take_sensors_from_platforms=True
+        take_sensors_from_platforms=True,
     )
 
     assert greedysensormanager.sensors != set()
@@ -551,9 +656,7 @@ def test_sensor_manager_with_platform(params):
     platform_set.add(platform)
 
     greedysensormanager = GreedySensorManager(
-        platforms=platform_set,
-        reward_function=reward_function,
-        take_sensors_from_platforms=False
+        platforms=platform_set, reward_function=reward_function, take_sensors_from_platforms=False
     )
     assert greedysensormanager.sensors == set()
     assert len(greedysensormanager.actionables) == 1
@@ -571,180 +674,257 @@ def test_sensor_manager_with_platform(params):
             None,  # hypothesiser
             None,  # associator
             ExpectedKLDivergence,  # reward_function_obj
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([1, 1, 1, 1]),
-                cov=np.diag([1.5, 0.25, 1.5, 0.25]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track1_state1
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([2, 1.5, 2, 1.5]),
-                cov=np.diag([3, 0.5, 3, 0.5]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track1_state2
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([-1, 1, -1, 1]),
-                cov=np.diag([3, 0.5, 3, 0.5]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track2_state1
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([2, 1.5, 2, 1.5]),
-                cov=np.diag([1.5, 0.25, 1.5, 0.25]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track2_state2
-            'max_cumulative_reward',  # best_child_policy
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([1, 1, 1, 1]), cov=np.diag([1.5, 0.25, 1.5, 0.25]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track1_state1
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([2, 1.5, 2, 1.5]), cov=np.diag([3, 0.5, 3, 0.5]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track1_state2
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([-1, 1, -1, 1]), cov=np.diag([3, 0.5, 3, 0.5]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track2_state1
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([2, 1.5, 2, 1.5]),
+                        cov=np.diag([1.5, 0.25, 1.5, 0.25]),
+                        size=100,
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track2_state2
+            "max_cumulative_reward",  # best_child_policy
             3,  # rollout_depth
             None,  # search_depth
-        ), (
+        ),
+        (
             ParticlePredictor,  # predictor_obj
             ParticleUpdater,  # updater_obj
             DistanceHypothesiser,  # hypothesiser
             GNNWith2DAssignment,  # associator
             ExpectedKLDivergence,  # reward_function_obj
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([1, 1, 1, 1]),
-                cov=np.diag([1.5, 0.25, 1.5, 0.25]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track1_state1
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([2, 1.5, 2, 1.5]),
-                cov=np.diag([3, 0.5, 3, 0.5]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track1_state2
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([-1, 1, -1, 1]),
-                cov=np.diag([3, 0.5, 3, 0.5]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track2_state1
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([2, 1.5, 2, 1.5]),
-                cov=np.diag([1.5, 0.25, 1.5, 0.25]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track2_state2
-            'max_visits',  # best_child_policy
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([1, 1, 1, 1]), cov=np.diag([1.5, 0.25, 1.5, 0.25]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track1_state1
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([2, 1.5, 2, 1.5]), cov=np.diag([3, 0.5, 3, 0.5]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track1_state2
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([-1, 1, -1, 1]), cov=np.diag([3, 0.5, 3, 0.5]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track2_state1
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([2, 1.5, 2, 1.5]),
+                        cov=np.diag([1.5, 0.25, 1.5, 0.25]),
+                        size=100,
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track2_state2
+            "max_visits",  # best_child_policy
             None,  # rollout_depth
             3,  # search_depth
-        ), (
+        ),
+        (
             KalmanPredictor,  # predictor_obj
             ExtendedKalmanUpdater,  # updater_obj
             DistanceHypothesiser,  # hypothesiser
             GNNWith2DAssignment,  # associator
             ExpectedKLDivergence,  # reward_function_obj
-            GaussianState([[1], [1], [1], [1]],
-                          np.diag([1.5, 0.25, 1.5, 0.25]
-                                  + np.random.normal(0, 5e-4, 4))),  # track1_state1
-            GaussianState([[2], [1.5], [2], [1.5]],
-                          np.diag([3, 0.5, 3, 0.5]
-                                  + np.random.normal(0, 5e-4, 4))),  # track1_state2
-            GaussianState([[-1], [1], [-1], [1]],
-                          np.diag([3, 0.5, 3, 0.5]
-                                  + np.random.normal(0, 5e-4, 4))),  # track2_state1
-            GaussianState([[2], [1.5], [2], [1.5]],
-                          np.diag([1.5, 0.25, 1.5, 0.25]
-                                  + np.random.normal(0, 5e-4, 4))),  # track2_state2
-            'max_cumulative_reward',  # best_child_policy
+            GaussianState(
+                [[1], [1], [1], [1]],
+                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track1_state1
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track1_state2
+            GaussianState(
+                [[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)])
+            ),  # track2_state1
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track2_state2
+            "max_cumulative_reward",  # best_child_policy
             3,  # rollout_depth
             3,  # search_depth
-        ), (
+        ),
+        (
             KalmanPredictor,  # predictor_obj
             ExtendedKalmanUpdater,  # updater_obj
             DistanceHypothesiser,  # hypothesiser
             GNNWith2DAssignment,  # associator
             ExpectedKLDivergence,  # reward_function_obj
-            GaussianState([[1], [1], [1], [1]],
-                          np.diag([1.5, 0.25, 1.5, 0.25]
-                                  + np.random.normal(0, 5e-4, 4))),  # track1_state1
-            GaussianState([[2], [1.5], [2], [1.5]],
-                          np.diag([3, 0.5, 3, 0.5]
-                                  + np.random.normal(0, 5e-4, 4))),  # track1_state2
-            GaussianState([[-1], [1], [-1], [1]],
-                          np.diag([3, 0.5, 3, 0.5]
-                                  + np.random.normal(0, 5e-4, 4))),  # track2_state1
-            GaussianState([[2], [1.5], [2], [1.5]],
-                          np.diag([1.5, 0.25, 1.5, 0.25]
-                                  + np.random.normal(0, 5e-4, 4))),  # track2_state2
-            'max_average_reward',  # best_child_policy
+            GaussianState(
+                [[1], [1], [1], [1]],
+                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track1_state1
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track1_state2
+            GaussianState(
+                [[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)])
+            ),  # track2_state1
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track2_state2
+            "max_average_reward",  # best_child_policy
             3,  # rollout_depth
             None,  # search_depth
-        ), (
+        ),
+        (
             KalmanPredictor,  # predictor_obj
             ExtendedKalmanUpdater,  # updater_obj
             DistanceHypothesiser,  # hypothesiser
             GNNWith2DAssignment,  # associator
             ExpectedKLDivergence,  # reward_function_obj
-            GaussianState([[1], [1], [1], [1]],
-                          np.diag([1.5, 0.25, 1.5, 0.25]
-                                  + np.random.normal(0, 5e-4, 4))),  # track1_state1
-            GaussianState([[2], [1.5], [2], [1.5]],
-                          np.diag([3, 0.5, 3, 0.5]
-                                  + np.random.normal(0, 5e-4, 4))),  # track1_state2
-            GaussianState([[-1], [1], [-1], [1]],
-                          np.diag([3, 0.5, 3, 0.5]
-                                  + np.random.normal(0, 5e-4, 4))),  # track2_state1
-            GaussianState([[2], [1.5], [2], [1.5]],
-                          np.diag([1.5, 0.25, 1.5, 0.25]
-                                  + np.random.normal(0, 5e-4, 4))),  # track2_state2
-            'max_cumulative_reward',  # best_child_policy
+            GaussianState(
+                [[1], [1], [1], [1]],
+                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track1_state1
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track1_state2
+            GaussianState(
+                [[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)])
+            ),  # track2_state1
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track2_state2
+            "max_cumulative_reward",  # best_child_policy
             3,  # rollout_depth
             None,  # search_depth
-        ), (
+        ),
+        (
             KalmanPredictor,  # predictor_obj
             ExtendedKalmanUpdater,  # updater_obj
             DistanceHypothesiser,  # hypothesiser
             GNNWith2DAssignment,  # associator
             ExpectedKLDivergence,  # reward_function_obj
-            GaussianState([[1], [1], [1], [1]],
-                          np.diag([1.5, 0.25, 1.5, 0.25]
-                                  + np.random.normal(0, 5e-4, 4))),  # track1_state1
-            GaussianState([[2], [1.5], [2], [1.5]],
-                          np.diag([3, 0.5, 3, 0.5]
-                                  + np.random.normal(0, 5e-4, 4))),  # track1_state2
-            GaussianState([[-1], [1], [-1], [1]],
-                          np.diag([3, 0.5, 3, 0.5]
-                                  + np.random.normal(0, 5e-4, 4))),  # track2_state1
-            GaussianState([[2], [1.5], [2], [1.5]],
-                          np.diag([1.5, 0.25, 1.5, 0.25]
-                                  + np.random.normal(0, 5e-4, 4))),  # track2_state2
+            GaussianState(
+                [[1], [1], [1], [1]],
+                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track1_state1
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track1_state2
+            GaussianState(
+                [[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5, *np.random.normal(0, 0.0005, 4)])
+            ),  # track2_state1
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([1.5, 0.25, 1.5, 0.25, *np.random.normal(0, 0.0005, 4)]),
+            ),  # track2_state2
             MCTSBestChildPolicyEnum.MAXCREWARD,  # best_child_policy
             3,  # rollout_depth
             None,  # search_depth
-        ), (
+        ),
+        (
             ParticlePredictor,  # predictor_obj
             ParticleUpdater,  # updater_obj
             None,  # hypothesiser
             None,  # associator
             UncertaintyRewardFunction,  # reward_function_obj
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([1, 1, 1, 1]),
-                cov=np.diag([1.5, 0.25, 1.5, 0.25]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track1_state1
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([2, 1.5, 2, 1.5]),
-                cov=np.diag([3, 0.5, 3, 0.5]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track1_state2
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([-1, 1, -1, 1]),
-                cov=np.diag([3, 0.5, 3, 0.5]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track2_state1
-            ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-                mean=np.array([2, 1.5, 2, 1.5]),
-                cov=np.diag([1.5, 0.25, 1.5, 0.25]),
-                size=100).T),
-                          weight=np.array([1/100]*100)),  # track2_state2
-            'max_cumulative_reward',  # best_child_policy
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([1, 1, 1, 1]), cov=np.diag([1.5, 0.25, 1.5, 0.25]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track1_state1
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([2, 1.5, 2, 1.5]), cov=np.diag([3, 0.5, 3, 0.5]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track1_state2
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([-1, 1, -1, 1]), cov=np.diag([3, 0.5, 3, 0.5]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track2_state1
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([2, 1.5, 2, 1.5]),
+                        cov=np.diag([1.5, 0.25, 1.5, 0.25]),
+                        size=100,
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+            ),  # track2_state2
+            "max_cumulative_reward",  # best_child_policy
             3,  # rollout_depth
             None,  # search_depth
-        )
+        ),
     ],
-    ids=['KLDivergenceMCTSNoAssociation', 'KLDivergenceMCTSAssociation',
-         'KLDivergenceMCTSGaussianTest', 'KLDMCTSGaussianPolicy1', 'KLDMCTSGaussianPolicy2',
-         'KLDMCTSGaussianEnum', 'UncertaintyMCTSTest']
+    ids=[
+        "KLDivergenceMCTSNoAssociation",
+        "KLDivergenceMCTSAssociation",
+        "KLDivergenceMCTSGaussianTest",
+        "KLDMCTSGaussianPolicy1",
+        "KLDMCTSGaussianPolicy2",
+        "KLDMCTSGaussianEnum",
+        "UncertaintyMCTSTest",
+    ],
 )
-def test_mcts_sensor_managers(predictor_obj, updater_obj, hypothesiser_obj, associator_obj,
-                              reward_function_obj, track1_state1, track1_state2, track2_state1,
-                              track2_state2, best_child_policy, rollout_depth, search_depth):
+def test_mcts_sensor_managers(
+    predictor_obj,
+    updater_obj,
+    hypothesiser_obj,
+    associator_obj,
+    reward_function_obj,
+    track1_state1,
+    track1_state2,
+    track2_state1,
+    track2_state2,
+    best_child_policy,
+    rollout_depth,
+    search_depth,
+):
     time_start = datetime.now()
 
     track1_state1.timestamp = time_start
@@ -752,35 +932,35 @@ def test_mcts_sensor_managers(predictor_obj, updater_obj, hypothesiser_obj, asso
     track1_state2.timestamp = time_start + timedelta(seconds=1)
     track2_state2.timestamp = time_start + timedelta(seconds=1)
 
-    tracks = [Track(states=[
-        track1_state1,
-        track1_state2]),
-        Track(states=[
-            track2_state1,
-            track2_state2
-        ])]
+    tracks = [
+        Track(states=[track1_state1, track1_state2]),
+        Track(states=[track2_state1, track2_state2]),
+    ]
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     predictor = predictor_obj(transition_model)
     updater = updater_obj(measurement_model=None)
 
     if hypothesiser_obj:
 
-        hypothesiser = hypothesiser_obj(predictor, updater, measure=Mahalanobis(),
-                                        missed_distance=5)
+        hypothesiser = hypothesiser_obj(
+            predictor, updater, measure=Mahalanobis(), missed_distance=5
+        )
         data_associator = associator_obj(hypothesiser)
 
-        reward_function = reward_function_obj(predictor,
-                                              updater,
-                                              method_sum=True,
-                                              return_tracks=True,
-                                              data_associator=data_associator)
+        reward_function = reward_function_obj(
+            predictor,
+            updater,
+            method_sum=True,
+            return_tracks=True,
+            data_associator=data_associator,
+        )
     else:
-        reward_function = reward_function_obj(predictor,
-                                              updater,
-                                              return_tracks=True,
-                                              method_sum=True)
+        reward_function = reward_function_obj(
+            predictor, updater, return_tracks=True, method_sum=True
+        )
 
     timesteps = []
     for t in range(3):
@@ -790,15 +970,15 @@ def test_mcts_sensor_managers(predictor_obj, updater_obj, hypothesiser_obj, asso
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
         position=np.array([[0], [0]]),
         ndim_state=4,
         rpm=sensor_rpm,
         fov_angle=np.radians(30),
         dwell_centre=StateVector([0.0]),
         max_range=np.inf,
-        resolution=np.radians(10))
+        resolution=np.radians(10),
+    )
     sensor.timestamp = time_start
     sensor_setA = {sensor}
     sensor_setB = copy.deepcopy(sensor_setA)
@@ -809,11 +989,14 @@ def test_mcts_sensor_managers(predictor_obj, updater_obj, hypothesiser_obj, asso
             reward_function=reward_function,
             exploration_factor=0,
             best_child_policy=best_child_policy,
-            search_depth=search_depth
+            search_depth=search_depth,
         )
-        with pytest.warns(UserWarning, match='`search_depth` and `rollout_depth` have been '
-                          'defined. `search_depth` overrides rollout depth and forces rollout '
-                          'to end at `search_depth`!'):
+        with pytest.warns(
+            UserWarning,
+            match="`search_depth` and `rollout_depth` have been "
+            "defined. `search_depth` overrides rollout depth and forces rollout "
+            "to end at `search_depth`!",
+        ):
             sensor_managerB = MCTSRolloutSensorManager(
                 sensors=sensor_setB,
                 reward_function=reward_function,
@@ -821,14 +1004,14 @@ def test_mcts_sensor_managers(predictor_obj, updater_obj, hypothesiser_obj, asso
                 rollout_depth=rollout_depth,
                 discount_factor=0.9,
                 best_child_policy=best_child_policy,
-                search_depth=search_depth
+                search_depth=search_depth,
             )
     elif rollout_depth:
         sensor_managerA = MonteCarloTreeSearchSensorManager(
             sensors=sensor_setA,
             reward_function=reward_function,
             exploration_factor=0,
-            best_child_policy=best_child_policy
+            best_child_policy=best_child_policy,
         )
         sensor_managerB = MCTSRolloutSensorManager(
             sensors=sensor_setB,
@@ -836,7 +1019,7 @@ def test_mcts_sensor_managers(predictor_obj, updater_obj, hypothesiser_obj, asso
             exploration_factor=0,
             rollout_depth=rollout_depth,
             discount_factor=0.9,
-            best_child_policy=best_child_policy
+            best_child_policy=best_child_policy,
         )
     elif search_depth:
         sensor_managerA = MonteCarloTreeSearchSensorManager(
@@ -844,7 +1027,7 @@ def test_mcts_sensor_managers(predictor_obj, updater_obj, hypothesiser_obj, asso
             reward_function=reward_function,
             exploration_factor=0,
             best_child_policy=best_child_policy,
-            search_depth=search_depth
+            search_depth=search_depth,
         )
         sensor_managerB = MCTSRolloutSensorManager(
             sensors=sensor_setB,
@@ -852,7 +1035,7 @@ def test_mcts_sensor_managers(predictor_obj, updater_obj, hypothesiser_obj, asso
             exploration_factor=0,
             discount_factor=0.9,
             best_child_policy=best_child_policy,
-            search_depth=search_depth
+            search_depth=search_depth,
         )
 
     sensor_managers = [sensor_managerA, sensor_managerB]
@@ -877,13 +1060,25 @@ def test_mcts_sensor_managers(predictor_obj, updater_obj, hypothesiser_obj, asso
 
     for sm in range(2):
         # check that the sensors are not exceeding the maximum speed
-        difference_between_t1t2 = \
-            np.abs(np.min([all_dwell_centres[sm][0] - all_dwell_centres[sm][1],
-                           all_dwell_centres[sm][1] - all_dwell_centres[sm][0]]))
-        difference_between_t2t3 = \
-            np.abs(np.min([all_dwell_centres[sm][1] - all_dwell_centres[sm][2],
-                           all_dwell_centres[sm][2] - all_dwell_centres[sm][1]]))
-        assert np.round(difference_between_t1t2, decimals=4) <= \
-               np.round(np.radians(sensor_rpm*36/6), decimals=4)
-        assert np.round(difference_between_t2t3, decimals=4) <= \
-               np.round(np.radians(sensor_rpm*36/6), decimals=4)
+        difference_between_t1t2 = np.abs(
+            np.min(
+                [
+                    all_dwell_centres[sm][0] - all_dwell_centres[sm][1],
+                    all_dwell_centres[sm][1] - all_dwell_centres[sm][0],
+                ]
+            )
+        )
+        difference_between_t2t3 = np.abs(
+            np.min(
+                [
+                    all_dwell_centres[sm][1] - all_dwell_centres[sm][2],
+                    all_dwell_centres[sm][2] - all_dwell_centres[sm][1],
+                ]
+            )
+        )
+        assert np.round(difference_between_t1t2, decimals=4) <= np.round(
+            np.radians(sensor_rpm * 36 / 6), decimals=4
+        )
+        assert np.round(difference_between_t2t3, decimals=4) <= np.round(
+            np.radians(sensor_rpm * 36 / 6), decimals=4
+        )

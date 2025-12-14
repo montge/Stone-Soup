@@ -1,20 +1,20 @@
 import pytest
 
-pytest.importorskip('requests')
+pytest.importorskip("requests")
 
-from ..opensky import (  # noqa: E402
-    OpenSkyNetworkDetectionReader, OpenSkyNetworkGroundTruthReader)
+from ..opensky import OpenSkyNetworkDetectionReader, OpenSkyNetworkGroundTruthReader
 
 pytestmark = pytest.mark.remote_data
 
 
 @pytest.mark.parametrize(
-    'reader_type',
-    (OpenSkyNetworkDetectionReader, OpenSkyNetworkGroundTruthReader))
+    "reader_type", (OpenSkyNetworkDetectionReader, OpenSkyNetworkGroundTruthReader)
+)
 @pytest.mark.parametrize(
-    'bbox',
+    "bbox",
     [None, (-7.57216793459, 49.959999905, 1.68153079591, 58.6350001085)],
-    ids=['None', 'GB'])
+    ids=["None", "GB"],
+)
 def test_opensky_reader(reader_type, bbox):
     reader = reader_type(bbox)
 
@@ -31,7 +31,7 @@ def test_opensky_reader(reader_type, bbox):
 
             # When using GroundTruthReader, and ID looks like ICAO24 (ignore those missing ICAO24)
             if isinstance(reader_type, OpenSkyNetworkGroundTruthReader) and len(state.id) == 6:
-                assert all(sub_state.metadata['icao24'] == state.id for sub_state in state)
+                assert all(sub_state.metadata["icao24"] == state.id for sub_state in state)
 
         if isinstance(reader_type, OpenSkyNetworkGroundTruthReader):
             assert any(len(path) == n for path in states)

@@ -27,15 +27,16 @@ can be loaded using:
     When developing plugins for Stone Soup, :attr:`entry_points` must be associated with
     the :attr:`stonesoup.plugins` key in the :attr:`entry_points` dictionary.
 """
+
 import sys
 import warnings
 from importlib.metadata import entry_points
 
-for entry_point in entry_points(group='stonesoup.plugins'):
+for entry_point in entry_points(group="stonesoup.plugins"):
     try:
         name = entry_point.name
-        plugin_module = f'{__name__}.{name}'
+        plugin_module = f"{__name__}.{name}"
         sys.modules[plugin_module] = entry_point.load()
 
     except (ImportError, ModuleNotFoundError) as e:  # pragma: no cover
-        warnings.warn(f'Failed to load module. {e}')
+        warnings.warn(f"Failed to load module. {e}", stacklevel=2)

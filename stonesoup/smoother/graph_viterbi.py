@@ -4,8 +4,8 @@ This module implements a Viterbi algorithm variant that constrains state
 transitions to follow a graph structure, such as a road or rail network.
 This is particularly useful for tracking vehicles on known infrastructure.
 """
+
 import copy
-from typing import Union, Dict, Tuple, Set
 
 import numpy as np
 
@@ -13,8 +13,7 @@ from ..base import Property
 from ..models.measurement import MeasurementModel
 from ..models.transition import TransitionModel
 from ..types.prediction import Prediction
-from ..types.state import State, GaussianState
-from ..types.track import Track
+from ..types.state import GaussianState, State
 from ..types.update import Update
 from .base import Smoother
 
@@ -150,31 +149,31 @@ class GraphViterbiSmoother(Smoother):
 
     """
 
-    graph: Union[object, Dict] = Property(
+    graph: object | dict = Property(
         doc="Graph structure representing the road/rail network. Can be a NetworkX "
-            "graph with nodes having 'pos' attribute, or a dictionary with 'nodes' "
-            "and 'edges' keys. Nodes should have associated positions (x, y coordinates)."
+        "graph with nodes having 'pos' attribute, or a dictionary with 'nodes' "
+        "and 'edges' keys. Nodes should have associated positions (x, y coordinates)."
     )
     transition_model: TransitionModel = Property(
         doc="Transition model for state evolution. Used to compute transition "
-            "probabilities between connected graph nodes."
+        "probabilities between connected graph nodes."
     )
     measurement_model: MeasurementModel = Property(
         doc="Measurement model for observations. Used to compute observation "
-            "likelihoods at each graph node."
+        "likelihoods at each graph node."
     )
     off_road_penalty: float = Property(
         default=-10.0,
         doc="Log-probability penalty applied to detections that are far from any "
-            "graph node (beyond max_snap_distance). More negative values make "
-            "off-graph detections less likely in the optimal path. Default is -10.0."
+        "graph node (beyond max_snap_distance). More negative values make "
+        "off-graph detections less likely in the optimal path. Default is -10.0.",
     )
     max_snap_distance: float = Property(
         default=None,
         doc="Maximum distance (in state space units) for snapping detections to "
-            "nearest graph node. Detections farther than this receive the "
-            "off_road_penalty. If None, all detections are snapped to nearest node "
-            "regardless of distance. Default is None."
+        "nearest graph node. Detections farther than this receive the "
+        "off_road_penalty. If None, all detections are snapped to nearest node "
+        "regardless of distance. Default is None.",
     )
 
     def __init__(self, *args, **kwargs):
@@ -190,11 +189,11 @@ class GraphViterbiSmoother(Smoother):
         whether it's a NetworkX graph or a dictionary.
         """
         # Check if it's a NetworkX graph (duck typing)
-        if hasattr(self.graph, 'nodes') and hasattr(self.graph, 'edges'):
+        if hasattr(self.graph, "nodes") and hasattr(self.graph, "edges"):
             # NetworkX graph
             for node, data in self.graph.nodes(data=True):
-                if 'pos' in data:
-                    self._node_positions[node] = np.array(data['pos']).reshape(-1, 1)
+                if "pos" in data:
+                    self._node_positions[node] = np.array(data["pos"]).reshape(-1, 1)
                 else:
                     raise ValueError(f"Node {node} missing 'pos' attribute")
 
@@ -203,13 +202,13 @@ class GraphViterbiSmoother(Smoother):
                 self._edges.add((v, u))  # Make undirected
         elif isinstance(self.graph, dict):
             # Dictionary format
-            if 'nodes' not in self.graph or 'edges' not in self.graph:
+            if "nodes" not in self.graph or "edges" not in self.graph:
                 raise ValueError("Graph dictionary must contain 'nodes' and 'edges' keys")
 
-            for node_id, pos in self.graph['nodes'].items():
+            for node_id, pos in self.graph["nodes"].items():
                 self._node_positions[node_id] = np.array(pos).reshape(-1, 1)
 
-            for u, v in self.graph['edges']:
+            for u, v in self.graph["edges"]:
                 self._edges.add((u, v))
                 self._edges.add((v, u))  # Make undirected
         else:
@@ -256,9 +255,9 @@ class GraphViterbiSmoother(Smoother):
             Distance to nearest node
         """
         # Extract position from measurement
-        if hasattr(measurement, 'state_vector'):
+        if hasattr(measurement, "state_vector"):
             meas_dim = measurement.state_vector.shape[0]
-            if hasattr(self.measurement_model, 'mapping'):
+            if hasattr(self.measurement_model, "mapping"):
                 mapping = self.measurement_model.mapping
                 # Check if measurement is already in measurement space (e.g., Detection)
                 # or in state space (e.g., State)
@@ -274,7 +273,7 @@ class GraphViterbiSmoother(Smoother):
             meas_vec = measurement[:2, :]
 
         # Find nearest node
-        min_distance = float('inf')
+        min_distance = float("inf")
         nearest_node = None
 
         for node_id, pos in self._node_positions.items():
@@ -332,11 +331,10 @@ class GraphViterbiSmoother(Smoother):
         state_to = self._get_node_position(node_to, ndim)
 
         # Compute predicted state from transition model
-        predicted = self.transition_model.function(
-            State(state_from), time_interval=time_interval)
+        predicted = self.transition_model.function(State(state_from), time_interval=time_interval)
 
         # Compute log-likelihood of reaching state_to from prediction
-        if hasattr(self.transition_model, 'covar'):
+        if hasattr(self.transition_model, "covar"):
             # Gaussian transition model
             covar = self.transition_model.covar(time_interval=time_interval)
             diff = state_to - predicted
@@ -379,7 +377,7 @@ class GraphViterbiSmoother(Smoother):
         predicted_meas = self.measurement_model.function(State(state_vector))
 
         # Extract measurement vector
-        if hasattr(measurement, 'state_vector'):
+        if hasattr(measurement, "state_vector"):
             # Map state to measurement space if needed
             if measurement.state_vector.shape[0] == predicted_meas.shape[0]:
                 meas_vec = measurement.state_vector
@@ -391,7 +389,7 @@ class GraphViterbiSmoother(Smoother):
             meas_vec = measurement
 
         # Compute log-likelihood
-        if hasattr(self.measurement_model, 'covar'):
+        if hasattr(self.measurement_model, "covar"):
             # Gaussian measurement model
             covar = self.measurement_model.covar()
             diff = meas_vec - predicted_meas
@@ -455,7 +453,7 @@ class GraphViterbiSmoother(Smoother):
 
         # Initialize storage for forward pass
         delta = []  # delta[k][node_idx] = max log-probability
-        psi = []    # psi[k][node_idx] = argmax previous node
+        psi = []  # psi[k][node_idx] = argmax previous node
 
         # Extract measurements and timestamps
         measurements = []
@@ -482,12 +480,10 @@ class GraphViterbiSmoother(Smoother):
             nearest_node, distance = self._find_nearest_node(measurements[0])
 
             # Check if within snap distance
-            off_graph = (self.max_snap_distance is not None and
-                        distance > self.max_snap_distance)
+            off_graph = self.max_snap_distance is not None and distance > self.max_snap_distance
 
             for idx, node_id in enumerate(node_list):
-                log_obs = self._log_observation_likelihood(
-                    node_id, measurements[0], ndim)
+                log_obs = self._log_observation_likelihood(node_id, measurements[0], ndim)
 
                 # Apply penalty if detection is off-graph
                 if off_graph and node_id != nearest_node:
@@ -506,15 +502,16 @@ class GraphViterbiSmoother(Smoother):
             delta_k = np.full(num_nodes, -np.inf)
             psi_k = np.zeros(num_nodes, dtype=int)
 
-            time_interval = timestamps[k] - timestamps[k-1]
+            time_interval = timestamps[k] - timestamps[k - 1]
 
             # Check if current measurement is off-graph
             off_graph = False
             nearest_node = None
             if measurements[k] is not None:
                 nearest_node, distance = self._find_nearest_node(measurements[k])
-                off_graph = (self.max_snap_distance is not None and
-                            distance > self.max_snap_distance)
+                off_graph = (
+                    self.max_snap_distance is not None and distance > self.max_snap_distance
+                )
 
             for idx, node_id in enumerate(node_list):
                 # Get neighbors of current node
@@ -533,12 +530,13 @@ class GraphViterbiSmoother(Smoother):
 
                     # Transition probability (only for connected nodes)
                     log_trans = self._log_transition_probability(
-                        neighbor_id, node_id, time_interval, ndim)
+                        neighbor_id, node_id, time_interval, ndim
+                    )
 
                     if not np.isfinite(log_trans):
                         continue
 
-                    log_prob = delta[k-1][neighbor_idx] + log_trans
+                    log_prob = delta[k - 1][neighbor_idx] + log_trans
 
                     if log_prob > max_log_prob:
                         max_log_prob = log_prob
@@ -548,8 +546,7 @@ class GraphViterbiSmoother(Smoother):
 
                 # Add observation likelihood
                 if measurements[k] is not None:
-                    log_obs = self._log_observation_likelihood(
-                        node_id, measurements[k], ndim)
+                    log_obs = self._log_observation_likelihood(node_id, measurements[k], ndim)
 
                     # Apply penalty if detection is off-graph
                     if off_graph and node_id != nearest_node:
@@ -566,12 +563,12 @@ class GraphViterbiSmoother(Smoother):
         # ===========
         # Find most likely final node
         optimal_path_idx = np.zeros(K, dtype=int)
-        optimal_path_idx[K-1] = np.argmax(delta[K-1])
+        optimal_path_idx[K - 1] = np.argmax(delta[K - 1])
 
         # Backtracking
         # ============
-        for k in range(K-2, -1, -1):
-            optimal_path_idx[k] = psi[k+1][optimal_path_idx[k+1]]
+        for k in range(K - 2, -1, -1):
+            optimal_path_idx[k] = psi[k + 1][optimal_path_idx[k + 1]]
 
         # Convert indices back to node IDs
         optimal_path = [node_list[idx] for idx in optimal_path_idx]
@@ -588,14 +585,11 @@ class GraphViterbiSmoother(Smoother):
                 smoothed_state = type(original_state).from_state(
                     original_state,
                     optimal_state_vec,
-                    original_state.covar if hasattr(original_state, 'covar') else None
+                    original_state.covar if hasattr(original_state, "covar") else None,
                 )
             else:
                 # For non-Gaussian states
-                smoothed_state = type(original_state).from_state(
-                    original_state,
-                    optimal_state_vec
-                )
+                smoothed_state = type(original_state).from_state(original_state, optimal_state_vec)
 
             smoothed_states.append(smoothed_state)
 

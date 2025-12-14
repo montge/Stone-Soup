@@ -8,18 +8,19 @@ These converters transform state vectors between:
 - Geodetic (latitude, longitude, altitude) coordinates
 - ECI (Earth-Centered Inertial) coordinates
 """
+
 import numpy as np
 
-from .base import DetectionFeeder, GroundTruthFeeder
 from ..base import Property
 from ..buffered_generator import BufferedGenerator
 from ..functions.coordinates import (
-    geodetic_to_ecef,
+    ecef_to_eci,
     ecef_to_geodetic,
     eci_to_ecef,
-    ecef_to_eci,
+    geodetic_to_ecef,
 )
 from ..types.coordinates import WGS84, ReferenceEllipsoid
+from .base import DetectionFeeder, GroundTruthFeeder
 
 
 class GeodeticToECEFConverter(DetectionFeeder, GroundTruthFeeder):
@@ -71,11 +72,12 @@ class GeodeticToECEFConverter(DetectionFeeder, GroundTruthFeeder):
     mapping: tuple = Property(
         default=(0, 1, 2),
         doc="Indices of (latitude, longitude, altitude) in the state vector. "
-            "Default (0, 1, 2). Latitude and longitude should be in radians, "
-            "altitude in meters.")
+        "Default (0, 1, 2). Latitude and longitude should be in radians, "
+        "altitude in meters.",
+    )
     ellipsoid: ReferenceEllipsoid = Property(
-        default=WGS84,
-        doc="Reference ellipsoid for the transformation. Default is WGS84.")
+        default=WGS84, doc="Reference ellipsoid for the transformation. Default is WGS84."
+    )
 
     @BufferedGenerator.generator_method
     def data_gen(self):
@@ -143,10 +145,11 @@ class ECEFToGeodeticConverter(DetectionFeeder, GroundTruthFeeder):
     mapping: tuple = Property(
         default=(0, 1, 2),
         doc="Indices of (x, y, z) in the state vector. Default (0, 1, 2). "
-            "All values should be in meters.")
+        "All values should be in meters.",
+    )
     ellipsoid: ReferenceEllipsoid = Property(
-        default=WGS84,
-        doc="Reference ellipsoid for the transformation. Default is WGS84.")
+        default=WGS84, doc="Reference ellipsoid for the transformation. Default is WGS84."
+    )
 
     @BufferedGenerator.generator_method
     def data_gen(self):
@@ -211,7 +214,8 @@ class ECIToECEFConverter(DetectionFeeder, GroundTruthFeeder):
     mapping: tuple = Property(
         default=(0, 1, 2),
         doc="Indices of (x, y, z) in the state vector. Default (0, 1, 2). "
-            "All values should be in meters.")
+        "All values should be in meters.",
+    )
 
     @BufferedGenerator.generator_method
     def data_gen(self):
@@ -219,14 +223,15 @@ class ECIToECEFConverter(DetectionFeeder, GroundTruthFeeder):
             for state in states:
                 timestamp = state.timestamp
                 if timestamp is None:
-                    raise ValueError(
-                        "ECI to ECEF conversion requires a timestamp on each state")
+                    raise ValueError("ECI to ECEF conversion requires a timestamp on each state")
 
-                eci_coords = np.array([
-                    state.state_vector[self.mapping[0], 0],
-                    state.state_vector[self.mapping[1], 0],
-                    state.state_vector[self.mapping[2], 0]
-                ])
+                eci_coords = np.array(
+                    [
+                        state.state_vector[self.mapping[0], 0],
+                        state.state_vector[self.mapping[1], 0],
+                        state.state_vector[self.mapping[2], 0],
+                    ]
+                )
 
                 ecef_coords = eci_to_ecef(eci_coords, timestamp)
 
@@ -279,7 +284,8 @@ class ECEFToECIConverter(DetectionFeeder, GroundTruthFeeder):
     mapping: tuple = Property(
         default=(0, 1, 2),
         doc="Indices of (x, y, z) in the state vector. Default (0, 1, 2). "
-            "All values should be in meters.")
+        "All values should be in meters.",
+    )
 
     @BufferedGenerator.generator_method
     def data_gen(self):
@@ -287,14 +293,15 @@ class ECEFToECIConverter(DetectionFeeder, GroundTruthFeeder):
             for state in states:
                 timestamp = state.timestamp
                 if timestamp is None:
-                    raise ValueError(
-                        "ECEF to ECI conversion requires a timestamp on each state")
+                    raise ValueError("ECEF to ECI conversion requires a timestamp on each state")
 
-                ecef_coords = np.array([
-                    state.state_vector[self.mapping[0], 0],
-                    state.state_vector[self.mapping[1], 0],
-                    state.state_vector[self.mapping[2], 0]
-                ])
+                ecef_coords = np.array(
+                    [
+                        state.state_vector[self.mapping[0], 0],
+                        state.state_vector[self.mapping[1], 0],
+                        state.state_vector[self.mapping[2], 0],
+                    ]
+                )
 
                 eci_coords = ecef_to_eci(ecef_coords, timestamp)
 
@@ -342,10 +349,11 @@ class GeodeticToECIConverter(DetectionFeeder, GroundTruthFeeder):
     mapping: tuple = Property(
         default=(0, 1, 2),
         doc="Indices of (latitude, longitude, altitude) in the state vector. "
-            "Default (0, 1, 2).")
+        "Default (0, 1, 2).",
+    )
     ellipsoid: ReferenceEllipsoid = Property(
-        default=WGS84,
-        doc="Reference ellipsoid for the transformation. Default is WGS84.")
+        default=WGS84, doc="Reference ellipsoid for the transformation. Default is WGS84."
+    )
 
     @BufferedGenerator.generator_method
     def data_gen(self):
@@ -354,7 +362,8 @@ class GeodeticToECIConverter(DetectionFeeder, GroundTruthFeeder):
                 timestamp = state.timestamp
                 if timestamp is None:
                     raise ValueError(
-                        "Geodetic to ECI conversion requires a timestamp on each state")
+                        "Geodetic to ECI conversion requires a timestamp on each state"
+                    )
 
                 lat = state.state_vector[self.mapping[0], 0]
                 lon = state.state_vector[self.mapping[1], 0]
@@ -407,11 +416,11 @@ class ECIToGeodeticConverter(DetectionFeeder, GroundTruthFeeder):
     """
 
     mapping: tuple = Property(
-        default=(0, 1, 2),
-        doc="Indices of (x, y, z) in the state vector. Default (0, 1, 2).")
+        default=(0, 1, 2), doc="Indices of (x, y, z) in the state vector. Default (0, 1, 2)."
+    )
     ellipsoid: ReferenceEllipsoid = Property(
-        default=WGS84,
-        doc="Reference ellipsoid for the transformation. Default is WGS84.")
+        default=WGS84, doc="Reference ellipsoid for the transformation. Default is WGS84."
+    )
 
     @BufferedGenerator.generator_method
     def data_gen(self):
@@ -420,20 +429,24 @@ class ECIToGeodeticConverter(DetectionFeeder, GroundTruthFeeder):
                 timestamp = state.timestamp
                 if timestamp is None:
                     raise ValueError(
-                        "ECI to geodetic conversion requires a timestamp on each state")
+                        "ECI to geodetic conversion requires a timestamp on each state"
+                    )
 
-                eci_coords = np.array([
-                    state.state_vector[self.mapping[0], 0],
-                    state.state_vector[self.mapping[1], 0],
-                    state.state_vector[self.mapping[2], 0]
-                ])
+                eci_coords = np.array(
+                    [
+                        state.state_vector[self.mapping[0], 0],
+                        state.state_vector[self.mapping[1], 0],
+                        state.state_vector[self.mapping[2], 0],
+                    ]
+                )
 
                 # First convert to ECEF
                 ecef_coords = eci_to_ecef(eci_coords, timestamp)
 
                 # Then convert to geodetic
                 lat, lon, alt = ecef_to_geodetic(
-                    ecef_coords[0], ecef_coords[1], ecef_coords[2], self.ellipsoid)
+                    ecef_coords[0], ecef_coords[1], ecef_coords[2], self.ellipsoid
+                )
 
                 state.state_vector[self.mapping[0], 0] = lat
                 state.state_vector[self.mapping[1], 0] = lon

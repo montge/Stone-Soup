@@ -1,12 +1,12 @@
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Union, Optional
+from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy.stats import multivariate_normal
 
 from ..base import Base, Property
 from ..functions import jacobian as compute_jac
-from ..types.array import StateVector, StateVectors, CovarianceMatrix
+from ..types.array import CovarianceMatrix, StateVector, StateVectors
 from ..types.numeric import Probability
 from ..types.state import State
 
@@ -26,8 +26,9 @@ class Model(Base):
         raise NotImplementedError
 
     @abstractmethod
-    def function(self, state: State, noise: Union[bool, np.ndarray] = False,
-                 **kwargs) -> Union[StateVector, StateVectors]:
+    def function(
+        self, state: State, noise: bool | np.ndarray = False, **kwargs
+    ) -> StateVector | StateVectors:
         """Model function :math:`f_k(x(k),w(k))`
 
         Parameters
@@ -64,7 +65,7 @@ class Model(Base):
         return compute_jac(self.function, state, **kwargs)
 
     @abstractmethod
-    def rvs(self, num_samples: int = 1, **kwargs) -> Union[StateVector, StateVectors]:
+    def rvs(self, num_samples: int = 1, **kwargs) -> StateVector | StateVectors:
         r"""Model noise/sample generation function
 
         Generates noise samples from the model.
@@ -84,7 +85,7 @@ class Model(Base):
         raise NotImplementedError
 
     @abstractmethod
-    def pdf(self, state1: State, state2: State, **kwargs) -> Union[Probability, np.ndarray]:
+    def pdf(self, state1: State, state2: State, **kwargs) -> Probability | np.ndarray:
         r"""Model pdf/likelihood evaluation function
 
         Evaluates the pdf/likelihood of ``state1``, given the state
@@ -102,7 +103,7 @@ class Model(Base):
         """
         raise NotImplementedError
 
-    def logpdf(self, state1: State, state2: State, **kwargs) -> Union[float, np.ndarray]:
+    def logpdf(self, state1: State, state2: State, **kwargs) -> float | np.ndarray:
         r"""Model log pdf/likelihood evaluation function
 
         Evaluates the pdf/likelihood of ``state1``, given the state
@@ -131,8 +132,9 @@ class LinearModel(Model):
         """Model matrix"""
         raise NotImplementedError
 
-    def function(self, state: State, noise: Union[bool, np.ndarray] = False,
-                 **kwargs) -> Union[StateVector, StateVectors]:
+    def function(
+        self, state: State, noise: bool | np.ndarray = False, **kwargs
+    ) -> StateVector | StateVectors:
         """Model linear function :math:`f_k(x(k),w(k)) = F_k(x_k) + w_k`
 
         Parameters
@@ -150,10 +152,7 @@ class LinearModel(Model):
             The StateVector(s) with the model function evaluated.
         """
         if isinstance(noise, bool) or noise is None:
-            if noise:
-                noise = self.rvs(num_samples=state.state_vector.shape[1], **kwargs)
-            else:
-                noise = 0
+            noise = self.rvs(num_samples=state.state_vector.shape[1], **kwargs) if noise else 0
 
         return self.matrix(**kwargs) @ state.state_vector + noise
 
@@ -183,7 +182,7 @@ class ReversibleModel(Model):
     of the relevant linear-to-non-linear function"""
 
     @abstractmethod
-    def inverse_function(self, detection: 'Detection', **kwargs) -> StateVector:
+    def inverse_function(self, detection: "Detection", **kwargs) -> StateVector:
         """Takes in the result of the function and
         computes the inverse function, returning the initial
         input of the function.
@@ -217,14 +216,14 @@ class GaussianModel(Model):
     """GaussianModel class
 
     Base/Abstract class for all Gaussian models"""
-    seed: Optional[int] = Property(default=None, doc="Seed for random number generation")
+
+    seed: int | None = Property(default=None, doc="Seed for random number generation")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.random_state = np.random.RandomState(self.seed) if self.seed is not None else None
 
-    def rvs(self, num_samples: int = 1, random_state=None, **kwargs) ->\
-            Union[StateVector, StateVectors]:
+    def rvs(self, num_samples: int = 1, random_state=None, **kwargs) -> StateVector | StateVectors:
         r"""Model noise/sample generation function
 
         Generates noise samples from the model.
@@ -258,7 +257,8 @@ class GaussianModel(Model):
         random_state = random_state if random_state is not None else self.random_state
 
         noise = multivariate_normal.rvs(
-            np.zeros(self.ndim), covar, num_samples, random_state=random_state)
+            np.zeros(self.ndim), covar, num_samples, random_state=random_state
+        )
 
         noise = np.atleast_2d(noise)
 
@@ -270,7 +270,7 @@ class GaussianModel(Model):
         else:
             return noise.view(StateVectors)
 
-    def pdf(self, state1: State, state2: State, **kwargs) -> Union[Probability, np.ndarray]:
+    def pdf(self, state1: State, state2: State, **kwargs) -> Probability | np.ndarray:
         r"""Model pdf/likelihood evaluation function
 
         Evaluates the pdf/likelihood of ``state1``, given the state
@@ -297,7 +297,7 @@ class GaussianModel(Model):
         """
         return Probability.from_log_ufunc(self.logpdf(state1, state2, **kwargs))
 
-    def logpdf(self, state1: State, state2: State, **kwargs) -> Union[float, np.ndarray]:
+    def logpdf(self, state1: State, state2: State, **kwargs) -> float | np.ndarray:
         r"""Model log pdf/likelihood evaluation function
 
         Evaluates the pdf/likelihood of ``state1``, given the state
@@ -331,8 +331,10 @@ class GaussianModel(Model):
         # Calculate difference before to handle custom types (mean defaults to zero)
         # This is required as log pdf coverts arrays to floats
         likelihood = np.atleast_1d(
-            multivariate_normal.logpdf((state1.state_vector - self.function(state2, **kwargs)).T,
-                                       cov=covar))
+            multivariate_normal.logpdf(
+                (state1.state_vector - self.function(state2, **kwargs)).T, cov=covar
+            )
+        )
 
         if len(likelihood) == 1:
             likelihood = likelihood[0]

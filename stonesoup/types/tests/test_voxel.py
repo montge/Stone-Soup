@@ -4,9 +4,9 @@ import pickle
 import numpy as np
 import pytest
 
-from ..array import StateVector, CovarianceMatrix
+from ..array import CovarianceMatrix, StateVector
 from ..state import GaussianState
-from ..voxel import VoxelGrid, OctreeNode, VoxelState
+from ..voxel import OctreeNode, VoxelGrid, VoxelState
 
 
 def test_voxelgrid_creation():
@@ -385,9 +385,9 @@ def test_voxelstate_to_gaussian_sparse():
     # Mean should be weighted toward the higher probability voxel
     # Centers: [5.5, 5.5, 5.5] (weight 0.9) and [6.5, 6.5, 6.5] (weight 0.1)
     # After normalization: weights are 0.9 and 0.1
-    expected_mean = np.array([[5.5 * 0.9 + 6.5 * 0.1],
-                              [5.5 * 0.9 + 6.5 * 0.1],
-                              [5.5 * 0.9 + 6.5 * 0.1]])
+    expected_mean = np.array(
+        [[5.5 * 0.9 + 6.5 * 0.1], [5.5 * 0.9 + 6.5 * 0.1], [5.5 * 0.9 + 6.5 * 0.1]]
+    )
     assert np.allclose(gaussian.state_vector, expected_mean)
 
 

@@ -1,52 +1,60 @@
 import copy
 import threading
 from datetime import datetime
-from queue import Queue, Empty
+from queue import Empty, Queue
 
-from ..base import Property, Base
+from ..base import Base, Property
 from ..sensor.sensor import Sensor
+from ..tracker.base import Tracker
 from ..types.detection import Detection
 from ..types.hypothesis import Hypothesis
 from ..types.track import Track
-from .edge import DataPiece, FusionQueue
-from ..tracker.base import Tracker
 from ._functions import _dict_set
+from .edge import DataPiece, FusionQueue
 
 
 class Node(Base):
     """Base Node class. Generally a subclass should be used. Note that most user-defined
-    properties are for graphical use only, all with default values. """
+    properties are for graphical use only, all with default values."""
+
     latency: float = Property(
-        doc="Contribution to edge latency stemming from this node. Default is 0.0",
-        default=0.0)
+        doc="Contribution to edge latency stemming from this node. Default is 0.0", default=0.0
+    )
     label: str = Property(
         doc="Label to be displayed on graph. Default is to label by class and then "
-            "differentiate via alphabetical labels",
-        default=None)
+        "differentiate via alphabetical labels",
+        default=None,
+    )
     position: tuple[float, float] = Property(
-        default=None,
-        doc="Cartesian coordinates for node. Determined automatically by default")
+        default=None, doc="Cartesian coordinates for node. Determined automatically by default"
+    )
     colour: str = Property(
-        default='#909090',
-        doc='Colour to be displayed on graph. Default is grey')
+        default="#909090", doc="Colour to be displayed on graph. Default is grey"
+    )
     shape: str = Property(
-        default='rectangle',
-        doc='Shape used to display nodes. Default is a rectangle')
-    font_size: int = Property(
-        default=None,
-        doc='Font size for node labels. Default is None')
+        default="rectangle", doc="Shape used to display nodes. Default is a rectangle"
+    )
+    font_size: int = Property(default=None, doc="Font size for node labels. Default is None")
     node_dim: tuple[float, float] = Property(
         default=None,
-        doc='Width and height of nodes for graph icons. '
-            'Default is None, which will size to label automatically.')
+        doc="Width and height of nodes for graph icons. "
+        "Default is None, which will size to label automatically.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.data_held = {"fused": {}, "created": {}, "unfused": {}}
         self.messages_to_pass_on = []
 
-    def update(self, time_pertaining, time_arrived, data_piece, category, track=None,
-               use_arrival_time=False):
+    def update(
+        self,
+        time_pertaining,
+        time_arrived,
+        data_piece,
+        category,
+        track=None,
+        use_arrival_time=False,
+    ):
         """
         Updates this Node's data_held using a new data piece.
 
@@ -75,35 +83,45 @@ class Node(Base):
             raise TypeError("Times must be datetime objects")
         if not isinstance(data_piece, DataPiece):
             raise TypeError(f"data_piece must be a DataPiece. Provided type {type(data_piece)}")
-        if category not in self.data_held.keys():
+        if category not in self.data_held:
             raise ValueError(f"category must be one of {self.data_held.keys()}")
         if not track:
-            if not isinstance(data_piece.data, Detection) and \
-                    not isinstance(data_piece.data, Track):
-                raise TypeError(f"Data provided without accompanying Track must be a Detection or "
-                                f"a Track, not a "
-                                f"{type(data_piece.data).__name__}")
+            if not isinstance(data_piece.data, Detection) and not isinstance(
+                data_piece.data, Track
+            ):
+                raise TypeError(
+                    f"Data provided without accompanying Track must be a Detection or "
+                    f"a Track, not a "
+                    f"{type(data_piece.data).__name__}"
+                )
             new_data_piece = DataPiece(self, data_piece.originator, data_piece.data, time_arrived)
         else:
             if not isinstance(data_piece.data, Hypothesis):
                 raise TypeError("Data provided with Track must be a Hypothesis")
-            new_data_piece = DataPiece(self, data_piece.originator, data_piece.data,
-                                       time_arrived, track)
+            new_data_piece = DataPiece(
+                self, data_piece.originator, data_piece.data, time_arrived, track
+            )
 
-        added, self.data_held[category] = _dict_set(self.data_held[category],
-                                                    new_data_piece, time_pertaining)
+        added, self.data_held[category] = _dict_set(
+            self.data_held[category], new_data_piece, time_pertaining
+        )
 
-        if use_arrival_time and isinstance(self, FusionNode) and \
-                category in ("created", "unfused"):
+        if (
+            use_arrival_time
+            and isinstance(self, FusionNode)
+            and category in ("created", "unfused")
+        ):
             data = copy.copy(data_piece.data)
             data.timestamp = time_arrived
             if data not in self.fusion_queue.received:
                 self.fusion_queue.received.add(data)
                 self.fusion_queue.put((time_pertaining, {data}))
 
-        elif isinstance(self, FusionNode) and \
-                category in ("created", "unfused") and \
-                data_piece.data not in self.fusion_queue.received:
+        elif (
+            isinstance(self, FusionNode)
+            and category in ("created", "unfused")
+            and data_piece.data not in self.fusion_queue.received
+        ):
             self.fusion_queue.received.add(data_piece.data)
             self.fusion_queue.put((time_pertaining, {data_piece.data}))
 
@@ -112,31 +130,34 @@ class Node(Base):
 
 class SensorNode(Node):
     """A :class:`~.Node` corresponding to a :class:`~.Sensor`. Fresh data is created here"""
+
     sensor: Sensor = Property(doc="Sensor corresponding to this node")
     colour: str = Property(
-        default='#006eff',
-        doc='Colour to be displayed on graph. Default is the hex colour code #006eff')
-    shape: str = Property(
-        default='oval',
-        doc='Shape used to display nodes. Default is an oval')
+        default="#006eff",
+        doc="Colour to be displayed on graph. Default is the hex colour code #006eff",
+    )
+    shape: str = Property(default="oval", doc="Shape used to display nodes. Default is an oval")
 
 
 class FusionNode(Node):
     """A :class:`~.Node` that does not measure new data, but does process data it receives"""
+
     tracker: Tracker = Property(
-        doc="Tracker used by this Node to fuse together Tracks and Detections")
+        doc="Tracker used by this Node to fuse together Tracks and Detections"
+    )
     fusion_queue: FusionQueue = Property(
         default=None,
         doc="The queue from which this node draws data to be fused. Default is a standard "
-            "FusionQueue")
-    tracks: set = Property(default_factory=set,
-                           doc="Set of tracks tracked by the fusion node")
+        "FusionQueue",
+    )
+    tracks: set = Property(default_factory=set, doc="Set of tracks tracked by the fusion node")
     colour: str = Property(
-        default='#00b53d',
-        doc='Colour to be displayed on graph. Default is the hex colour code #00b53d')
+        default="#00b53d",
+        doc="Colour to be displayed on graph. Default is the hex colour code #00b53d",
+    )
     shape: str = Property(
-        default='hexagon',
-        doc='Shape used to display nodes. Default is a hexagon')
+        default="hexagon", doc="Shape used to display nodes. Default is a hexagon"
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -151,7 +172,8 @@ class FusionNode(Node):
         self._tracking_thread = threading.Thread(
             target=self._track_thread,
             args=(self.tracker, self.fusion_queue, self._track_queue),
-            daemon=True)
+            daemon=True,
+        )
 
     def fuse(self):
         """
@@ -184,8 +206,9 @@ class FusionNode(Node):
 
         for track in updated_tracks:
             data_piece = DataPiece(self, self, copy.copy(track), track.timestamp, True)
-            added, self.data_held['fused'] = _dict_set(
-                self.data_held['fused'], data_piece, track.timestamp)
+            added, self.data_held["fused"] = _dict_set(
+                self.data_held["fused"], data_piece, track.timestamp
+            )
         return added
 
     @staticmethod
@@ -197,24 +220,28 @@ class FusionNode(Node):
 
 class SensorFusionNode(SensorNode, FusionNode):
     """A :class:`~.Node` that is both a :class:`~.Sensor` and also processes data"""
+
     colour: str = Property(
-        default='#fc9000',
-        doc='Colour to be displayed on graph. Default is the hex colour code #fc9000')
+        default="#fc9000",
+        doc="Colour to be displayed on graph. Default is the hex colour code #fc9000",
+    )
     shape: str = Property(
-        default='diamond',
-        doc='Shape used to display nodes. Default is a diamond')
+        default="diamond", doc="Shape used to display nodes. Default is a diamond"
+    )
 
 
 class RepeaterNode(Node):
     """A :class:`~.Node` which simply passes data along to others, without manipulating the
     data itself. Consequently, :class:`~.RepeaterNode`s are only used within a
     :class:`~.NetworkArchitecture`"""
+
     colour: str = Property(
-        default='#909090',
-        doc='Colour to be displayed on graph. Default is the hex colour code #909090')
+        default="#909090",
+        doc="Colour to be displayed on graph. Default is the hex colour code #909090",
+    )
     shape: str = Property(
-        default='rectangle',
-        doc='Shape used to display nodes. Default is a rectangle')
+        default="rectangle", doc="Shape used to display nodes. Default is a rectangle"
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -3,9 +3,9 @@ from collections.abc import Iterator
 import numpy as np
 
 from ...base import Property
-from ...types.angle import Angle, Elevation
 from ...functions import mod_elevation
-from .base import ChangeAngleAction, AngleActionsGenerator
+from ...types.angle import Angle, Elevation
+from .base import AngleActionsGenerator, ChangeAngleAction
 
 
 class ChangeTiltAction(ChangeAngleAction):
@@ -43,11 +43,13 @@ class TiltActionsGenerator(AngleActionsGenerator):
 
     @property
     def default_action(self):
-        return ChangeTiltAction(rotation_end_time=self.end_time,
-                                generator=self,
-                                end_time=self.end_time,
-                                target_value=self.initial_value,
-                                increasing_angle=None)
+        return ChangeTiltAction(
+            rotation_end_time=self.end_time,
+            generator=self,
+            end_time=self.end_time,
+            target_value=self.initial_value,
+            increasing_angle=None,
+        )
 
     @property
     def min(self):
@@ -62,15 +64,17 @@ class TiltActionsGenerator(AngleActionsGenerator):
         element of the tilt centre's state vector."""
 
         current_angle = self.initial_value
-        while current_angle - self.resolution >= max(self.min_tilt, self.min-self.epsilon):
+        while current_angle - self.resolution >= max(self.min_tilt, self.min - self.epsilon):
             current_angle -= self.resolution
         while current_angle <= self.max + self.epsilon:
             rot_end_time, increasing = self._end_time_direction(current_angle)
-            yield ChangeTiltAction(rotation_end_time=rot_end_time,
-                                   generator=self,
-                                   end_time=self.end_time,
-                                   target_value=Elevation(current_angle),
-                                   increasing_angle=increasing)
+            yield ChangeTiltAction(
+                rotation_end_time=rot_end_time,
+                generator=self,
+                end_time=self.end_time,
+                target_value=Elevation(current_angle),
+                increasing_angle=increasing,
+            )
             current_angle += self.resolution
 
     def action_from_value(self, value):
@@ -91,8 +95,10 @@ class TiltActionsGenerator(AngleActionsGenerator):
         angle_action = super().action_from_value(value)
         if angle_action is None:
             return angle_action
-        return ChangeTiltAction(rotation_end_time=angle_action.rotation_end_time,
-                                generator=self,
-                                end_time=self.end_time,
-                                target_value=angle_action.target_value,
-                                increasing_angle=angle_action.increasing_angle)
+        return ChangeTiltAction(
+            rotation_end_time=angle_action.rotation_end_time,
+            generator=self,
+            end_time=self.end_time,
+            target_value=angle_action.target_value,
+            increasing_angle=angle_action.increasing_angle,
+        )

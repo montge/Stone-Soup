@@ -6,8 +6,11 @@ generated, rather than read from a file, etc. They should come with various
 configuration options to allow customisation of the simulation.
 """
 
-from .base import (
-    Simulator, DetectionSimulator, GroundTruthSimulator, SensorSimulator)
+from .base import DetectionSimulator, GroundTruthSimulator, SensorSimulator, Simulator
 
-__all__ = ['Simulator', 'DetectionSimulator', 'GroundTruthSimulator',
-           'SensorSimulator']
+__all__ = [
+    "DetectionSimulator",
+    "GroundTruthSimulator",
+    "SensorSimulator",
+    "Simulator",
+]

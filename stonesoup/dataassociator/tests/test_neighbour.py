@@ -1,17 +1,15 @@
 import datetime
 
-import pytest
 import numpy as np
+import pytest
 
-from ..neighbour import (
-    NearestNeighbour, GlobalNearestNeighbour, GNNWith2DAssignment)
 from ...types.detection import Detection
 from ...types.state import GaussianState
 from ...types.track import Track
+from ..neighbour import GlobalNearestNeighbour, GNNWith2DAssignment, NearestNeighbour
 
 
-@pytest.fixture(params=[
-    NearestNeighbour, GlobalNearestNeighbour, GNNWith2DAssignment])
+@pytest.fixture(params=[NearestNeighbour, GlobalNearestNeighbour, GNNWith2DAssignment])
 def associator(request, distance_hypothesiser):
     return request.param(distance_hypothesiser)
 
@@ -37,9 +35,9 @@ def test_nearest_neighbour(associator):
     assert len(associations) == 2
 
     # Each track should associate with a unique detection
-    associated_measurements = [hypothesis.measurement
-                               for hypothesis in associations.values()
-                               if hypothesis.measurement]
+    associated_measurements = [
+        hypothesis.measurement for hypothesis in associations.values() if hypothesis.measurement
+    ]
     assert len(associated_measurements) == len(set(associated_measurements))
 
 
@@ -55,8 +53,7 @@ def test_missed_detection_nearest_neighbour(associator):
     associations = associator.associate(tracks, detections, timestamp)
 
     # Best hypothesis should be missed detection hypothesis
-    assert all(not hypothesis.measurement
-               for hypothesis in associations.values())
+    assert all(not hypothesis.measurement for hypothesis in associations.values())
 
 
 def test_probability_gnn(probability_associator):
@@ -69,14 +66,13 @@ def test_probability_gnn(probability_associator):
     tracks = {t1, t2}
     detections = {d1, d2}
 
-    associations = probability_associator.associate(
-        tracks, detections, timestamp)
+    associations = probability_associator.associate(tracks, detections, timestamp)
 
     # There should be 2 associations
     assert len(associations) == 2
 
     # Each track should associate with a unique detection
-    associated_measurements = [hypothesis.measurement
-                               for hypothesis in associations.values()
-                               if hypothesis.measurement]
+    associated_measurements = [
+        hypothesis.measurement for hypothesis in associations.values() if hypothesis.measurement
+    ]
     assert len(associated_measurements) == len(set(associated_measurements))

@@ -3,9 +3,9 @@ from datetime import timedelta
 import numpy as np
 from scipy.stats import multinomial
 
-from .base import Property
 from ...models.transition import TransitionModel
 from ...types.array import Matrix, StateVector
+from .base import Property
 
 
 class MarkovianTransitionModel(TransitionModel):
@@ -21,11 +21,13 @@ class MarkovianTransitionModel(TransitionModel):
 
     Intended to be used in conjunction with the :class:`~.CategoricalState` type.
     """
+
     transition_matrix: Matrix = Property(
         doc=r"Stochastic matrix :math:`F_t^{ij} = F^{ij} = P(\phi_t^i|\phi_{t-1}^j)` determining "
-            r"the conditional probability that an object is category :math:`\phi^i` at 'time' "
-            r":math:`t` given that it was category :math:`\phi^j` at 'time' :math:`t-1`. "
-            r"Columns are normalised.")
+        r"the conditional probability that an object is category :math:`\phi^i` at 'time' "
+        r":math:`t` given that it was category :math:`\phi^j` at 'time' :math:`t-1`. "
+        r"Columns are normalised."
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -33,7 +35,9 @@ class MarkovianTransitionModel(TransitionModel):
         # Normalise matrix columns
         self.transition_matrix = self.transition_matrix / np.sum(self.transition_matrix, axis=0)
 
-    def function(self, state, time_interval: timedelta = None, noise: bool = False, **kwargs):
+    def function(
+        self, state, time_interval: timedelta | None = None, noise: bool = False, **kwargs
+    ):
         r"""Applies the linear transformation:
 
         .. math::

@@ -1,31 +1,38 @@
-import numpy as np
-import pytest
 import datetime
 
-from ..clutter import ClutterModel
-from ...measurement.nonlinear import CartesianToBearingRange, CartesianToElevationBearingRange
-from ....types.detection import Clutter
+import numpy as np
+import pytest
+
 from ....types.array import StateVector
+from ....types.detection import Clutter
 from ....types.state import State
+from ...measurement.nonlinear import CartesianToBearingRange, CartesianToElevationBearingRange
+from ..clutter import ClutterModel
 
 
 @pytest.mark.parametrize("clutter_rate", [5, 10])
-@pytest.mark.parametrize("dist_params, meas_model", [
-        (((-50, 50), (-50, 50)),
-            CartesianToBearingRange(ndim_state=6,
-                                    mapping=[0, 2],
-                                    noise_covar=np.eye(2))),
-        (((-50, 50), (-50, 50), (-50, 50)),
-            CartesianToElevationBearingRange(ndim_state=6,
-                                             mapping=[0, 2, 4],
-                                             noise_covar=np.eye(4)))
+@pytest.mark.parametrize(
+    "dist_params, meas_model",
+    [
+        (
+            ((-50, 50), (-50, 50)),
+            CartesianToBearingRange(ndim_state=6, mapping=[0, 2], noise_covar=np.eye(2)),
+        ),
+        (
+            ((-50, 50), (-50, 50), (-50, 50)),
+            CartesianToElevationBearingRange(
+                ndim_state=6, mapping=[0, 2, 4], noise_covar=np.eye(4)
+            ),
+        ),
     ],
-    ids=["Clutter2D", "Clutter3D"]
+    ids=["Clutter2D", "Clutter3D"],
 )
 def test_model(clutter_rate, dist_params, meas_model):
-    model_test = ClutterModel(clutter_rate=clutter_rate,
-                              distribution=np.random.default_rng().uniform,
-                              dist_params=dist_params)
+    model_test = ClutterModel(
+        clutter_rate=clutter_rate,
+        distribution=np.random.default_rng().uniform,
+        dist_params=dist_params,
+    )
 
     model_test.measurement_model = meas_model
 
@@ -47,22 +54,28 @@ def test_model(clutter_rate, dist_params, meas_model):
 
 
 @pytest.mark.parametrize("clutter_rate", [5])
-@pytest.mark.parametrize("dist_params, meas_model", [
-        (((-50, 50), (-50, 50)),
-            CartesianToBearingRange(ndim_state=6,
-                                    mapping=[0, 2],
-                                    noise_covar=np.eye(2))),
-        (((-50, 50), (-50, 50), (-50, 50)),
-            CartesianToElevationBearingRange(ndim_state=6,
-                                             mapping=[0, 2, 4],
-                                             noise_covar=np.eye(4)))
+@pytest.mark.parametrize(
+    "dist_params, meas_model",
+    [
+        (
+            ((-50, 50), (-50, 50)),
+            CartesianToBearingRange(ndim_state=6, mapping=[0, 2], noise_covar=np.eye(2)),
+        ),
+        (
+            ((-50, 50), (-50, 50), (-50, 50)),
+            CartesianToElevationBearingRange(
+                ndim_state=6, mapping=[0, 2, 4], noise_covar=np.eye(4)
+            ),
+        ),
     ],
-    ids=["Clutter2D", "Clutter3D"]
+    ids=["Clutter2D", "Clutter3D"],
 )
 def test_ndim(clutter_rate, dist_params, meas_model):
-    model_test = ClutterModel(clutter_rate=clutter_rate,
-                              distribution=np.random.default_rng().uniform,
-                              dist_params=dist_params)
+    model_test = ClutterModel(
+        clutter_rate=clutter_rate,
+        distribution=np.random.default_rng().uniform,
+        dist_params=dist_params,
+    )
     assert model_test.ndim == len(dist_params)
 
     model_test.measurement_model = meas_model

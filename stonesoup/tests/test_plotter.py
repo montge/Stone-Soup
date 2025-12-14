@@ -9,15 +9,25 @@ from stonesoup.dataassociator.neighbour import NearestNeighbour
 from stonesoup.hypothesiser.distance import DistanceHypothesiser
 from stonesoup.measures import Mahalanobis
 from stonesoup.models.measurement.linear import LinearGaussian
-from stonesoup.models.transition.linear import CombinedLinearGaussianTransitionModel, \
-    ConstantVelocity
+from stonesoup.models.transition.linear import (
+    CombinedLinearGaussianTransitionModel,
+    ConstantVelocity,
+)
 from stonesoup.platform.base import Obstacle
 from stonesoup.platform.shape import Shape
-from stonesoup.plotter import Plotter, Dimension, AnimatedPlotterly, AnimationPlotter, Plotterly, \
-    PolarPlotterly, AnimatedPolarPlotterly, merge_dicts
+from stonesoup.plotter import (
+    AnimatedPlotterly,
+    AnimatedPolarPlotterly,
+    AnimationPlotter,
+    Dimension,
+    Plotter,
+    Plotterly,
+    PolarPlotterly,
+    merge_dicts,
+)
 from stonesoup.predictor.kalman import KalmanPredictor
 from stonesoup.sensor.radar.radar import RadarElevationBearingRange
-from stonesoup.types.detection import TrueDetection, Clutter
+from stonesoup.types.detection import Clutter, TrueDetection
 from stonesoup.types.groundtruth import GroundTruthPath, GroundTruthState
 from stonesoup.types.state import GaussianState, State, StateVector
 from stonesoup.types.track import Track
@@ -25,29 +35,37 @@ from stonesoup.updater.kalman import KalmanUpdater
 
 # Setup simulation to test the plotter functionality
 start_time = datetime.now()
-transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                          ConstantVelocity(0.005)])
+transition_model = CombinedLinearGaussianTransitionModel(
+    [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+)
 truth = GroundTruthPath([GroundTruthState([0, 1, 0, 1], timestamp=start_time)])
 for k in range(1, 21):
-    truth.append(GroundTruthState(
-        transition_model.function(truth[k-1], noise=True, time_interval=timedelta(seconds=1)),
-        timestamp=start_time+timedelta(seconds=k)))
+    truth.append(
+        GroundTruthState(
+            transition_model.function(
+                truth[k - 1], noise=True, time_interval=timedelta(seconds=1)
+            ),
+            timestamp=start_time + timedelta(seconds=k),
+        )
+    )
 timesteps = [start_time + timedelta(seconds=k) for k in range(1, 21)]
 
 measurement_model = LinearGaussian(
-    ndim_state=4,
-    mapping=(0, 2),
-    noise_covar=np.array([[0.75, 0],
-                          [0, 0.75]]))
+    ndim_state=4, mapping=(0, 2), noise_covar=np.array([[0.75, 0], [0, 0.75]])
+)
 true_measurements = []
 for state in truth:
     measurement_set = set()
     # Generate actual detection from the state with a 1-p_d chance that no detection is received.
     measurement = measurement_model.function(state, noise=True)
-    measurement_set.add(TrueDetection(state_vector=measurement,
-                                      groundtruth_path=truth,
-                                      timestamp=state.timestamp,
-                                      measurement_model=measurement_model))
+    measurement_set.add(
+        TrueDetection(
+            state_vector=measurement,
+            groundtruth_path=truth,
+            timestamp=state.timestamp,
+            measurement_model=measurement_model,
+        )
+    )
 
     true_measurements.append(measurement_set)
 
@@ -55,13 +73,16 @@ clutter_measurements = []
 for state in truth:
     clutter_measurement_set = set()
     random_state = state.from_state(
-        state=state,
-        state_vector=np.random.uniform(-20, 20, size=state.state_vector.size)
+        state=state, state_vector=np.random.uniform(-20, 20, size=state.state_vector.size)
     )
     measurement = measurement_model.function(random_state, noise=True)
-    clutter_measurement_set.add(Clutter(state_vector=measurement,
-                                        timestamp=state.timestamp,
-                                        measurement_model=measurement_model))
+    clutter_measurement_set.add(
+        Clutter(
+            state_vector=measurement,
+            timestamp=state.timestamp,
+            measurement_model=measurement_model,
+        )
+    )
 
     clutter_measurements.append(clutter_measurement_set)
 
@@ -77,9 +98,9 @@ data_associator = NearestNeighbour(hypothesiser)
 prior = GaussianState([[0], [1], [0], [1]], np.diag([1.5, 0.5, 1.5, 0.5]), timestamp=start_time)
 track = Track([prior])
 for n, measurements in enumerate(true_measurements):
-    hypotheses = data_associator.associate([track],
-                                           measurements,
-                                           start_time + timedelta(seconds=n))
+    hypotheses = data_associator.associate(
+        [track], measurements, start_time + timedelta(seconds=n)
+    )
     hypothesis = hypotheses[track]  # get the hypothesis for the specified track
 
     if hypothesis.measurement:
@@ -90,29 +111,24 @@ for n, measurements in enumerate(true_measurements):
 
 sensor2d = RadarElevationBearingRange(
     position_mapping=(0, 2),
-    noise_covar=np.array([[0, 0],
-                          [0, 0]]),
+    noise_covar=np.array([[0, 0], [0, 0]]),
     ndim_state=4,
-    position=np.array([[10], [50]]))
+    position=np.array([[10], [50]]),
+)
 
 sensor3d = RadarElevationBearingRange(
     position_mapping=(0, 2, 4),
-    noise_covar=np.array([[0, 0, 0],
-                          [0, 0, 0]]),
+    noise_covar=np.array([[0, 0, 0], [0, 0, 0]]),
     ndim_state=6,
-    position=np.array([[10], [50], [0]])
+    position=np.array([[10], [50], [0]]),
 )
 
 shape = Shape(shape_data=np.array([[-2, -2, 2, 2], [-2, 2, 2, -2]]))
-obstacle_list = [Obstacle(shape=shape,
-                          states=State(StateVector([[0], [0]])),
-                          position_mapping=(0, 1)),
-                 Obstacle(shape=shape,
-                          states=State(StateVector([[0], [5]])),
-                          position_mapping=(0, 1)),
-                 Obstacle(shape=shape,
-                          states=State(StateVector([[5], [0]])),
-                          position_mapping=(0, 1))]
+obstacle_list = [
+    Obstacle(shape=shape, states=State(StateVector([[0], [0]])), position_mapping=(0, 1)),
+    Obstacle(shape=shape, states=State(StateVector([[0], [5]])), position_mapping=(0, 1)),
+    Obstacle(shape=shape, states=State(StateVector([[5], [0]])), position_mapping=(0, 1)),
+]
 
 
 @pytest.fixture(autouse=True)
@@ -127,8 +143,14 @@ def close_figs():
 def plotter_class(request):
 
     plotter_class = request.param
-    assert plotter_class in {Plotter, Plotterly, AnimationPlotter,
-                             PolarPlotterly, AnimatedPlotterly, AnimatedPolarPlotterly}
+    assert plotter_class in {
+        Plotter,
+        Plotterly,
+        AnimationPlotter,
+        PolarPlotterly,
+        AnimatedPlotterly,
+        AnimatedPolarPlotterly,
+    }
 
     def _generate_animated_plotterly(*args, **kwargs):
         return plotter_class(*args, timesteps=timesteps, **kwargs)
@@ -159,14 +181,22 @@ def test_particle_3d():  # warning should arise if particle is attempted in 3d m
 
 def test_plot_sensors():
     plotter3d = Plotter(Dimension.THREE)
-    plotter3d.plot_sensors(sensor3d, marker='o', color='red')
-    assert 'Sensors' in plotter3d.legend_dict
+    plotter3d.plot_sensors(sensor3d, marker="o", color="red")
+    assert "Sensors" in plotter3d.legend_dict
 
 
 @pytest.mark.parametrize(
     "plotter_class",
-    [Plotter, Plotterly, AnimationPlotter, PolarPlotterly, AnimatedPlotterly,
-     AnimatedPolarPlotterly], indirect=True)
+    [
+        Plotter,
+        Plotterly,
+        AnimationPlotter,
+        PolarPlotterly,
+        AnimatedPlotterly,
+        AnimatedPolarPlotterly,
+    ],
+    indirect=True,
+)
 def test_empty_tracks(plotter_class):
     plotter = plotter_class()
     plotter.plot_tracks(set(), [0, 2])
@@ -186,8 +216,9 @@ def test_equal_3daxis():
     plotter_xy_default = Plotter(dimension=Dimension.THREE)
     plotter_xy = Plotter(dimension=Dimension.THREE)
     plotter_xyz = Plotter(dimension=Dimension.THREE)
-    truths = GroundTruthPath(states=[State(state_vector=[-1000, -20, -3]),
-                                     State(state_vector=[1000, 20, 3])])
+    truths = GroundTruthPath(
+        states=[State(state_vector=[-1000, -20, -3]), State(state_vector=[1000, 20, 3])]
+    )
     plotter_default.plot_ground_truths(truths, mapping=[0, 1, 2])
     plotter_xy_default.plot_ground_truths(truths, mapping=[0, 1, 2])
     plotter_xy.plot_ground_truths(truths, mapping=[1, 1, 2])
@@ -197,7 +228,7 @@ def test_equal_3daxis():
     plotter_xyz.set_equal_3daxis([0, 1, 2])
     plotters = [plotter_default, plotter_xy_default, plotter_xy, plotter_xyz]
     lengths = [3, 2, 2, 1]
-    for plotter, length in zip(plotters, lengths):
+    for plotter, length in zip(plotters, lengths, strict=False):
         min_xyz = [0, 0, 0]
         max_xyz = [0, 0, 0]
         for i in range(3):
@@ -210,8 +241,9 @@ def test_equal_3daxis():
 
 def test_equal_3daxis_2d():
     plotter = Plotter(dimension=Dimension.TWO)
-    truths = GroundTruthPath(states=[State(state_vector=[-1000, -20, -3]),
-                                     State(state_vector=[1000, 20, 3])])
+    truths = GroundTruthPath(
+        states=[State(state_vector=[-1000, -20, -3]), State(state_vector=[1000, 20, 3])]
+    )
     plotter.plot_ground_truths(truths, mapping=[0, 1])
     plotter.set_equal_3daxis()
 
@@ -226,26 +258,30 @@ def test_plot_density_equal_x_y():
     plotter = Plotter()
     start_time = datetime.now()
     transition_model = CombinedLinearGaussianTransitionModel(
-        [ConstantVelocity(0), ConstantVelocity(0)])
+        [ConstantVelocity(0), ConstantVelocity(0)]
+    )
     truth = GroundTruthPath([GroundTruthState([0, 1, 0, 1], start_time)])
     for k in range(20):
-        truth.append(GroundTruthState(
-            transition_model.function(truth[k], noise=True,
-                                      time_interval=timedelta(seconds=1)),
-            timestamp=start_time + timedelta(seconds=k + 1)))
+        truth.append(
+            GroundTruthState(
+                transition_model.function(
+                    truth[k], noise=True, time_interval=timedelta(seconds=1)
+                ),
+                timestamp=start_time + timedelta(seconds=k + 1),
+            )
+        )
     with pytest.raises(ValueError):
         plotter.plot_density({truth}, index=None)
 
 
 def test_plot_complex_uncertainty():
     plotter = Plotter()
-    track = Track([
-        GaussianState(
-            state_vector=[0, 0],
-            covar=[[10, -1], [1, 10]])
-    ])
-    with pytest.warns(UserWarning, match="Can not plot uncertainty for all states due to complex "
-                                         "eigenvalues or eigenvectors"):
+    track = Track([GaussianState(state_vector=[0, 0], covar=[[10, -1], [1, 10]])])
+    with pytest.warns(
+        UserWarning,
+        match="Can not plot uncertainty for all states due to complex "
+        "eigenvalues or eigenvectors",
+    ):
 
         plotter.plot_tracks(track, mapping=[0, 1], uncertainty=True)
 
@@ -261,10 +297,7 @@ def test_animation_plotter():
     animation_plotter_with_title.plot_tracks(track, [0, 2])
     animation_plotter_with_title.run()
     with warnings.catch_warnings():
-        warnings.filterwarnings(
-            'ignore',
-            "Animation was deleted without rendering anything"
-        )
+        warnings.filterwarnings("ignore", "Animation was deleted without rendering anything")
         del animation_plotter
         del animation_plotter_with_title
 
@@ -287,16 +320,18 @@ def test_animated_plotterly_empty():
 
 
 def test_animated_plotterly_sensor_plot():
-    plotter = AnimatedPlotterly([start_time, start_time+timedelta(seconds=1)])
+    plotter = AnimatedPlotterly([start_time, start_time + timedelta(seconds=1)])
     plotter.plot_sensors(sensor2d)
 
 
 def test_animated_plotterly_uneven_times():
-    with pytest.warns(UserWarning, match="Timesteps are not equally spaced, so the passage of "
-                                         "time is not linear"):
-        AnimatedPlotterly([start_time,
-                           start_time + timedelta(seconds=1),
-                           start_time + timedelta(seconds=3)])
+    with pytest.warns(
+        UserWarning,
+        match="Timesteps are not equally spaced, so the passage of " "time is not linear",
+    ):
+        AnimatedPlotterly(
+            [start_time, start_time + timedelta(seconds=1), start_time + timedelta(seconds=3)]
+        )
 
 
 def test_plotterly_empty():
@@ -346,13 +381,9 @@ def test_plotterly_3d():
         plotter3d.plot_tracks(track, [0, 1, 2], particle=True)
 
 
-@pytest.mark.parametrize("dim, mapping", [
-    (1, [0, 1]),
-    (1, [0, 1, 2]),
-    (2, [0]),
-    (2, [0, 1, 2]),
-    (3, [0]),
-    (3, [0, 1])])
+@pytest.mark.parametrize(
+    "dim, mapping", [(1, [0, 1]), (1, [0, 1, 2]), (2, [0]), (2, [0, 1, 2]), (3, [0]), (3, [0, 1])]
+)
 def test_plotterly_wrong_dimension(dim, mapping):
     # ensure that plotter doesn't run for truth, measurements, and tracks
     # if dimension of those are not the same as the plotter's dimension
@@ -367,9 +398,10 @@ def test_plotterly_wrong_dimension(dim, mapping):
         plotter.plot_tracks(track, mapping)
 
 
-@pytest.mark.parametrize("labels", [
-    None, ["Tracks"], ["Ground Truth", "Tracks"],
-    ["Ground Truth", "Measurements", "Tracks"]])
+@pytest.mark.parametrize(
+    "labels",
+    [None, ["Tracks"], ["Ground Truth", "Tracks"], ["Ground Truth", "Measurements", "Tracks"]],
+)
 def test_hide_plot(labels):
     plotter = Plotterly()
     plotter.plot_ground_truths(truth, [0, 1])
@@ -394,9 +426,10 @@ def test_hide_plot(labels):
     assert hidden + showing == 3
 
 
-@pytest.mark.parametrize("labels", [
-    None, ["Tracks"], ["Ground Truth", "Tracks"],
-    ["Ground Truth", "Measurements", "Tracks"]])
+@pytest.mark.parametrize(
+    "labels",
+    [None, ["Tracks"], ["Ground Truth", "Tracks"], ["Ground Truth", "Measurements", "Tracks"]],
+)
 def test_show_plot(labels):
     plotter = Plotterly()
     plotter.plot_ground_truths(truth, [0, 1])
@@ -423,13 +456,25 @@ def test_show_plot(labels):
 
 @pytest.mark.parametrize(
     "plotter_class",
-    [Plotter, Plotterly, AnimationPlotter, PolarPlotterly, AnimatedPlotterly,
-     AnimatedPolarPlotterly], indirect=True)
+    [
+        Plotter,
+        Plotterly,
+        AnimationPlotter,
+        PolarPlotterly,
+        AnimatedPlotterly,
+        AnimatedPolarPlotterly,
+    ],
+    indirect=True,
+)
 @pytest.mark.parametrize(
     "_measurements",
-    [true_measurements, clutter_measurements, all_measurements,
-     all_measurements[0]  # Tests a single measurement outside of a Collection should still run
-     ])
+    [
+        true_measurements,
+        clutter_measurements,
+        all_measurements,
+        all_measurements[0],  # Tests a single measurement outside of a Collection should still run
+    ],
+)
 def test_plotters_plot_measurements_2d(plotter_class, _measurements):
     plotter = plotter_class()
     plotter.plot_measurements(_measurements, [0, 2])
@@ -437,19 +482,20 @@ def test_plotters_plot_measurements_2d(plotter_class, _measurements):
 
 @pytest.mark.parametrize(
     "plotter_class",
-    [Plotterly, AnimationPlotter, PolarPlotterly, AnimatedPlotterly,
-     AnimatedPolarPlotterly], indirect=True)
+    [Plotterly, AnimationPlotter, PolarPlotterly, AnimatedPlotterly, AnimatedPolarPlotterly],
+    indirect=True,
+)
 @pytest.mark.parametrize(
-    "_measurements, _show_clutter",
-    [(list(), True), (list(), False), (clutter_measurement_set, False)])
+    "_measurements, _show_clutter", [([], True), ([], False), (clutter_measurement_set, False)]
+)
 def test_plotters_plot_measurements_empty_silent(plotter_class, _measurements, _show_clutter):
     plotter = plotter_class()
     plotter.plot_measurements(_measurements, [0, 2], show_clutter=_show_clutter)
 
 
 @pytest.mark.parametrize(
-    "_measurements, _show_clutter",
-    [(list(), True), (list(), False), (clutter_measurement_set, False)])
+    "_measurements, _show_clutter", [([], True), ([], False), (clutter_measurement_set, False)]
+)
 def test_plotters_plot_measurements_empty_warn(_measurements, _show_clutter):
     with pytest.warns(UserWarning, match="No artists with labels found to put in legend"):
         plotter = Plotter()
@@ -458,14 +504,18 @@ def test_plotters_plot_measurements_empty_warn(_measurements, _show_clutter):
 
 @pytest.mark.parametrize(
     "_measurements, _show_clutter, expected_plot_truths_length",
-    [(true_measurements, True, len(true_measurements)),
-     (true_measurements, False, len(true_measurements)),
-     (all_measurements, False, len(true_measurements)),
-     (clutter_measurements, False, None)])
+    [
+        (true_measurements, True, len(true_measurements)),
+        (true_measurements, False, len(true_measurements)),
+        (all_measurements, False, len(true_measurements)),
+        (clutter_measurements, False, None),
+    ],
+)
 # Ignore this warning which occurs when there is no data to plot (e.g. last test case here)
 @pytest.mark.filterwarnings("ignore:.*No artists with labels found to put in legend.*:UserWarning")
-def test_plotters_plot_measurements_count_no_clutter(_measurements, _show_clutter,
-                                                     expected_plot_truths_length):
+def test_plotters_plot_measurements_count_no_clutter(
+    _measurements, _show_clutter, expected_plot_truths_length
+):
     plotter = Plotter()
     artist_list = plotter.plot_measurements(_measurements, [0, 2], show_clutter=_show_clutter)
 
@@ -482,11 +532,14 @@ def test_plotters_plot_measurements_count_no_clutter(_measurements, _show_clutte
 
 @pytest.mark.parametrize(
     "_measurements, _show_clutter, expected_plot_truths_length, expected_plot_clutter_length",
-    [(all_measurements, True, len(true_measurements), len(clutter_measurements)),
-     (clutter_measurements, True, None, len(clutter_measurements))])
-def test_plotters_plot_measurements_count_with_clutter(_measurements, _show_clutter,
-                                                       expected_plot_truths_length,
-                                                       expected_plot_clutter_length):
+    [
+        (all_measurements, True, len(true_measurements), len(clutter_measurements)),
+        (clutter_measurements, True, None, len(clutter_measurements)),
+    ],
+)
+def test_plotters_plot_measurements_count_with_clutter(
+    _measurements, _show_clutter, expected_plot_truths_length, expected_plot_clutter_length
+):
     plotter = Plotter()
     artist_list = plotter.plot_measurements(_measurements, [0, 2], show_clutter=_show_clutter)
 
@@ -516,8 +569,16 @@ def test_plotters_plot_measurements_count_with_clutter(_measurements, _show_clut
 
 @pytest.mark.parametrize(
     "plotter_class",
-    [Plotter, Plotterly, AnimationPlotter, PolarPlotterly, AnimatedPlotterly,
-     AnimatedPolarPlotterly], indirect=True)
+    [
+        Plotter,
+        Plotterly,
+        AnimationPlotter,
+        PolarPlotterly,
+        AnimatedPlotterly,
+        AnimatedPolarPlotterly,
+    ],
+    indirect=True,
+)
 def test_plotters_plot_tracks(plotter_class):
     plotter = plotter_class()
     plotter.plot_tracks(track, [0, 2])
@@ -525,13 +586,15 @@ def test_plotters_plot_tracks(plotter_class):
 
 @pytest.mark.parametrize(
     "plotter_class",
-    [Plotter,
-     Plotterly,
-     pytest.param(AnimationPlotter, marks=pytest.mark.xfail(raises=NotImplementedError)),
-     pytest.param(PolarPlotterly, marks=pytest.mark.xfail(raises=NotImplementedError)),
-     AnimatedPlotterly,
-     pytest.param(AnimatedPolarPlotterly, marks=pytest.mark.xfail(raises=NotImplementedError))],
-    indirect=True
+    [
+        Plotter,
+        Plotterly,
+        pytest.param(AnimationPlotter, marks=pytest.mark.xfail(raises=NotImplementedError)),
+        pytest.param(PolarPlotterly, marks=pytest.mark.xfail(raises=NotImplementedError)),
+        AnimatedPlotterly,
+        pytest.param(AnimatedPolarPlotterly, marks=pytest.mark.xfail(raises=NotImplementedError)),
+    ],
+    indirect=True,
 )
 def test_plotters_plot_track_uncertainty(plotter_class):
     plotter = plotter_class()
@@ -540,11 +603,8 @@ def test_plotters_plot_track_uncertainty(plotter_class):
 
 @pytest.mark.xfail(raises=NotImplementedError)
 @pytest.mark.parametrize(
-    "plotter_class",
-    [AnimationPlotter,
-     PolarPlotterly,
-     AnimatedPolarPlotterly],
-    indirect=True)
+    "plotter_class", [AnimationPlotter, PolarPlotterly, AnimatedPolarPlotterly], indirect=True
+)
 def test_plotters_plot_track_particle(plotter_class):
     plotter = plotter_class()
     plotter.plot_tracks(track, [0, 2], particle=True)
@@ -552,8 +612,16 @@ def test_plotters_plot_track_particle(plotter_class):
 
 @pytest.mark.parametrize(
     "plotter_class",
-    [Plotter, Plotterly, AnimationPlotter, PolarPlotterly, AnimatedPlotterly,
-     AnimatedPolarPlotterly], indirect=True)
+    [
+        Plotter,
+        Plotterly,
+        AnimationPlotter,
+        PolarPlotterly,
+        AnimatedPlotterly,
+        AnimatedPolarPlotterly,
+    ],
+    indirect=True,
+)
 def test_plotters_plot_truths(plotter_class):
     plotter = plotter_class()
     plotter.plot_ground_truths(truth, [0, 2])
@@ -561,28 +629,32 @@ def test_plotters_plot_truths(plotter_class):
 
 @pytest.mark.parametrize(
     "plotter_class",
-    [Plotter,
-     Plotterly,
-     pytest.param(AnimationPlotter, marks=pytest.mark.xfail(raises=NotImplementedError)),
-     pytest.param(PolarPlotterly, marks=pytest.mark.xfail(raises=NotImplementedError)),
-     AnimatedPlotterly,
-     pytest.param(AnimatedPolarPlotterly, marks=pytest.mark.xfail(raises=NotImplementedError))],
-    indirect=True
+    [
+        Plotter,
+        Plotterly,
+        pytest.param(AnimationPlotter, marks=pytest.mark.xfail(raises=NotImplementedError)),
+        pytest.param(PolarPlotterly, marks=pytest.mark.xfail(raises=NotImplementedError)),
+        AnimatedPlotterly,
+        pytest.param(AnimatedPolarPlotterly, marks=pytest.mark.xfail(raises=NotImplementedError)),
+    ],
+    indirect=True,
 )
 def test_plotters_plot_sensors(plotter_class):
     plotter = plotter_class()
     plotter.plot_sensors(sensor2d)
 
 
-@pytest.mark.parametrize("plotter_class",
-                         [Plotterly, PolarPlotterly, AnimatedPlotterly, PolarPlotterly],
-                         indirect=True)
-@pytest.mark.parametrize("_measurements, expected_labels",
-                         [(true_measurements, {'Measurements'}),
-                          (clutter_measurements, {'Measurements<br>(Clutter)'}),
-                          (all_measurements, {'Measurements<br>(Detections)',
-                                              'Measurements<br>(Clutter)'})
-                          ])
+@pytest.mark.parametrize(
+    "plotter_class", [Plotterly, PolarPlotterly, AnimatedPlotterly, PolarPlotterly], indirect=True
+)
+@pytest.mark.parametrize(
+    "_measurements, expected_labels",
+    [
+        (true_measurements, {"Measurements"}),
+        (clutter_measurements, {"Measurements<br>(Clutter)"}),
+        (all_measurements, {"Measurements<br>(Detections)", "Measurements<br>(Clutter)"}),
+    ],
+)
 def test_plotterlys_plot_measurements_label(plotter_class, _measurements, expected_labels):
     plotter = plotter_class()
     plotter.plot_measurements(_measurements, [0, 2])
@@ -590,32 +662,37 @@ def test_plotterlys_plot_measurements_label(plotter_class, _measurements, expect
     assert actual_labels == expected_labels
 
 
-@pytest.mark.parametrize("plotter_class",
-                         [Plotterly, PolarPlotterly, AnimatedPlotterly, PolarPlotterly],
-                         indirect=True)
-@pytest.mark.parametrize("_measurements, _show_clutter, expected_labels",
-                         [(true_measurements, True, {'Measurements'}),
-                          (true_measurements, False, {'Measurements'}),
-                          (clutter_measurements, True, {'Measurements<br>(Clutter)'}),
-                          (clutter_measurements, False, set()),
-                          (all_measurements, True, {'Measurements<br>(Detections)',
-                                                    'Measurements<br>(Clutter)'}),
-                          (all_measurements, False, {'Measurements'})
-                          ])
-def test_plotterlys_plot_measurements_label_adjust_clutter(plotter_class, _measurements,
-                                                           _show_clutter, expected_labels):
+@pytest.mark.parametrize(
+    "plotter_class", [Plotterly, PolarPlotterly, AnimatedPlotterly, PolarPlotterly], indirect=True
+)
+@pytest.mark.parametrize(
+    "_measurements, _show_clutter, expected_labels",
+    [
+        (true_measurements, True, {"Measurements"}),
+        (true_measurements, False, {"Measurements"}),
+        (clutter_measurements, True, {"Measurements<br>(Clutter)"}),
+        (clutter_measurements, False, set()),
+        (all_measurements, True, {"Measurements<br>(Detections)", "Measurements<br>(Clutter)"}),
+        (all_measurements, False, {"Measurements"}),
+    ],
+)
+def test_plotterlys_plot_measurements_label_adjust_clutter(
+    plotter_class, _measurements, _show_clutter, expected_labels
+):
     plotter = plotter_class()
     plotter.plot_measurements(_measurements, [0, 2], show_clutter=_show_clutter)
     actual_labels = {fig_data.legendgroup for fig_data in plotter.fig.data}
     assert actual_labels == expected_labels
 
 
-@pytest.mark.parametrize("_measurements, expected_labels",
-                         [(true_measurements, {'Measurements'}),
-                          (clutter_measurements, {'Measurements\n(Clutter)'}),
-                          (all_measurements, {'Measurements\n(Detections)',
-                                              'Measurements\n(Clutter)'})
-                          ])
+@pytest.mark.parametrize(
+    "_measurements, expected_labels",
+    [
+        (true_measurements, {"Measurements"}),
+        (clutter_measurements, {"Measurements\n(Clutter)"}),
+        (all_measurements, {"Measurements\n(Detections)", "Measurements\n(Clutter)"}),
+    ],
+)
 def test_plotter_plot_measurements_label(_measurements, expected_labels):
     plotter = Plotter()
     plotter.plot_measurements(_measurements, [0, 2])
@@ -623,20 +700,22 @@ def test_plotter_plot_measurements_label(_measurements, expected_labels):
     assert actual_labels == expected_labels
 
 
-@pytest.mark.parametrize("_measurements, _show_clutter, expected_labels",
-                         [(true_measurements, True, {'Measurements'}),
-                          (true_measurements, False, {'Measurements'}),
-                          (clutter_measurements, True, {'Measurements\n(Clutter)'}),
-                          (clutter_measurements, False, set()),
-                          (all_measurements, True, {'Measurements\n(Detections)',
-                                                    'Measurements\n(Clutter)'}),
-                          (all_measurements, False, {'Measurements'})
-                          ])
+@pytest.mark.parametrize(
+    "_measurements, _show_clutter, expected_labels",
+    [
+        (true_measurements, True, {"Measurements"}),
+        (true_measurements, False, {"Measurements"}),
+        (clutter_measurements, True, {"Measurements\n(Clutter)"}),
+        (clutter_measurements, False, set()),
+        (all_measurements, True, {"Measurements\n(Detections)", "Measurements\n(Clutter)"}),
+        (all_measurements, False, {"Measurements"}),
+    ],
+)
 @pytest.mark.filterwarnings("ignore:.*No artists with labels found to put in legend.*:UserWarning")
 # Ignore this warning which occurs when there is no data to plot
-def test_plotter_plot_measurements_label_adjust_clutter(_measurements,
-                                                        _show_clutter,
-                                                        expected_labels):
+def test_plotter_plot_measurements_label_adjust_clutter(
+    _measurements, _show_clutter, expected_labels
+):
     plotter = Plotter()
     plotter.plot_measurements(_measurements, [0, 2], show_clutter=_show_clutter)
     actual_labels = set(plotter.legend_dict.keys())
@@ -649,25 +728,30 @@ test_merge_dicts_data = {
     "Non-overlapping keys": (({"a": 1}, {"b": 2}), {"a": 1, "b": 2}),
     "Overlapping keys (non-dict values)": (({"a": 1}, {"b": 2}), {"a": 1, "b": 2}),
     "Nested dictionaries": (({"a": {"b": 1}}, {"a": {"c": 2}}), {"a": {"b": 1, "c": 2}}),
-    "Deeply nested dictionaries": (({"a": {"b": {"c": 1}}}, {"a": {"b": {"d": 2}}}),
-                                   {"a": {"b": {"c": 1, "d": 2}}}),
+    "Deeply nested dictionaries": (
+        ({"a": {"b": {"c": 1}}}, {"a": {"b": {"d": 2}}}),
+        {"a": {"b": {"c": 1, "d": 2}}},
+    ),
     "Overwriting a dict with a non-dict": (({"a": {"b": 1}}, {"a": 2}), {"a": 2}),
     "Merging three dictionaries": (({"a": 1}, {"b": 2}, {"c": 3}), {"a": 1, "b": 2, "c": 3}),
-    "Complex nested merge scenario": (({"a": {"b": 1}}, {"a": {"c": {"d": 2}}}),
-                                      {"a": {"b": 1, "c": {"d": 2}}}),
+    "Complex nested merge scenario": (
+        ({"a": {"b": 1}}, {"a": {"c": {"d": 2}}}),
+        {"a": {"b": 1, "c": {"d": 2}}},
+    ),
 }
 
 
 @pytest.mark.parametrize(
-        "dicts, expected",
-        test_merge_dicts_data.values(),
-        ids=test_merge_dicts_data.keys())
+    "dicts, expected", test_merge_dicts_data.values(), ids=test_merge_dicts_data.keys()
+)
 def test_merge(dicts: tuple[dict], expected: dict):
     assert merge_dicts(*dicts) == expected
 
 
-@pytest.fixture(scope="module", params=[
-    Plotter(), Plotterly(), AnimationPlotter(), AnimatedPlotterly(timesteps=timesteps)])
+@pytest.fixture(
+    scope="module",
+    params=[Plotter(), Plotterly(), AnimationPlotter(), AnimatedPlotterly(timesteps=timesteps)],
+)
 def plotters(request):
     return request.param
 

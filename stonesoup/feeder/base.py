@@ -1,9 +1,10 @@
 """Base classes for Stone Soup feeder"""
+
 from abc import abstractmethod
 
 from ..base import Property
-from ..reader import Reader, DetectionReader, GroundTruthReader
 from ..buffered_generator import BufferedGenerator
+from ..reader import DetectionReader, GroundTruthReader, Reader
 
 
 class Feeder(Reader):

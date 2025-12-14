@@ -1,10 +1,10 @@
+from math import ceil, floor, trunc
 from numbers import Real
-from math import trunc, ceil, floor
 
 import numpy as np
 
 from ..functions import mod_bearing, mod_elevation
-from ..functions.orbital import mod_inclination, mod_elongitude
+from ..functions.orbital import mod_elongitude, mod_inclination
 
 
 class Angle(Real):
@@ -12,6 +12,7 @@ class Angle(Real):
 
     Angle handles modulo arithmetic for adding and subtracting angles
     """
+
     @staticmethod
     def mod_angle(value):
         return float(value)
@@ -59,7 +60,7 @@ class Angle(Real):
         return str(self._value)
 
     def __repr__(self):
-        return "{0}({1!r})".format(self.__class__.__name__, float(self))
+        return f"{self.__class__.__name__}({float(self)!r})"
 
     def __neg__(self):
         return self.__class__(-self._value)
@@ -190,7 +191,8 @@ class Angle(Real):
 
         result = np.arctan2(
             float(np.sum(np.sin(angles) * weights) / weight_sum),
-            float(np.sum(np.cos(angles) * weights) / weight_sum))
+            float(np.sum(np.cos(angles) * weights) / weight_sum),
+        )
 
         return cls(result)
 
@@ -205,6 +207,7 @@ class Bearing(Angle):
     The return type for addition and subtraction is Bearing.
     Multiplication or division produces a float object rather than Bearing.
     """
+
     @staticmethod
     def mod_angle(value):
         return mod_bearing(value)
@@ -217,6 +220,7 @@ class Elevation(Angle):
     angles. The return type for addition and subtraction is Elevation.
     Multiplication or division produces a float object rather than Elevation.
     """
+
     @staticmethod
     def mod_angle(value):
         return mod_elevation(value)
@@ -229,6 +233,7 @@ class Azimuth(Angle):
     The return type for addition and subtraction is Azimuth.
     Multiplication or division produces a float object rather than Azimuth.
     """
+
     @staticmethod
     def mod_angle(value):
         return mod_bearing(value)
@@ -259,6 +264,7 @@ class Inclination(Angle):
     The return type for addition and subtraction is Inclination.
     Multiplication or division produces a float object rather than Inclination.
     """
+
     @staticmethod
     def mod_angle(value):
         return mod_inclination(value)
@@ -271,6 +277,7 @@ class EclipticLongitude(Angle):
     The return type for addition and subtraction is Ecliptic Longitude.
     Multiplication or division produces a float object rather than Ecliptic Longitude.
     """
+
     @staticmethod
     def mod_angle(value):
         return mod_elongitude(value)

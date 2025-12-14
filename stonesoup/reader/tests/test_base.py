@@ -1,115 +1,120 @@
 """Tests for base reader classes."""
+
 import datetime
 from pathlib import Path
 from urllib.parse import ParseResult, urlparse
 
-import pytest
 import numpy as np
+import pytest
 
-from ..base import (
-    Reader, DetectionReader, GroundTruthReader, SensorDataReader,
-    FrameReader, TrackReader
-)
-from ..file import FileReader, BinaryFileReader, TextFileReader
-from ..url import UrlReader
 from ...base import Property
+from ...types.array import StateVector
 from ...types.detection import Detection
 from ...types.groundtruth import GroundTruthPath, GroundTruthState
-from ...types.track import Track
+from ...types.sensordata import ImageFrame, SensorData
 from ...types.state import State
-from ...types.sensordata import SensorData, ImageFrame
-from ...types.array import StateVector
+from ...types.track import Track
+from ..base import (
+    DetectionReader,
+    FrameReader,
+    GroundTruthReader,
+    Reader,
+    SensorDataReader,
+    TrackReader,
+)
+from ..file import BinaryFileReader, FileReader, TextFileReader
+from ..url import UrlReader
 
 
 # Concrete implementations for testing abstract base classes
 class ConcreteDetectionReader(DetectionReader):
     """Concrete implementation of DetectionReader for testing."""
+
     detections_data: list = Property(default_factory=list, doc="Test detection data")
 
     @DetectionReader.generator_method
     def detections_gen(self):
-        for timestamp, detections in self.detections_data:
-            yield timestamp, detections
+        yield from self.detections_data
 
 
 class ConcreteGroundTruthReader(GroundTruthReader):
     """Concrete implementation of GroundTruthReader for testing."""
+
     groundtruth_data: list = Property(default_factory=list, doc="Test ground truth data")
 
     @GroundTruthReader.generator_method
     def groundtruth_paths_gen(self):
-        for timestamp, paths in self.groundtruth_data:
-            yield timestamp, paths
+        yield from self.groundtruth_data
 
 
 class ConcreteSensorDataReader(SensorDataReader):
     """Concrete implementation of SensorDataReader for testing."""
+
     sensor_data_list: list = Property(default_factory=list, doc="Test sensor data")
 
     @SensorDataReader.generator_method
     def sensor_data_gen(self):
-        for timestamp, data in self.sensor_data_list:
-            yield timestamp, data
+        yield from self.sensor_data_list
 
 
 class ConcreteFrameReader(FrameReader):
     """Concrete implementation of FrameReader for testing."""
+
     frames_data: list = Property(default_factory=list, doc="Test frame data")
 
     @FrameReader.generator_method
     def frames_gen(self):
-        for timestamp, frames in self.frames_data:
-            yield timestamp, frames
+        yield from self.frames_data
 
 
 class ConcreteTrackReader(TrackReader):
     """Concrete implementation of TrackReader for testing."""
+
     tracks_data: list = Property(default_factory=list, doc="Test track data")
 
     @TrackReader.generator_method
     def tracks_gen(self):
-        for timestamp, tracks in self.tracks_data:
-            yield timestamp, tracks
+        yield from self.tracks_data
 
 
 class ConcreteFileReader(FileReader):
     """Concrete implementation of FileReader for testing."""
+
     test_data: list = Property(default_factory=list, doc="Test data")
 
     @FileReader.generator_method
     def data_gen(self):
-        for timestamp, data in self.test_data:
-            yield timestamp, data
+        yield from self.test_data
 
 
 class ConcreteBinaryFileReader(BinaryFileReader):
     """Concrete implementation of BinaryFileReader for testing."""
+
     test_data: list = Property(default_factory=list, doc="Test data")
 
     @BinaryFileReader.generator_method
     def data_gen(self):
-        for timestamp, data in self.test_data:
-            yield timestamp, data
+        yield from self.test_data
 
 
 class ConcreteTextFileReader(TextFileReader):
     """Concrete implementation of TextFileReader for testing."""
+
     test_data: list = Property(default_factory=list, doc="Test data")
 
     @TextFileReader.generator_method
     def data_gen(self):
-        for timestamp, data in self.test_data:
-            yield timestamp, data
+        yield from self.test_data
 
 
 class ConcreteUrlReader(UrlReader):
     """Concrete implementation of UrlReader for testing."""
+
     test_data: list = Property(default_factory=list, doc="Test data")
 
     @UrlReader.generator_method
     def data_gen(self):
-        for timestamp, data in self.test_data:
-            yield timestamp, data
+        yield from self.test_data
 
 
 # Fixtures
@@ -123,10 +128,7 @@ def sample_detections():
     det2 = Detection(StateVector([3.0, 4.0]), timestamp=timestamp2)
     det3 = Detection(StateVector([5.0, 6.0]), timestamp=timestamp2)
 
-    return [
-        (timestamp1, {det1}),
-        (timestamp2, {det2, det3})
-    ]
+    return [(timestamp1, {det1}), (timestamp2, {det2, det3})]
 
 
 @pytest.fixture
@@ -141,10 +143,7 @@ def sample_groundtruth():
     gt_path1 = GroundTruthPath([gt_state1])
     gt_path2 = GroundTruthPath([gt_state2])
 
-    return [
-        (timestamp1, {gt_path1}),
-        (timestamp2, {gt_path2})
-    ]
+    return [(timestamp1, {gt_path1}), (timestamp2, {gt_path2})]
 
 
 @pytest.fixture
@@ -157,10 +156,7 @@ def sample_sensor_data():
     sensor_data1 = ImageFrame(pixels=np.zeros((10, 10, 3)), timestamp=timestamp1)
     sensor_data2 = ImageFrame(pixels=np.ones((10, 10, 3)), timestamp=timestamp2)
 
-    return [
-        (timestamp1, {sensor_data1}),
-        (timestamp2, {sensor_data2})
-    ]
+    return [(timestamp1, {sensor_data1}), (timestamp2, {sensor_data2})]
 
 
 @pytest.fixture
@@ -172,10 +168,7 @@ def sample_frames():
     frame1 = ImageFrame(np.zeros((10, 10, 3)), timestamp=timestamp1)
     frame2 = ImageFrame(np.ones((10, 10, 3)), timestamp=timestamp2)
 
-    return [
-        (timestamp1, {frame1}),
-        (timestamp2, {frame2})
-    ]
+    return [(timestamp1, {frame1}), (timestamp2, {frame2})]
 
 
 @pytest.fixture
@@ -190,10 +183,7 @@ def sample_tracks():
     track1 = Track([state1])
     track2 = Track([state2])
 
-    return [
-        (timestamp1, {track1}),
-        (timestamp2, {track2})
-    ]
+    return [(timestamp1, {track1}), (timestamp2, {track2})]
 
 
 # Tests for Reader base class
@@ -263,6 +253,7 @@ def test_detection_reader_empty():
 
 def test_detection_reader_abstract_method():
     """Test that detections_gen is abstract and must be implemented."""
+
     # Create a class without implementing detections_gen
     class IncompleteDetectionReader(DetectionReader):
         pass
@@ -316,6 +307,7 @@ def test_groundtruth_reader_empty():
 
 def test_groundtruth_reader_abstract_method():
     """Test that groundtruth_paths_gen is abstract and must be implemented."""
+
     class IncompleteGroundTruthReader(GroundTruthReader):
         pass
 
@@ -368,6 +360,7 @@ def test_sensor_data_reader_empty():
 
 def test_sensor_data_reader_abstract_method():
     """Test that sensor_data_gen is abstract and must be implemented."""
+
     class IncompleteSensorDataReader(SensorDataReader):
         pass
 
@@ -443,6 +436,7 @@ def test_frame_reader_empty():
 
 def test_frame_reader_abstract_method():
     """Test that frames_gen is abstract and must be implemented."""
+
     class IncompleteFrameReader(FrameReader):
         pass
 
@@ -494,6 +488,7 @@ def test_track_reader_empty():
 
 def test_track_reader_abstract_method():
     """Test that tracks_gen is abstract and must be implemented."""
+
     class IncompleteTrackReader(TrackReader):
         pass
 
@@ -770,6 +765,7 @@ def test_file_reader_with_relative_path(tmpdir):
     """Test FileReader with relative path."""
     # Change to tmpdir to use relative paths
     import os
+
     original_cwd = os.getcwd()
     try:
         os.chdir(str(tmpdir))

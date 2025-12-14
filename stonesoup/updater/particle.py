@@ -9,17 +9,21 @@ from scipy.special import logsumexp
 
 from stonesoup.sensor.sensor import Sensor
 
-from .base import Updater
-from .kalman import KalmanUpdater, ExtendedKalmanUpdater
 from ..base import Property
 from ..functions import cholesky_eps, sde_euler_maruyama_integration
 from ..predictor.particle import MultiModelPredictor, RaoBlackwellisedMultiModelPredictor
-from ..resampler import Resampler
 from ..regulariser import Regulariser
+from ..resampler import Resampler
 from ..types.numeric import Probability
 from ..types.prediction import (
-    Prediction, ParticleMeasurementPrediction, GaussianStatePrediction, MeasurementPrediction)
+    GaussianStatePrediction,
+    MeasurementPrediction,
+    ParticleMeasurementPrediction,
+    Prediction,
+)
 from ..types.update import ParticleStateUpdate, Update
+from .base import Updater
+from .kalman import ExtendedKalmanUpdater, KalmanUpdater
 
 
 class ParticleUpdater(Updater):
@@ -33,31 +37,35 @@ class ParticleUpdater(Updater):
     required).
     """
 
-    resampler: Resampler = Property(default=None, doc='Resampler to prevent particle degeneracy')
+    resampler: Resampler = Property(default=None, doc="Resampler to prevent particle degeneracy")
     regulariser: Regulariser = Property(
         default=None,
-        doc='Regulariser to prevent particle impoverishment. The regulariser '
-            'is normally used after resampling. If a :class:`~.Resampler` is defined, '
-            'then regularisation will only take place if the particles have been '
-            'resampled. If the :class:`~.Resampler` is not defined but a '
-            ':class:`~.Regulariser` is, then regularisation will be conducted under the '
-            'assumption that the user intends for this to occur.')
+        doc="Regulariser to prevent particle impoverishment. The regulariser "
+        "is normally used after resampling. If a :class:`~.Resampler` is defined, "
+        "then regularisation will only take place if the particles have been "
+        "resampled. If the :class:`~.Resampler` is not defined but a "
+        ":class:`~.Regulariser` is, then regularisation will be conducted under the "
+        "assumption that the user intends for this to occur.",
+    )
     constraint_func: Callable = Property(
         default=None,
         doc="Callable, user defined function for applying "
-            "constraints to the states. This is done by setting the weights "
-            "of particles to 0 for particles that are not correctly constrained. "
-            "This function provides indices of the unconstrained particles and "
-            "should accept a :class:`~.ParticleState` object and return an array-like "
-            "object of logical indices. "
+        "constraints to the states. This is done by setting the weights "
+        "of particles to 0 for particles that are not correctly constrained. "
+        "This function provides indices of the unconstrained particles and "
+        "should accept a :class:`~.ParticleState` object and return an array-like "
+        "object of logical indices. ",
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         if self.resampler is None and self.regulariser is not None:
-            warnings.warn('`regulariser` has been defined but a `resampler` has not. This'
-                          ' is not normal procedure.')
+            warnings.warn(
+                "`regulariser` has been defined but a `resampler` has not. This"
+                " is not normal procedure.",
+                stacklevel=2,
+            )
 
     def update(self, hypothesis, **kwargs):
         """Particle Filter update step
@@ -77,7 +85,8 @@ class ParticleUpdater(Updater):
         predicted_state = Update.from_state(
             state=hypothesis.prediction,
             hypothesis=hypothesis,
-            timestamp=hypothesis.prediction.timestamp)
+            timestamp=hypothesis.prediction.timestamp,
+        )
 
         if hypothesis.measurement.measurement_model is None:
             measurement_model = self.measurement_model
@@ -85,8 +94,7 @@ class ParticleUpdater(Updater):
             measurement_model = hypothesis.measurement.measurement_model
 
         # p(y_k|x_k)
-        loglikelihood = measurement_model.logpdf(hypothesis.measurement, predicted_state,
-                                                 **kwargs)
+        loglikelihood = measurement_model.logpdf(hypothesis.measurement, predicted_state, **kwargs)
 
         # w_k = w_k-1 * p(y_k|x_k)
         new_weight = predicted_state.log_weight + loglikelihood
@@ -94,7 +102,7 @@ class ParticleUpdater(Updater):
         # Apply constraints if defined
         if self.constraint_func is not None:
             part_indx = self.constraint_func(predicted_state)
-            new_weight[part_indx] = -1*np.inf
+            new_weight[part_indx] = -1 * np.inf
 
         # Normalise the weights
         new_weight -= logsumexp(new_weight)
@@ -109,23 +117,25 @@ class ParticleUpdater(Updater):
             predicted_state = resampled_state
 
         if self.regulariser is not None and resample_flag:
-            predicted_state = self.regulariser.regularise(predicted_state.parent,
-                                                          predicted_state)
+            predicted_state = self.regulariser.regularise(predicted_state.parent, predicted_state)
 
         return predicted_state
 
-    @lru_cache()
-    def predict_measurement(self, predicted_state, measurement_model=None, measurement_noise=True,
-                            **kwargs):
+    @lru_cache
+    def predict_measurement(
+        self, predicted_state, measurement_model=None, measurement_noise=True, **kwargs
+    ):
 
         if measurement_model is None:
             measurement_model = self.measurement_model
 
         new_state_vector = measurement_model.function(
-            predicted_state, noise=measurement_noise, **kwargs)
+            predicted_state, noise=measurement_noise, **kwargs
+        )
 
         return MeasurementPrediction.from_state(
-            predicted_state, state_vector=new_state_vector, timestamp=predicted_state.timestamp)
+            predicted_state, state_vector=new_state_vector, timestamp=predicted_state.timestamp
+        )
 
 
 class GromovFlowParticleUpdater(Updater):
@@ -153,10 +163,10 @@ class GromovFlowParticleUpdater(Updater):
 
         num_steps = 20
         b = 2
-        s0 = (b-1) / (b**num_steps - 1)
-        steps = [s0*b**n for n in range(num_steps)]
+        s0 = (b - 1) / (b**num_steps - 1)
+        steps = [s0 * b**n for n in range(num_steps)]
 
-        time_steps = np.zeros((len(steps) + 1, ))
+        time_steps = np.zeros((len(steps) + 1,))
         time_steps[1:] = np.cumsum(steps)
 
         P = hypothesis.prediction.covar
@@ -173,14 +183,14 @@ class GromovFlowParticleUpdater(Updater):
                 H = measurement_model.jacobian(state)
 
             # Eq. (12) Ref [1]
-            a = P - lambda_*P@H.T@inv(R + lambda_*H@P@H.T)@H@P
+            a = P - lambda_ * P @ H.T @ inv(R + lambda_ * H @ P @ H.T) @ H @ P
             b = a @ H.T @ inv_R
 
             measurement_particle_state_vector = measurement_model.function(state, **kwargs)
             f = -b @ (measurement_particle_state_vector - hypothesis.measurement.state_vector)
 
             Q = b @ H @ a
-            B = cholesky_eps((Q+Q.T)/2)
+            B = cholesky_eps((Q + Q.T) / 2)
 
             return f, B
 
@@ -188,10 +198,8 @@ class GromovFlowParticleUpdater(Updater):
             particle.state_vector = sde_euler_maruyama_integration(function, time_steps, particle)
 
         return ParticleStateUpdate(
-            None,
-            hypothesis,
-            particle_list=particles,
-            timestamp=hypothesis.measurement.timestamp)
+            None, hypothesis, particle_list=particles, timestamp=hypothesis.measurement.timestamp
+        )
 
     predict_measurement = ParticleUpdater.predict_measurement
 
@@ -216,11 +224,13 @@ class GromovFlowKalmanParticleUpdater(GromovFlowParticleUpdater):
     .. [#] Ding, Tao & Coates, Mark J., "Implementation of the Daum-Huang
        Exact-Flow Particle Filter" 2012
     """
+
     kalman_updater: KalmanUpdater = Property(
         default=None,
         doc="Kalman updater to use. Default `None` where a new instance of"
-            ":class:`~.ExtendedKalmanUpdater` will be created utilising the"
-            "same measurement model.")
+        ":class:`~.ExtendedKalmanUpdater` will be created utilising the"
+        "same measurement model.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -236,7 +246,8 @@ class GromovFlowKalmanParticleUpdater(GromovFlowParticleUpdater):
         kalman_hypothesis = copy.copy(hypothesis)
         # Convert to GaussianState
         kalman_hypothesis.prediction = GaussianStatePrediction(
-            particle_pred.mean, particle_pred.covar, particle_pred.timestamp)
+            particle_pred.mean, particle_pred.covar, particle_pred.timestamp
+        )
         # Needed for cross covar
         kalman_hypothesis.measurement_prediction = None
         kalman_update = self.kalman_updater.update(kalman_hypothesis, **kwargs)
@@ -246,29 +257,35 @@ class GromovFlowKalmanParticleUpdater(GromovFlowParticleUpdater):
             hypothesis,
             weight=particle_update.weight,
             fixed_covar=kalman_update.covar,
-            timestamp=particle_update.timestamp)
+            timestamp=particle_update.timestamp,
+        )
 
     def predict_measurement(self, predicted_state, *args, **kwargs):
         particle_prediction = super().predict_measurement(predicted_state, *args, **kwargs)
 
         kalman_prediction = self.kalman_updater.predict_measurement(
             Prediction.from_state(
-                predicted_state, predicted_state.state_vector, predicted_state.covar,
-                target_type=GaussianStatePrediction),
-            *args, **kwargs)
+                predicted_state,
+                predicted_state.state_vector,
+                predicted_state.covar,
+                target_type=GaussianStatePrediction,
+            ),
+            *args,
+            **kwargs,
+        )
 
         return ParticleMeasurementPrediction(
             state_vector=particle_prediction.state_vector,
             weight=predicted_state.weight,
             fixed_covar=kalman_prediction.covar,
-            timestamp=particle_prediction.timestamp)
+            timestamp=particle_prediction.timestamp,
+        )
 
 
 class MultiModelParticleUpdater(ParticleUpdater):
     """Particle Updater for the Multi Model system"""
 
-    predictor: MultiModelPredictor = Property(
-        doc="Predictor which hold holds transition matrix")
+    predictor: MultiModelPredictor = Property(doc="Predictor which hold holds transition matrix")
 
     def update(self, hypothesis, **kwargs):
         """Particle Filter update step
@@ -297,14 +314,16 @@ class MultiModelParticleUpdater(ParticleUpdater):
 
         transition_matrix = np.asanyarray(self.predictor.transition_matrix)
 
-        update.log_weight = update.log_weight \
-            + measurement_model.logpdf(hypothesis.measurement, update, **kwargs) \
+        update.log_weight = (
+            update.log_weight
+            + measurement_model.logpdf(hypothesis.measurement, update, **kwargs)
             + np.log(transition_matrix[update.parent.dynamic_model, update.dynamic_model])
+        )
 
         # Apply constraints if defined
         if self.constraint_func is not None:
             part_indx = self.constraint_func(update)
-            update.log_weight[part_indx] = -1*np.inf
+            update.log_weight[part_indx] = -1 * np.inf
 
         # Normalise the weights
         update.log_weight -= logsumexp(update.log_weight)
@@ -327,7 +346,8 @@ class RaoBlackwellisedParticleUpdater(MultiModelParticleUpdater):
     """Particle Updater for the Raoblackwellised scheme"""
 
     predictor: RaoBlackwellisedMultiModelPredictor = Property(
-        doc="Predictor which hold holds transition matrix, models and mappings")
+        doc="Predictor which hold holds transition matrix, models and mappings"
+    )
 
     def update(self, hypothesis, **kwargs):
         """Particle Filter update step
@@ -356,16 +376,17 @@ class RaoBlackwellisedParticleUpdater(MultiModelParticleUpdater):
         )
 
         update.model_probabilities = self.calculate_model_probabilities(
-            hypothesis.prediction, self.predictor)
+            hypothesis.prediction, self.predictor
+        )
 
-        update.log_weight = update.log_weight + measurement_model.logpdf(hypothesis.measurement,
-                                                                         update,
-                                                                         **kwargs)
+        update.log_weight = update.log_weight + measurement_model.logpdf(
+            hypothesis.measurement, update, **kwargs
+        )
 
         # Apply constraints if defined
         if self.constraint_func is not None:
             part_indx = self.constraint_func(update)
-            update.log_weight[part_indx] = -1*np.inf
+            update.log_weight[part_indx] = -1 * np.inf
 
         # Normalise the weights
         update.log_weight -= logsumexp(update.log_weight)
@@ -386,31 +407,36 @@ class RaoBlackwellisedParticleUpdater(MultiModelParticleUpdater):
     @staticmethod
     def calculate_model_probabilities(prediction, predictor):
         """Calculates the new model probabilities based
-            on the ones calculated in the previous time step"""
+        on the ones calculated in the previous time step"""
 
         denominator_components = []
         # Loop over the previous models m_k-1
         for model_index, transition_model in enumerate(predictor.transition_models):
             required_space_prior = copy.copy(prediction.parent)
-            required_space_prior.state_vector = \
-                required_space_prior.state_vector[predictor.model_mappings[model_index], :]
+            required_space_prior.state_vector = required_space_prior.state_vector[
+                predictor.model_mappings[model_index], :
+            ]
             required_space_pred = copy.copy(prediction)
-            required_space_pred.state_vector = \
-                required_space_pred.state_vector[predictor.model_mappings[model_index], :]
+            required_space_pred.state_vector = required_space_pred.state_vector[
+                predictor.model_mappings[model_index], :
+            ]
 
             prob_position_given_model_and_old_position = transition_model.pdf(
-                required_space_pred, required_space_prior,
-                time_interval=prediction.timestamp - prediction.parent.timestamp
+                required_space_pred,
+                required_space_prior,
+                time_interval=prediction.timestamp - prediction.parent.timestamp,
             )
 
             # Looks up p(m_k|m_k-1)
             log_prob_of_transition = np.log(
-                np.asarray(predictor.transition_matrix)[model_index, :], dtype=np.float64)
+                np.asarray(predictor.transition_matrix)[model_index, :], dtype=np.float64
+            )
 
-            log_product_of_probs = \
-                np.asarray(np.log(prob_position_given_model_and_old_position), dtype=np.float64) \
-                + log_prob_of_transition[:, np.newaxis] \
+            log_product_of_probs = (
+                np.asarray(np.log(prob_position_given_model_and_old_position), dtype=np.float64)
+                + log_prob_of_transition[:, np.newaxis]
                 + np.asarray(np.log(prediction.model_probabilities), dtype=np.float64)
+            )
 
             denominator_components.append(logsumexp(log_product_of_probs, axis=0))
 
@@ -443,20 +469,24 @@ class BernoulliParticleUpdater(ParticleUpdater):
     clutter_rate: int = Property(
         default=1,
         doc="Average number of clutter measurements per time step. Implementation assumes number "
-            "of clutter measurements follows a Poisson distribution")
+        "of clutter measurements follows a Poisson distribution",
+    )
 
     clutter_distribution: float = Property(
         default=None,
         doc="Distribution used to describe clutter measurements. This is usually assumed uniform "
-            "in the measurement space.")
+        "in the measurement space.",
+    )
     detection_probability: float = Property(
         default=None,
         doc="Probability of detection assigned to the generated samples of the birth distribution."
-            " If None, it will inherit from the input.")
+        " If None, it will inherit from the input.",
+    )
     nsurv_particles: float = Property(
         default=None,
         doc="Number of particles describing the surviving distribution, which will be output from "
-            "the update algorithm.")
+        "the update algorithm.",
+    )
 
     def update(self, hypotheses, **kwargs):
         """Bernoulli Particle Filter update step
@@ -476,13 +506,12 @@ class BernoulliParticleUpdater(ParticleUpdater):
 
         # updated_state = copy.copy(prediction)
         updated_state = Update.from_state(
-            state=prediction,
-            hypothesis=hypotheses,
-            timestamp=prediction.timestamp
+            state=prediction, hypothesis=hypotheses, timestamp=prediction.timestamp
         )
         if any(hypotheses):
-            detections = [single_hypothesis.measurement
-                          for single_hypothesis in hypotheses.single_hypotheses]
+            detections = [
+                single_hypothesis.measurement for single_hypothesis in hypotheses.single_hypotheses
+            ]
 
             # Evaluate measurement likelihood and approximate integrals
             log_meas_likelihood = []
@@ -492,28 +521,34 @@ class BernoulliParticleUpdater(ParticleUpdater):
             for detection in detections:
                 measurement_model = detection.measurement_model or self.measurement_model
                 log_meas_likelihood.append(measurement_model.logpdf(detection, updated_state))
-                delta_part2.append(self._log_space_product(
-                    log_detection_probability,
-                    log_meas_likelihood[-1]
-                    - np.log(self.clutter_rate * self.clutter_distribution)
-                    + updated_state.log_weight))
+                delta_part2.append(
+                    self._log_space_product(
+                        log_detection_probability,
+                        log_meas_likelihood[-1]
+                        - np.log(self.clutter_rate * self.clutter_distribution)
+                        + updated_state.log_weight,
+                    )
+                )
 
-            delta = \
-                np.exp(self._log_space_product(log_detection_probability,
-                                               updated_state.log_weight)) \
-                - np.exp(logsumexp(delta_part2))
+            delta = np.exp(
+                self._log_space_product(log_detection_probability, updated_state.log_weight)
+            ) - np.exp(logsumexp(delta_part2))
 
-            updated_state.existence_probability = \
-                (1 - delta) \
-                / (1 - updated_state.existence_probability * delta) \
+            updated_state.existence_probability = (
+                (1 - delta)
+                / (1 - updated_state.existence_probability * delta)
                 * updated_state.existence_probability
+            )
 
-            updated_state.log_weight = \
-                np.logaddexp(log_detection_probability
-                             + logsumexp(log_meas_likelihood, axis=0)
-                             - np.log(self.clutter_rate * self.clutter_distribution),
-                             np.log(1 - np.exp(log_detection_probability))) \
+            updated_state.log_weight = (
+                np.logaddexp(
+                    log_detection_probability
+                    + logsumexp(log_meas_likelihood, axis=0)
+                    - np.log(self.clutter_rate * self.clutter_distribution),
+                    np.log(1 - np.exp(log_detection_probability)),
+                )
                 + updated_state.log_weight
+            )
 
             # Normalise weights
             updated_state.log_weight -= logsumexp(updated_state.log_weight)
@@ -521,28 +556,25 @@ class BernoulliParticleUpdater(ParticleUpdater):
         # Apply constraints if defined
         if self.constraint_func is not None:
             part_indx = self.constraint_func(updated_state)
-            updated_state.log_weight[part_indx] = -1*np.inf
+            updated_state.log_weight[part_indx] = -1 * np.inf
             if not any(hypotheses):
                 updated_state.log_weight = copy.copy(updated_state.log_weight)
             updated_state.log_weight -= logsumexp(updated_state.log_weight)
 
         # Resampling
         if self.resampler is not None:
-            updated_state = self.resampler.resample(updated_state,
-                                                    self.nsurv_particles)
+            updated_state = self.resampler.resample(updated_state, self.nsurv_particles)
 
         if any(hypotheses):
             # Regularisation
             if self.regulariser is not None:
-                updated_state = self.regulariser.regularise(updated_state.parent,
-                                                            updated_state)
+                updated_state = self.regulariser.regularise(updated_state.parent, updated_state)
 
         return updated_state
 
     def get_log_detection_probability(self, prediction):
 
-        log_detection_probability = np.full(len(prediction),
-                                            np.log(self.detection_probability))
+        log_detection_probability = np.full(len(prediction), np.log(self.detection_probability))
 
         return log_detection_probability
 
@@ -585,11 +617,13 @@ class VisibilityInformedBernoulliParticleUpdater(BernoulliParticleUpdater):
     sensors: Collection[Sensor] = Property(
         default=None,
         doc="Collection of sensors providing measurements for update stages. "
-        "Used here to evaluate visibility of particles.")
+        "Used here to evaluate visibility of particles.",
+    )
     obstacle_detection_probability: float = Property(
         default=1e-20,
         doc="Probability of detection "
-        "to assume when particle state is not visible to the sensor.")
+        "to assume when particle state is not visible to the sensor.",
+    )
 
     def get_log_detection_probability(self, prediction):
 
@@ -628,21 +662,24 @@ class SMCPHDUpdater(ParticleUpdater):
            confirm tracks in a multi-target environment,” in 2011 Jahrestagung der Gesellschaft
            fr Informatik, October 2011.
     """
+
     prob_detect: Probability = Property(
-        default=Probability(0.85),
-        doc="Target Detection Probability")
+        default=Probability(0.85), doc="Target Detection Probability"
+    )
     clutter_intensity: float = Property(
-        doc="Average number of clutter measurements per time step, per unit volume")
+        doc="Average number of clutter measurements per time step, per unit volume"
+    )
     num_samples: int = Property(
         default=None,
         doc="The number of particles to be output by the updater, after resampling. If the "
-            "corresponding predictor has been configured in ``'expansion'`` mode, users should set"
-            "this to the number of particles they want to output, otherwise the number of "
-            "particles will continuously grow. Default is ``None``, which will output the same "
-            "number of particles as the input prediction.")
+        "corresponding predictor has been configured in ``'expansion'`` mode, users should set"
+        "this to the number of particles they want to output, otherwise the number of "
+        "particles will continuously grow. Default is ``None``, which will output the same "
+        "number of particles as the input prediction.",
+    )
 
     def update(self, hypotheses, **kwargs):
-        """ SMC-PHD update step
+        """SMC-PHD update step
 
         Parameters
         ----------
@@ -673,9 +710,7 @@ class SMCPHDUpdater(ParticleUpdater):
 
         # Create the updated state
         updated_state = Update.from_state(
-            state=prediction,
-            hypothesis=hypotheses,
-            timestamp=prediction.timestamp
+            state=prediction, hypothesis=hypotheses, timestamp=prediction.timestamp
         )
 
         # Resample

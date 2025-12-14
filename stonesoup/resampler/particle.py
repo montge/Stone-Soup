@@ -1,9 +1,10 @@
-import numpy as np
 from enum import Enum
 
-from .base import Resampler
+import numpy as np
+
 from ..base import Property
 from ..types.state import ParticleState
+from .base import Resampler
 
 
 class SystematicResampler(Resampler):
@@ -37,9 +38,9 @@ class SystematicResampler(Resampler):
             nparts = len(particles)
 
         log_weights = particles.log_weight
-        weight_order = np.argsort(log_weights, kind='stable')
+        weight_order = np.argsort(log_weights, kind="stable")
         max_log_value = log_weights[weight_order[-1]]
-        with np.errstate(divide='ignore'):
+        with np.errstate(divide="ignore"):
             cdf = np.log(np.cumsum(np.exp(log_weights[weight_order] - max_log_value)))
         cdf += max_log_value
 
@@ -52,7 +53,7 @@ class SystematicResampler(Resampler):
         index = weight_order[np.searchsorted(cdf, np.log(u_j))]
 
         new_particles = particles[index]
-        new_particles.log_weight = np.full((nparts, ), np.log(1/nparts))
+        new_particles.log_weight = np.full((nparts,), np.log(1 / nparts))
         return new_particles
 
 
@@ -70,13 +71,17 @@ class ESSResampler(Resampler):
 
     """
 
-    threshold: float = Property(default=None,
-                                doc='Threshold compared with ESS to decide whether to resample. \
+    threshold: float = Property(
+        default=None,
+        doc="Threshold compared with ESS to decide whether to resample. \
                                     Default is number of particles divided by 2, \
-                                        set in resample method')
-    resampler: Resampler = Property(default_factory=SystematicResampler,
-                                    doc='Resampler to wrap, which is called \
-                                        when ESS below threshold')
+                                        set in resample method",
+    )
+    resampler: Resampler = Property(
+        default_factory=SystematicResampler,
+        doc="Resampler to wrap, which is called \
+                                        when ESS below threshold",
+    )
 
     def resample(self, particles, nparts=None):
         """
@@ -99,7 +104,7 @@ class ESSResampler(Resampler):
         if self.threshold is None:
             self.threshold = len(particles) / 2
         # If ESS too small, resample
-        if 1 / np.sum(np.exp(2*particles.log_weight)) < self.threshold:
+        if 1 / np.sum(np.exp(2 * particles.log_weight)) < self.threshold:
             return self.resampler.resample(particles, nparts)
         else:
             return particles
@@ -135,9 +140,9 @@ class MultinomialResampler(Resampler):
             nparts = len(particles)
 
         log_weights = particles.log_weight
-        weight_order = np.argsort(log_weights, kind='stable')
+        weight_order = np.argsort(log_weights, kind="stable")
         max_log_value = log_weights[weight_order[-1]]
-        with np.errstate(divide='ignore'):
+        with np.errstate(divide="ignore"):
             cdf = np.log(np.cumsum(np.exp(log_weights[weight_order] - max_log_value)))
         cdf += max_log_value
 
@@ -148,7 +153,7 @@ class MultinomialResampler(Resampler):
         index = weight_order[np.searchsorted(cdf, np.log(u_j))]
 
         new_particles = particles[index]
-        new_particles.log_weight = np.full((nparts, ), np.log(1/nparts))
+        new_particles.log_weight = np.full((nparts,), np.log(1 / nparts))
         return new_particles
 
 
@@ -182,9 +187,9 @@ class StratifiedResampler(Resampler):
             nparts = len(particles)
 
         log_weights = particles.log_weight
-        weight_order = np.argsort(log_weights, kind='stable')
+        weight_order = np.argsort(log_weights, kind="stable")
         max_log_value = log_weights[weight_order[-1]]
-        with np.errstate(divide='ignore'):
+        with np.errstate(divide="ignore"):
             cdf = np.log(np.cumsum(np.exp(log_weights[weight_order] - max_log_value)))
         cdf += max_log_value
 
@@ -198,14 +203,14 @@ class StratifiedResampler(Resampler):
         index = weight_order[np.searchsorted(cdf, np.log(u_j))]
 
         new_particles = particles[index]
-        new_particles.log_weight = np.full((nparts, ), np.log(1/nparts))
+        new_particles.log_weight = np.full((nparts,), np.log(1 / nparts))
         return new_particles
 
 
 class ResidualMethod(Enum):
-    MULTINOMIAL = 'multinomial'
-    SYSTEMATIC = 'systematic'
-    STRATIFIED = 'stratified'
+    MULTINOMIAL = "multinomial"
+    SYSTEMATIC = "systematic"
+    STRATIFIED = "stratified"
 
 
 class ResidualResampler(Resampler):
@@ -220,9 +225,11 @@ class ResidualResampler(Resampler):
     Should be a more computationally efficient method than resampling all particles from a CDF.
     Cannot be used to upsample or downsample.
     """
-    residual_method: ResidualMethod = Property(default=ResidualMethod.MULTINOMIAL,
-                                               doc="Method used to resample particles from the "
-                                                   "residuals.")
+
+    residual_method: ResidualMethod = Property(
+        default=ResidualMethod.MULTINOMIAL,
+        doc="Method used to resample particles from the " "residuals.",
+    )
 
     def resample(self, particles, nparts=None):
         """Resample the particles.
@@ -248,8 +255,9 @@ class ResidualResampler(Resampler):
         if nparts is None:
             nparts = len(particles)
         elif nparts != len(particles):
-            raise NotImplementedError("This resampler does not currently support up- or down-"
-                                      "sampling")
+            raise NotImplementedError(
+                "This resampler does not currently support up- or down-" "sampling"
+            )
 
         log_weights = particles.log_weight
 
@@ -263,9 +271,15 @@ class ResidualResampler(Resampler):
 
         # Generate particle index from stage 1 resampling
         # There might be a better way to do this, seems a complicated way to do a simple task
-        stage_1_index = np.array([index for sublist in
-                                  [[index]*int(floor) for index, floor in enumerate(floors)
-                                   if int(floor) != 0] for index in sublist])
+        stage_1_index = np.array(
+            [
+                index
+                for sublist in [
+                    [index] * int(floor) for index, floor in enumerate(floors) if int(floor) != 0
+                ]
+                for index in sublist
+            ]
+        )
 
         # **** Stage 2 ****
 
@@ -276,15 +290,15 @@ class ResidualResampler(Resampler):
 
         if n_stage_2_parts > 0:
             # Calculate the residuals
-            r_weights = weights - floors/nparts
+            r_weights = weights - floors / nparts
 
             # Normalise residual weights
-            normalised_r_weights = r_weights * 1/sum(r_weights)
+            normalised_r_weights = r_weights * 1 / sum(r_weights)
 
             r_log_weights = np.log(normalised_r_weights)
-            weight_order = np.argsort(r_log_weights, kind='stable')
+            weight_order = np.argsort(r_log_weights, kind="stable")
             max_log_value = r_log_weights[weight_order[-1]]
-            with np.errstate(divide='ignore'):
+            with np.errstate(divide="ignore"):
                 cdf = np.log(np.cumsum(np.exp(r_log_weights[weight_order] - max_log_value)))
             cdf += max_log_value
 
@@ -318,6 +332,6 @@ class ResidualResampler(Resampler):
             index = stage_1_index
 
         new_particles = particles[index]
-        new_particles.log_weight = np.full((nparts, ), np.log(1/nparts))
+        new_particles.log_weight = np.full((nparts,), np.log(1 / nparts))
 
         return new_particles

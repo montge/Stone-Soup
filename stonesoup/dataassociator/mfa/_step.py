@@ -15,13 +15,14 @@ from dataclasses import dataclass
 
 import numpy as np
 from scipy.optimize import linear_sum_assignment
+
 try:
     from ortools.linear_solver import pywraplp
 except ImportError as error:  # pragma: no cover
     raise ImportError(
         "Usage of 'stonesoup.dataassociator.mfa' requires that the optional "
-        "package dependency 'ortools' is installed.") \
-        from error
+        "package dependency 'ortools' is installed."
+    ) from error
 
 from ._init import Hyp, HypInfo, TimeStepIndices
 
@@ -64,7 +65,7 @@ def _get2dCostMatrix(c_hat, time_step_indices: TimeStepIndices, track_count, mea
     # elsewhere (so we can have any number of null assignments)
     nullCostMatrix = np.full((track_count, track_count), np.inf, dtype=np.float64)
     # Pick out diagonal entries (like np.diagonal, but this is a writable view)
-    nullCostMatrix.ravel()[::track_count + 1] = nullCost
+    nullCostMatrix.ravel()[:: track_count + 1] = nullCost
 
     fullCostMatrix = np.concatenate((cost, nullCostMatrix), axis=1)
     return fullCostMatrix, idxCost, idxNullCost
@@ -88,7 +89,7 @@ def _getSuboptimalSolutionForSubproblem(
     # so it is guaranteed that every row (track) is assigned
     # row_ind is therefore simply np.array(range(track_count))
     # assignments is index of measurement for each track (or >meas_count if unassigned)
-    row_ind, assignments = linear_sum_assignment(fullCostMatrix)
+    _row_ind, assignments = linear_sum_assignment(fullCostMatrix)
 
     # Assign hypothesis indicators associated with chosen assignments to true
     assignedHypotheses = np.zeros((all_costs.size,), dtype=np.bool_)
@@ -112,11 +113,11 @@ def _getPrimal(Amatrix, hypothesisCosts):
     # Add constraints
     vars = [solver.BoolVar(str(i)) for i in range(c_uncertain.size)]
     for A_uncertain_row in Amatrix:
-        selected_vars = [var for var, A_val in zip(vars, A_uncertain_row) if A_val]
+        selected_vars = [var for var, A_val in zip(vars, A_uncertain_row, strict=False) if A_val]
         solver.Add(solver.Sum(selected_vars) == 1)
 
     # Run the solver
-    solver.Minimize(solver.Sum([c * var for var, c in zip(vars, c_uncertain)]))
+    solver.Minimize(solver.Sum([c * var for var, c in zip(vars, c_uncertain, strict=False)]))
     status = solver.Solve()
     if status not in (pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE):  # pragma: no cover
         raise RuntimeError("Infeasible primal problem")
@@ -151,7 +152,7 @@ def _getPrimalSolution(u_hat_mean, Amatrix, hypothesisCosts):
     # Solve remaining problem using OR tools solver to find a feasible solution
     uprimal_uncertain = _getPrimal(
         Amatrix[:, idx_unselectedHyps][idx_uncertainTracksMeas, :],
-        hypothesisCosts[idx_unselectedHyps]
+        hypothesisCosts[idx_unselectedHyps],
     )
 
     # Get solution to full problem by combining the partial and linear programming solutions
@@ -185,7 +186,7 @@ class AlgorithmState:
             # the best primal solution (with cost=bestPrimalCost)
             uprimal=np.zeros((hyp_count,), dtype=np.bool_),
             # whether the main algorithm loop should now stop
-            should_break=False
+            should_break=False,
         )
 
     def get_best_hypothesis_indices(self):
@@ -228,12 +229,10 @@ def algorithm_step(
     except RuntimeError as err:
         # Infeasible primal problem: try without subproblem solutions
         warnings.warn(
-            f'{err}: solving with full problem space without using subproblem solutions',
-            stacklevel=2
+            f"{err}: solving with full problem space without using subproblem solutions",
+            stacklevel=2,
         )
-        u_primal_hat = _getPrimal(
-            hyp_info.constraint_matrix, hyp_info.all_costs
-        )
+        u_primal_hat = _getPrimal(hyp_info.constraint_matrix, hyp_info.all_costs)
         state.uprimal = u_primal_hat
         state.should_break = True
         return
@@ -257,7 +256,7 @@ def algorithm_step(
     # Calculate subgradient
     g = state.u_hat - u_hat_mean
     # calculate step size used in subgradient method
-    stepSize = (state.bestPrimalCost - dual_cost_hat)/(np.linalg.norm(g)**2)
+    stepSize = (state.bestPrimalCost - dual_cost_hat) / (np.linalg.norm(g) ** 2)
     # update Lagrange multiplier
     state.delta = state.delta + stepSize * g
 

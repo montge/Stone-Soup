@@ -4,16 +4,20 @@ from datetime import datetime, timedelta
 import pytest
 
 from ..multi import (
-    MultiDataFeeder, FIFOMultiDataFeeder, LIFOMultiDataFeeder,
-    PriorityMultiDataFeeder, MaxSizePriorityMultiDataFeeder)
+    FIFOMultiDataFeeder,
+    LIFOMultiDataFeeder,
+    MaxSizePriorityMultiDataFeeder,
+    MultiDataFeeder,
+    PriorityMultiDataFeeder,
+)
 
 
-@pytest.mark.parametrize('n', [1, 2, 3])
+@pytest.mark.parametrize("n", [1, 2, 3])
 def test_multi_detections(n, reader):
-    single_time_list = list()
-    multi_time_list = list()
+    single_time_list = []
+    multi_time_list = []
 
-    multi_detector = MultiDataFeeder([reader]*n)
+    multi_detector = MultiDataFeeder([reader] * n)
     for single_iterations, (timestamp, _) in enumerate(reader, 1):
         single_time_list.append(timestamp)
     for multi_iterations, (timestamp, _) in enumerate(multi_detector, 1):
@@ -62,7 +66,7 @@ def readers():
 
 def test_fifo_feeder(readers):
     feeder = FIFOMultiDataFeeder(readers)
-    assert list((t, d) for t, d in feeder if not time.sleep(0.21)) == [
+    assert [(t, d) for t, d in feeder if not time.sleep(0.21)] == [
         (datetime(2025, 3, 26, 0), {1}),
         (datetime(2025, 3, 26, 1), {2}),
         (datetime(2025, 3, 26, 2), {1}),
@@ -76,7 +80,7 @@ def test_fifo_feeder(readers):
 
 def test_lifo_feeder(readers):
     feeder = LIFOMultiDataFeeder(readers)
-    assert list((t, d) for t, d in feeder if not time.sleep(0.21)) == [
+    assert [(t, d) for t, d in feeder if not time.sleep(0.21)] == [
         (datetime(2025, 3, 26, 0), {1}),
         (datetime(2025, 3, 26, 2), {1}),
         (datetime(2025, 3, 26, 4), {1}),
@@ -90,7 +94,7 @@ def test_lifo_feeder(readers):
 
 def test_priority_feeder(readers):
     feeder = PriorityMultiDataFeeder(readers)
-    assert list((t, d) for t, d in feeder if not time.sleep(0.21)) == [
+    assert [(t, d) for t, d in feeder if not time.sleep(0.21)] == [
         (datetime(2025, 3, 26, 0), {1}),
         (datetime(2025, 3, 26, 1), {2}),
         (datetime(2025, 3, 26, 2), {1}),
@@ -104,7 +108,7 @@ def test_priority_feeder(readers):
 
 def test_max_priority_feeder(readers):
     feeder = MaxSizePriorityMultiDataFeeder(readers, 3)
-    assert list((t, d) for t, d in feeder if not time.sleep(0.21)) == [
+    assert [(t, d) for t, d in feeder if not time.sleep(0.21)] == [
         (datetime(2025, 3, 26, 0), {1}),
         (datetime(2025, 3, 26, 1), {2}),
         (datetime(2025, 3, 26, 2), {1}),
@@ -120,7 +124,7 @@ def test_no_wait(readers):
     # Testing code handles empty queues
     feeder = PriorityMultiDataFeeder(readers)
     # Same as FIFO as not allowing time to prioritise
-    assert list((t, d) for t, d in feeder) == [
+    assert list(feeder) == [
         (datetime(2025, 3, 26, 0), {1}),
         (datetime(2025, 3, 26, 1), {2}),
         (datetime(2025, 3, 26, 2), {1}),

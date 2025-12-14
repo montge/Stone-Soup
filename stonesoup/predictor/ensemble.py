@@ -1,7 +1,7 @@
-from .base import Property
 from ..models.transition import TransitionModel
-from .kalman import KalmanPredictor
 from ..types.prediction import Prediction
+from .base import Property
+from .kalman import KalmanPredictor
 
 
 class EnsemblePredictor(KalmanPredictor):
@@ -16,6 +16,7 @@ class EnsemblePredictor(KalmanPredictor):
         \hat{X}_k = [f(x_1), f(x_2), ..., f(x_M)]
 
     """
+
     transition_model: TransitionModel = Property(doc="The transition model to be used.")
 
     def predict(self, prior, timestamp=None, **kwargs):
@@ -42,7 +43,13 @@ class EnsemblePredictor(KalmanPredictor):
         time_interval = self._predict_over_interval(prior, timestamp)
         # This block of code propagates each column through the transition model.
         pred_ensemble = self.transition_model.function(
-            prior, noise=True, time_interval=time_interval)
+            prior, noise=True, time_interval=time_interval
+        )
 
-        return Prediction.from_state(prior, pred_ensemble, timestamp=timestamp,
-                                     transition_model=self.transition_model, prior=prior)
+        return Prediction.from_state(
+            prior,
+            pred_ensemble,
+            timestamp=timestamp,
+            transition_model=self.transition_model,
+            prior=prior,
+        )

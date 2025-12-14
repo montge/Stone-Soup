@@ -1,13 +1,14 @@
 """Voxel-based predictor implementations for volumetric tracking."""
+
 import numpy as np
 from scipy.ndimage import convolve
 
-from .base import Predictor
-from ._utils import predict_lru_cache
 from ..base import Property
 from ..models.transition import TransitionModel
 from ..types.prediction import VoxelPrediction
 from ..types.voxel import VoxelState
+from ._utils import predict_lru_cache
+from .base import Predictor
 
 
 class VoxelPredictor(Predictor):
@@ -93,22 +94,20 @@ class VoxelPredictor(Predictor):
     )
     birth_probability: float = Property(
         default=0.01,
-        doc="Probability of spontaneous birth in empty voxels. Must be in [0, 1]. Default 0.01."
+        doc="Probability of spontaneous birth in empty voxels. Must be in [0, 1]. Default 0.01.",
     )
     death_probability: float = Property(
         default=0.01,
-        doc="Probability of death in occupied voxels. Must be in [0, 1]. Default 0.01."
+        doc="Probability of death in occupied voxels. Must be in [0, 1]. Default 0.01.",
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Validate probability bounds
         if not 0 <= self.birth_probability <= 1:
-            raise ValueError(
-                f"birth_probability must be in [0, 1], got {self.birth_probability}")
+            raise ValueError(f"birth_probability must be in [0, 1], got {self.birth_probability}")
         if not 0 <= self.death_probability <= 1:
-            raise ValueError(
-                f"death_probability must be in [0, 1], got {self.death_probability}")
+            raise ValueError(f"death_probability must be in [0, 1], got {self.death_probability}")
 
     @predict_lru_cache()
     def predict(self, prior, timestamp=None, **kwargs):
@@ -160,8 +159,7 @@ class VoxelPredictor(Predictor):
         5. Clamps all probabilities to [0, 1] range
         """
         if not isinstance(prior, VoxelState):
-            raise TypeError(
-                f"prior must be a VoxelState, got {type(prior)}")
+            raise TypeError(f"prior must be a VoxelState, got {type(prior)}")
 
         # Compute time interval
         try:
@@ -173,7 +171,8 @@ class VoxelPredictor(Predictor):
         # Apply transition model to propagate occupancy
         # The transition model function should handle VoxelState appropriately
         transitioned_state = self.transition_model.function(
-            prior, time_interval=time_interval, **kwargs)
+            prior, time_interval=time_interval, **kwargs
+        )
 
         # Get occupancy from transitioned state
         if isinstance(transitioned_state, VoxelState):
@@ -200,9 +199,8 @@ class VoxelPredictor(Predictor):
         # Birth: add occupancy in empty voxels
         # p_new = (1 - p_death) * p_old + p_birth * (1 - p_old)
         predicted_occupancy = (
-            (1 - self.death_probability) * predicted_occupancy +
-            self.birth_probability * (1 - predicted_occupancy)
-        )
+            1 - self.death_probability
+        ) * predicted_occupancy + self.birth_probability * (1 - predicted_occupancy)
 
         # Clamp probabilities to [0, 1]
         predicted_occupancy = np.clip(predicted_occupancy, 0.0, 1.0)
@@ -226,7 +224,7 @@ class VoxelPredictor(Predictor):
             occupancy=predicted_occupancy,
             timestamp=timestamp,
             transition_model=self.transition_model,
-            prior=prior
+            prior=prior,
         )
 
 
@@ -288,20 +286,20 @@ class DiffusionVoxelPredictor(VoxelPredictor):
     diffusion_coefficient: float = Property(
         default=0.1,
         doc="Diffusion rate controlling spread to neighboring voxels. Must be in [0, 1]. "
-            "Default 0.1."
+        "Default 0.1.",
     )
 
     # Override transition_model to be optional
     transition_model: TransitionModel = Property(
-        default=None,
-        doc="Transition model (not used for diffusion predictor, can be None)."
+        default=None, doc="Transition model (not used for diffusion predictor, can be None)."
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if not 0 <= self.diffusion_coefficient <= 1:
             raise ValueError(
-                f"diffusion_coefficient must be in [0, 1], got {self.diffusion_coefficient}")
+                f"diffusion_coefficient must be in [0, 1], got {self.diffusion_coefficient}"
+            )
 
         # Create diffusion kernel: 3x3x3 with center and 6-connected neighbors
         # Center gets (1 - diffusion), each of 6 neighbors gets diffusion/6
@@ -351,18 +349,12 @@ class DiffusionVoxelPredictor(VoxelPredictor):
 
         # Apply diffusion via convolution
         # mode='constant' treats boundary voxels as having 0 occupancy outside grid
-        diffused_occupancy = convolve(
-            occupancy,
-            self.diffusion_kernel,
-            mode='constant',
-            cval=0.0
-        )
+        diffused_occupancy = convolve(occupancy, self.diffusion_kernel, mode="constant", cval=0.0)
 
         # Apply birth-death process
         predicted_occupancy = (
-            (1 - self.death_probability) * diffused_occupancy +
-            self.birth_probability * (1 - diffused_occupancy)
-        )
+            1 - self.death_probability
+        ) * diffused_occupancy + self.birth_probability * (1 - diffused_occupancy)
 
         # Clamp to [0, 1]
         predicted_occupancy = np.clip(predicted_occupancy, 0.0, 1.0)
@@ -384,5 +376,5 @@ class DiffusionVoxelPredictor(VoxelPredictor):
             occupancy=predicted_occupancy,
             timestamp=timestamp,
             transition_model=None,  # No explicit transition model used
-            prior=prior
+            prior=prior,
         )

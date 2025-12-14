@@ -2,9 +2,9 @@ import threading
 from abc import abstractmethod
 from copy import copy
 
-from .base import Detector
 from ..base import Property
 from ..buffered_generator import BufferedGenerator
+from .base import Detector
 
 
 class _VideoAsyncBoxDetector(Detector):
@@ -17,11 +17,12 @@ class _VideoAsyncBoxDetector(Detector):
 
     run_async: bool = Property(
         doc="If set to ``True``, the detector will digest frames from the reader asynchronously "
-            "and only perform detection on the last frame digested. This is suitable when the "
-            "detector is applied to readers generating a live feed (e.g. "
-            ":class:`~.FFmpegVideoStreamReader`), where real-time processing is paramount. "
-            "Defaults to ``False``",
-        default=False)
+        "and only perform detection on the last frame digested. This is suitable when the "
+        "detector is applied to readers generating a live feed (e.g. "
+        ":class:`~.FFmpegVideoStreamReader`), where real-time processing is paramount. "
+        "Defaults to ``False``",
+        default=False,
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -61,7 +62,7 @@ class _VideoAsyncBoxDetector(Detector):
             yield from self._detections_gen()
 
     def _capture(self):
-        for timestamp, frame in self.sensor:
+        for _timestamp, frame in self.sensor:
             self._thread_lock.acquire()
             self._buffer = frame
             self._thread_lock.release()

@@ -1,34 +1,35 @@
 import copy
-import numpy as np
-import pytest
 from datetime import datetime, timedelta
 
+import numpy as np
+import pytest
+
+from ...dataassociator.neighbour import GNNWith2DAssignment
+from ...hypothesiser.distance import DistanceHypothesiser
+from ...measures import Mahalanobis
+from ...models.transition.linear import CombinedLinearGaussianTransitionModel, ConstantVelocity
+from ...predictor.kalman import KalmanPredictor
+from ...predictor.particle import ParticlePredictor
+from ...sensor.action.dwell_action import ChangeDwellAction
+from ...sensor.radar import RadarRotatingBearingRange
 from ...types.array import StateVector, StateVectors
 from ...types.state import GaussianState, ParticleState
 from ...types.track import Track
-from ...sensor.radar import RadarRotatingBearingRange
-from ...sensor.action.dwell_action import ChangeDwellAction
-from ..tree_search import (
-    MonteCarloTreeSearchSensorManager,
-    MCTSRolloutSensorManager,
-    MCTSBestChildPolicyEnum
-)
-from ..reward import UncertaintyRewardFunction, ExpectedKLDivergence
-from ...predictor.kalman import KalmanPredictor
-from ...predictor.particle import ParticlePredictor
 from ...updater.kalman import ExtendedKalmanUpdater
 from ...updater.particle import ParticleUpdater
-from ...models.transition.linear import CombinedLinearGaussianTransitionModel, ConstantVelocity
-from ...hypothesiser.distance import DistanceHypothesiser
-from ...measures import Mahalanobis
-from ...dataassociator.neighbour import GNNWith2DAssignment
+from ..reward import ExpectedKLDivergence, UncertaintyRewardFunction
+from ..tree_search import (
+    MCTSBestChildPolicyEnum,
+    MCTSRolloutSensorManager,
+    MonteCarloTreeSearchSensorManager,
+)
 
 
 def test_mcts_best_child_policy_enum():
     """Test that MCTSBestChildPolicyEnum has expected values."""
-    assert MCTSBestChildPolicyEnum.MAXAREWARD.value == 'max_average_reward'
-    assert MCTSBestChildPolicyEnum.MAXCREWARD.value == 'max_cumulative_reward'
-    assert MCTSBestChildPolicyEnum.MAXVISITS.value == 'max_visits'
+    assert MCTSBestChildPolicyEnum.MAXAREWARD.value == "max_average_reward"
+    assert MCTSBestChildPolicyEnum.MAXCREWARD.value == "max_cumulative_reward"
+    assert MCTSBestChildPolicyEnum.MAXVISITS.value == "max_visits"
 
 
 def test_mcts_instantiation():
@@ -37,8 +38,7 @@ def test_mcts_instantiation():
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
         ndim_state=4,
         rpm=60,
         fov_angle=np.radians(30),
@@ -47,16 +47,16 @@ def test_mcts_instantiation():
     )
     sensor.timestamp = time_start
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     predictor = KalmanPredictor(transition_model)
     updater = ExtendedKalmanUpdater(measurement_model=None)
     reward_function = UncertaintyRewardFunction(predictor, updater, return_tracks=True)
 
     # Test with default parameters
     sensor_manager = MonteCarloTreeSearchSensorManager(
-        sensors={sensor},
-        reward_function=reward_function
+        sensors={sensor}, reward_function=reward_function
     )
 
     assert sensor_manager.niterations == 100
@@ -75,7 +75,7 @@ def test_mcts_instantiation():
         exploration_factor=0.5,
         best_child_policy=MCTSBestChildPolicyEnum.MAXVISITS,
         discount_factor=0.8,
-        search_depth=5
+        search_depth=5,
     )
 
     assert sensor_manager.niterations == 50
@@ -92,8 +92,7 @@ def test_mcts_instantiation_with_string_policy():
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
         ndim_state=4,
         rpm=60,
         fov_angle=np.radians(30),
@@ -102,16 +101,15 @@ def test_mcts_instantiation_with_string_policy():
     )
     sensor.timestamp = time_start
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     predictor = KalmanPredictor(transition_model)
     updater = ExtendedKalmanUpdater(measurement_model=None)
     reward_function = UncertaintyRewardFunction(predictor, updater, return_tracks=True)
 
     sensor_manager = MonteCarloTreeSearchSensorManager(
-        sensors={sensor},
-        reward_function=reward_function,
-        best_child_policy='max_average_reward'
+        sensors={sensor}, reward_function=reward_function, best_child_policy="max_average_reward"
     )
 
     assert sensor_manager.best_child_policy == MCTSBestChildPolicyEnum.MAXAREWARD
@@ -123,8 +121,7 @@ def test_mcts_rollout_instantiation():
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
         ndim_state=4,
         rpm=60,
         fov_angle=np.radians(30),
@@ -133,16 +130,15 @@ def test_mcts_rollout_instantiation():
     )
     sensor.timestamp = time_start
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     predictor = ParticlePredictor(transition_model)
     updater = ParticleUpdater(measurement_model=None)
     reward_function = ExpectedKLDivergence(predictor, updater, return_tracks=True)
 
     sensor_manager = MCTSRolloutSensorManager(
-        sensors={sensor},
-        reward_function=reward_function,
-        rollout_depth=3
+        sensors={sensor}, reward_function=reward_function, rollout_depth=3
     )
 
     assert sensor_manager.rollout_depth == 3
@@ -155,8 +151,7 @@ def test_mcts_rollout_warning_with_both_depths():
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
         ndim_state=4,
         rpm=60,
         fov_angle=np.radians(30),
@@ -165,18 +160,16 @@ def test_mcts_rollout_warning_with_both_depths():
     )
     sensor.timestamp = time_start
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     predictor = ParticlePredictor(transition_model)
     updater = ParticleUpdater(measurement_model=None)
     reward_function = ExpectedKLDivergence(predictor, updater, return_tracks=True)
 
-    with pytest.warns(UserWarning, match='`search_depth` and `rollout_depth` have been defined'):
-        sensor_manager = MCTSRolloutSensorManager(
-            sensors={sensor},
-            reward_function=reward_function,
-            rollout_depth=3,
-            search_depth=5
+    with pytest.warns(UserWarning, match="`search_depth` and `rollout_depth` have been defined"):
+        MCTSRolloutSensorManager(
+            sensors={sensor}, reward_function=reward_function, rollout_depth=3, search_depth=5
         )
 
 
@@ -186,33 +179,42 @@ def test_mcts_rollout_warning_with_both_depths():
         MCTSBestChildPolicyEnum.MAXCREWARD,
         MCTSBestChildPolicyEnum.MAXAREWARD,
         MCTSBestChildPolicyEnum.MAXVISITS,
-        'max_cumulative_reward',
-        'max_average_reward',
-        'max_visits'
+        "max_cumulative_reward",
+        "max_average_reward",
+        "max_visits",
     ],
-    ids=['MAXCREWARD_enum', 'MAXAREWARD_enum', 'MAXVISITS_enum',
-         'MAXCREWARD_str', 'MAXAREWARD_str', 'MAXVISITS_str']
+    ids=[
+        "MAXCREWARD_enum",
+        "MAXAREWARD_enum",
+        "MAXVISITS_enum",
+        "MAXCREWARD_str",
+        "MAXAREWARD_str",
+        "MAXVISITS_str",
+    ],
 )
 def test_mcts_choose_actions_different_policies(best_child_policy):
     """Test choose_actions with different best child policies."""
     time_start = datetime.now()
 
     # Create tracks
-    track1 = Track([
-        GaussianState([[1], [1], [1], [1]],
-                     np.diag([1.5, 0.25, 1.5, 0.25]),
-                     timestamp=time_start),
-        GaussianState([[2], [1.5], [2], [1.5]],
-                     np.diag([3, 0.5, 3, 0.5]),
-                     timestamp=time_start + timedelta(seconds=1))
-    ])
+    track1 = Track(
+        [
+            GaussianState(
+                [[1], [1], [1], [1]], np.diag([1.5, 0.25, 1.5, 0.25]), timestamp=time_start
+            ),
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([3, 0.5, 3, 0.5]),
+                timestamp=time_start + timedelta(seconds=1),
+            ),
+        ]
+    )
 
     tracks = {track1}
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
         position=np.array([[0], [0]]),
         ndim_state=4,
         rpm=60,
@@ -222,8 +224,9 @@ def test_mcts_choose_actions_different_policies(best_child_policy):
     )
     sensor.timestamp = time_start
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     predictor = KalmanPredictor(transition_model)
     updater = ExtendedKalmanUpdater(measurement_model=None)
     reward_function = UncertaintyRewardFunction(predictor, updater, return_tracks=True)
@@ -233,13 +236,10 @@ def test_mcts_choose_actions_different_policies(best_child_policy):
         reward_function=reward_function,
         niterations=10,  # Small for fast test
         exploration_factor=0,
-        best_child_policy=best_child_policy
+        best_child_policy=best_child_policy,
     )
 
-    chosen_configs = sensor_manager.choose_actions(
-        tracks,
-        time_start + timedelta(seconds=2)
-    )
+    chosen_configs = sensor_manager.choose_actions(tracks, time_start + timedelta(seconds=2))
 
     assert isinstance(chosen_configs, list)
     assert len(chosen_configs) > 0
@@ -258,21 +258,24 @@ def test_mcts_choose_actions_basic():
     time_start = datetime.now()
 
     # Create tracks with Gaussian states
-    track1 = Track([
-        GaussianState([[1], [1], [1], [1]],
-                     np.diag([1.5, 0.25, 1.5, 0.25]),
-                     timestamp=time_start),
-        GaussianState([[2], [1.5], [2], [1.5]],
-                     np.diag([3, 0.5, 3, 0.5]),
-                     timestamp=time_start + timedelta(seconds=1))
-    ])
+    track1 = Track(
+        [
+            GaussianState(
+                [[1], [1], [1], [1]], np.diag([1.5, 0.25, 1.5, 0.25]), timestamp=time_start
+            ),
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([3, 0.5, 3, 0.5]),
+                timestamp=time_start + timedelta(seconds=1),
+            ),
+        ]
+    )
 
     tracks = {track1}
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
         position=np.array([[0], [0]]),
         ndim_state=4,
         rpm=60,
@@ -282,8 +285,9 @@ def test_mcts_choose_actions_basic():
     )
     sensor.timestamp = time_start
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     predictor = KalmanPredictor(transition_model)
     updater = ExtendedKalmanUpdater(measurement_model=None)
     reward_function = UncertaintyRewardFunction(predictor, updater, return_tracks=True)
@@ -292,13 +296,10 @@ def test_mcts_choose_actions_basic():
         sensors={sensor},
         reward_function=reward_function,
         niterations=20,  # Small for fast test
-        exploration_factor=1.0
+        exploration_factor=1.0,
     )
 
-    chosen_configs = sensor_manager.choose_actions(
-        tracks,
-        time_start + timedelta(seconds=2)
-    )
+    chosen_configs = sensor_manager.choose_actions(tracks, time_start + timedelta(seconds=2))
 
     # Verify output structure
     assert isinstance(chosen_configs, list)
@@ -306,7 +307,7 @@ def test_mcts_choose_actions_basic():
 
     config = chosen_configs[0]
     assert isinstance(config, dict)
-    assert sensor in config or any(isinstance(s, RadarRotatingBearingRange) for s in config.keys())
+    assert sensor in config or any(isinstance(s, RadarRotatingBearingRange) for s in config)
 
 
 def test_mcts_choose_actions_with_particle_states():
@@ -314,27 +315,34 @@ def test_mcts_choose_actions_with_particle_states():
     time_start = datetime.now()
 
     # Create tracks with Particle states
-    track1 = Track([
-        ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-            mean=np.array([1, 1, 1, 1]),
-            cov=np.diag([1.5, 0.25, 1.5, 0.25]),
-            size=100).T),
-            weight=np.array([1/100]*100),
-            timestamp=time_start),
-        ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-            mean=np.array([2, 1.5, 2, 1.5]),
-            cov=np.diag([3, 0.5, 3, 0.5]),
-            size=100).T),
-            weight=np.array([1/100]*100),
-            timestamp=time_start + timedelta(seconds=1))
-    ])
+    track1 = Track(
+        [
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([1, 1, 1, 1]), cov=np.diag([1.5, 0.25, 1.5, 0.25]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+                timestamp=time_start,
+            ),
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([2, 1.5, 2, 1.5]), cov=np.diag([3, 0.5, 3, 0.5]), size=100
+                    ).T
+                ),
+                weight=np.array([1 / 100] * 100),
+                timestamp=time_start + timedelta(seconds=1),
+            ),
+        ]
+    )
 
     tracks = {track1}
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
         position=np.array([[0], [0]]),
         ndim_state=4,
         rpm=60,
@@ -344,23 +352,18 @@ def test_mcts_choose_actions_with_particle_states():
     )
     sensor.timestamp = time_start
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     predictor = ParticlePredictor(transition_model)
     updater = ParticleUpdater(measurement_model=None)
     reward_function = ExpectedKLDivergence(predictor, updater, return_tracks=True)
 
     sensor_manager = MonteCarloTreeSearchSensorManager(
-        sensors={sensor},
-        reward_function=reward_function,
-        niterations=15,
-        exploration_factor=0.5
+        sensors={sensor}, reward_function=reward_function, niterations=15, exploration_factor=0.5
     )
 
-    chosen_configs = sensor_manager.choose_actions(
-        tracks,
-        time_start + timedelta(seconds=2)
-    )
+    chosen_configs = sensor_manager.choose_actions(tracks, time_start + timedelta(seconds=2))
 
     assert isinstance(chosen_configs, list)
     assert len(chosen_configs) == 1
@@ -370,39 +373,47 @@ def test_mcts_rollout_choose_actions():
     """Test MCTSRolloutSensorManager choose_actions."""
     time_start = datetime.now()
 
-    track1 = Track([
-        ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-            mean=np.array([1, 1, 1, 1]),
-            cov=np.diag([1.5, 0.25, 1.5, 0.25]),
-            size=50).T),
-            weight=np.array([1/50]*50),
-            timestamp=time_start),
-        ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-            mean=np.array([2, 1.5, 2, 1.5]),
-            cov=np.diag([3, 0.5, 3, 0.5]),
-            size=50).T),
-            weight=np.array([1/50]*50),
-            timestamp=time_start + timedelta(seconds=1))
-    ])
+    track1 = Track(
+        [
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([1, 1, 1, 1]), cov=np.diag([1.5, 0.25, 1.5, 0.25]), size=50
+                    ).T
+                ),
+                weight=np.array([1 / 50] * 50),
+                timestamp=time_start,
+            ),
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([2, 1.5, 2, 1.5]), cov=np.diag([3, 0.5, 3, 0.5]), size=50
+                    ).T
+                ),
+                weight=np.array([1 / 50] * 50),
+                timestamp=time_start + timedelta(seconds=1),
+            ),
+        ]
+    )
 
     tracks = {track1}
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
         position=np.array([[0], [0]]),
         ndim_state=4,
         rpm=60,
         fov_angle=np.radians(30),
         dwell_centre=StateVector([0.0]),
         max_range=np.inf,
-        resolution=np.radians(10)
+        resolution=np.radians(10),
     )
     sensor.timestamp = time_start
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     predictor = ParticlePredictor(transition_model)
     updater = ParticleUpdater(measurement_model=None)
     reward_function = ExpectedKLDivergence(predictor, updater, return_tracks=True)
@@ -413,13 +424,10 @@ def test_mcts_rollout_choose_actions():
         niterations=10,
         rollout_depth=2,
         exploration_factor=0,
-        discount_factor=0.9
+        discount_factor=0.9,
     )
 
-    chosen_configs = sensor_manager.choose_actions(
-        tracks,
-        time_start + timedelta(seconds=2)
-    )
+    chosen_configs = sensor_manager.choose_actions(tracks, time_start + timedelta(seconds=2))
 
     assert isinstance(chosen_configs, list)
     assert len(chosen_configs) == 1
@@ -432,33 +440,37 @@ def test_mcts_rollout_with_search_depth():
     """Test MCTSRolloutSensorManager with search_depth instead of rollout_depth."""
     time_start = datetime.now()
 
-    track1 = Track([
-        GaussianState([[1], [1], [1], [1]],
-                     np.diag([1.5, 0.25, 1.5, 0.25]),
-                     timestamp=time_start),
-        GaussianState([[2], [1.5], [2], [1.5]],
-                     np.diag([3, 0.5, 3, 0.5]),
-                     timestamp=time_start + timedelta(seconds=1))
-    ])
+    track1 = Track(
+        [
+            GaussianState(
+                [[1], [1], [1], [1]], np.diag([1.5, 0.25, 1.5, 0.25]), timestamp=time_start
+            ),
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([3, 0.5, 3, 0.5]),
+                timestamp=time_start + timedelta(seconds=1),
+            ),
+        ]
+    )
 
     tracks = {track1}
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
         position=np.array([[0], [0]]),
         ndim_state=4,
         rpm=60,
         fov_angle=np.radians(30),
         dwell_centre=StateVector([0.0]),
         max_range=np.inf,
-        resolution=np.radians(10)
+        resolution=np.radians(10),
     )
     sensor.timestamp = time_start
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     predictor = KalmanPredictor(transition_model)
     updater = ExtendedKalmanUpdater(measurement_model=None)
     reward_function = UncertaintyRewardFunction(predictor, updater, return_tracks=True)
@@ -468,13 +480,10 @@ def test_mcts_rollout_with_search_depth():
         reward_function=reward_function,
         niterations=10,
         search_depth=3,
-        exploration_factor=0
+        exploration_factor=0,
     )
 
-    chosen_configs = sensor_manager.choose_actions(
-        tracks,
-        time_start + timedelta(seconds=2)
-    )
+    chosen_configs = sensor_manager.choose_actions(tracks, time_start + timedelta(seconds=2))
 
     assert isinstance(chosen_configs, list)
     assert len(chosen_configs) == 1
@@ -486,8 +495,7 @@ def test_mcts_with_empty_tracks():
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
         position=np.array([[0], [0]]),
         ndim_state=4,
         rpm=60,
@@ -497,21 +505,19 @@ def test_mcts_with_empty_tracks():
     )
     sensor.timestamp = time_start
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     predictor = KalmanPredictor(transition_model)
     updater = ExtendedKalmanUpdater(measurement_model=None)
     reward_function = UncertaintyRewardFunction(predictor, updater, return_tracks=True)
 
     sensor_manager = MonteCarloTreeSearchSensorManager(
-        sensors={sensor},
-        reward_function=reward_function,
-        niterations=5
+        sensors={sensor}, reward_function=reward_function, niterations=5
     )
 
     chosen_configs = sensor_manager.choose_actions(
-        set(),  # Empty tracks
-        time_start + timedelta(seconds=2)
+        set(), time_start + timedelta(seconds=2)  # Empty tracks
     )
 
     assert isinstance(chosen_configs, list)
@@ -523,8 +529,7 @@ def test_mcts_tree_policy():
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
         ndim_state=4,
         rpm=60,
         fov_angle=np.radians(30),
@@ -533,32 +538,31 @@ def test_mcts_tree_policy():
     )
     sensor.timestamp = time_start
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     predictor = KalmanPredictor(transition_model)
     updater = ExtendedKalmanUpdater(measurement_model=None)
     reward_function = UncertaintyRewardFunction(predictor, updater, return_tracks=True)
 
     sensor_manager = MonteCarloTreeSearchSensorManager(
-        sensors={sensor},
-        reward_function=reward_function,
-        exploration_factor=1.0
+        sensors={sensor}, reward_function=reward_function, exploration_factor=1.0
     )
 
     # Create mock nodes structure
     nodes = [
         {
-            'Child_IDs': [1, 2],
-            'visits': 10,
+            "Child_IDs": [1, 2],
+            "visits": 10,
         },
         {
-            'action_value': 5.0,
-            'visits': 3,
+            "action_value": 5.0,
+            "visits": 3,
         },
         {
-            'action_value': 8.0,
-            'visits': 7,
-        }
+            "action_value": 8.0,
+            "visits": 7,
+        },
     ]
 
     # Test tree_policy selection
@@ -572,8 +576,7 @@ def test_mcts_select_best_child():
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
         ndim_state=4,
         rpm=60,
         fov_angle=np.radians(30),
@@ -582,8 +585,9 @@ def test_mcts_select_best_child():
     )
     sensor.timestamp = time_start
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     predictor = KalmanPredictor(transition_model)
     updater = ExtendedKalmanUpdater(measurement_model=None)
     reward_function = UncertaintyRewardFunction(predictor, updater, return_tracks=True)
@@ -592,14 +596,14 @@ def test_mcts_select_best_child():
     sensor_manager = MonteCarloTreeSearchSensorManager(
         sensors={sensor},
         reward_function=reward_function,
-        best_child_policy=MCTSBestChildPolicyEnum.MAXCREWARD
+        best_child_policy=MCTSBestChildPolicyEnum.MAXCREWARD,
     )
 
     nodes = [
-        {'Child_IDs': [1, 2, 3]},
-        {'action_value': 10.0, 'visits': 5},
-        {'action_value': 15.0, 'visits': 3},
-        {'action_value': 12.0, 'visits': 4}
+        {"Child_IDs": [1, 2, 3]},
+        {"action_value": 10.0, "visits": 5},
+        {"action_value": 15.0, "visits": 3},
+        {"action_value": 12.0, "visits": 4},
     ]
 
     best = sensor_manager.select_best_child(nodes)
@@ -620,30 +624,35 @@ def test_mcts_with_multiple_tracks():
     """Test MCTS with multiple tracks."""
     time_start = datetime.now()
 
-    track1 = Track([
-        GaussianState([[1], [1], [1], [1]],
-                     np.diag([1.5, 0.25, 1.5, 0.25]),
-                     timestamp=time_start),
-        GaussianState([[2], [1.5], [2], [1.5]],
-                     np.diag([3, 0.5, 3, 0.5]),
-                     timestamp=time_start + timedelta(seconds=1))
-    ])
+    track1 = Track(
+        [
+            GaussianState(
+                [[1], [1], [1], [1]], np.diag([1.5, 0.25, 1.5, 0.25]), timestamp=time_start
+            ),
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([3, 0.5, 3, 0.5]),
+                timestamp=time_start + timedelta(seconds=1),
+            ),
+        ]
+    )
 
-    track2 = Track([
-        GaussianState([[-1], [1], [-1], [1]],
-                     np.diag([3, 0.5, 3, 0.5]),
-                     timestamp=time_start),
-        GaussianState([[2], [1.5], [2], [1.5]],
-                     np.diag([1.5, 0.25, 1.5, 0.25]),
-                     timestamp=time_start + timedelta(seconds=1))
-    ])
+    track2 = Track(
+        [
+            GaussianState([[-1], [1], [-1], [1]], np.diag([3, 0.5, 3, 0.5]), timestamp=time_start),
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([1.5, 0.25, 1.5, 0.25]),
+                timestamp=time_start + timedelta(seconds=1),
+            ),
+        ]
+    )
 
     tracks = {track1, track2}
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
         position=np.array([[0], [0]]),
         ndim_state=4,
         rpm=60,
@@ -653,22 +662,18 @@ def test_mcts_with_multiple_tracks():
     )
     sensor.timestamp = time_start
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     predictor = KalmanPredictor(transition_model)
     updater = ExtendedKalmanUpdater(measurement_model=None)
     reward_function = UncertaintyRewardFunction(predictor, updater, return_tracks=True)
 
     sensor_manager = MonteCarloTreeSearchSensorManager(
-        sensors={sensor},
-        reward_function=reward_function,
-        niterations=15
+        sensors={sensor}, reward_function=reward_function, niterations=15
     )
 
-    chosen_configs = sensor_manager.choose_actions(
-        tracks,
-        time_start + timedelta(seconds=2)
-    )
+    chosen_configs = sensor_manager.choose_actions(tracks, time_start + timedelta(seconds=2))
 
     assert isinstance(chosen_configs, list)
     assert len(chosen_configs) == 1
@@ -678,27 +683,34 @@ def test_mcts_with_data_associator():
     """Test MCTS with data associator in reward function."""
     time_start = datetime.now()
 
-    track1 = Track([
-        ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-            mean=np.array([1, 1, 1, 1]),
-            cov=np.diag([1.5, 0.25, 1.5, 0.25]),
-            size=50).T),
-            weight=np.array([1/50]*50),
-            timestamp=time_start),
-        ParticleState(state_vector=StateVectors(np.random.multivariate_normal(
-            mean=np.array([2, 1.5, 2, 1.5]),
-            cov=np.diag([3, 0.5, 3, 0.5]),
-            size=50).T),
-            weight=np.array([1/50]*50),
-            timestamp=time_start + timedelta(seconds=1))
-    ])
+    track1 = Track(
+        [
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([1, 1, 1, 1]), cov=np.diag([1.5, 0.25, 1.5, 0.25]), size=50
+                    ).T
+                ),
+                weight=np.array([1 / 50] * 50),
+                timestamp=time_start,
+            ),
+            ParticleState(
+                state_vector=StateVectors(
+                    np.random.multivariate_normal(
+                        mean=np.array([2, 1.5, 2, 1.5]), cov=np.diag([3, 0.5, 3, 0.5]), size=50
+                    ).T
+                ),
+                weight=np.array([1 / 50] * 50),
+                timestamp=time_start + timedelta(seconds=1),
+            ),
+        ]
+    )
 
     tracks = {track1}
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
         position=np.array([[0], [0]]),
         ndim_state=4,
         rpm=60,
@@ -708,33 +720,26 @@ def test_mcts_with_data_associator():
     )
     sensor.timestamp = time_start
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     predictor = ParticlePredictor(transition_model)
     updater = ParticleUpdater(measurement_model=None)
 
-    hypothesiser = DistanceHypothesiser(predictor, updater,
-                                       measure=Mahalanobis(),
-                                       missed_distance=5)
+    hypothesiser = DistanceHypothesiser(
+        predictor, updater, measure=Mahalanobis(), missed_distance=5
+    )
     data_associator = GNNWith2DAssignment(hypothesiser)
 
     reward_function = ExpectedKLDivergence(
-        predictor,
-        updater,
-        return_tracks=True,
-        data_associator=data_associator
+        predictor, updater, return_tracks=True, data_associator=data_associator
     )
 
     sensor_manager = MonteCarloTreeSearchSensorManager(
-        sensors={sensor},
-        reward_function=reward_function,
-        niterations=10
+        sensors={sensor}, reward_function=reward_function, niterations=10
     )
 
-    chosen_configs = sensor_manager.choose_actions(
-        tracks,
-        time_start + timedelta(seconds=2)
-    )
+    chosen_configs = sensor_manager.choose_actions(tracks, time_start + timedelta(seconds=2))
 
     assert isinstance(chosen_configs, list)
 
@@ -743,21 +748,24 @@ def test_mcts_search_depth_limiting():
     """Test that search_depth limits tree expansion."""
     time_start = datetime.now()
 
-    track1 = Track([
-        GaussianState([[1], [1], [1], [1]],
-                     np.diag([1.5, 0.25, 1.5, 0.25]),
-                     timestamp=time_start),
-        GaussianState([[2], [1.5], [2], [1.5]],
-                     np.diag([3, 0.5, 3, 0.5]),
-                     timestamp=time_start + timedelta(seconds=1))
-    ])
+    track1 = Track(
+        [
+            GaussianState(
+                [[1], [1], [1], [1]], np.diag([1.5, 0.25, 1.5, 0.25]), timestamp=time_start
+            ),
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([3, 0.5, 3, 0.5]),
+                timestamp=time_start + timedelta(seconds=1),
+            ),
+        ]
+    )
 
     tracks = {track1}
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
         position=np.array([[0], [0]]),
         ndim_state=4,
         rpm=60,
@@ -767,8 +775,9 @@ def test_mcts_search_depth_limiting():
     )
     sensor.timestamp = time_start
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     predictor = KalmanPredictor(transition_model)
     updater = ExtendedKalmanUpdater(measurement_model=None)
     reward_function = UncertaintyRewardFunction(predictor, updater, return_tracks=True)
@@ -778,13 +787,10 @@ def test_mcts_search_depth_limiting():
         sensors={sensor},
         reward_function=reward_function,
         niterations=20,
-        search_depth=2  # Limit to 2 levels deep
+        search_depth=2,  # Limit to 2 levels deep
     )
 
-    chosen_configs = sensor_manager.choose_actions(
-        tracks,
-        time_start + timedelta(seconds=2)
-    )
+    chosen_configs = sensor_manager.choose_actions(tracks, time_start + timedelta(seconds=2))
 
     assert isinstance(chosen_configs, list)
     assert len(chosen_configs) == 1
@@ -794,21 +800,24 @@ def test_mcts_discount_factor_effect():
     """Test that discount_factor is applied correctly."""
     time_start = datetime.now()
 
-    track1 = Track([
-        GaussianState([[1], [1], [1], [1]],
-                     np.diag([1.5, 0.25, 1.5, 0.25]),
-                     timestamp=time_start),
-        GaussianState([[2], [1.5], [2], [1.5]],
-                     np.diag([3, 0.5, 3, 0.5]),
-                     timestamp=time_start + timedelta(seconds=1))
-    ])
+    track1 = Track(
+        [
+            GaussianState(
+                [[1], [1], [1], [1]], np.diag([1.5, 0.25, 1.5, 0.25]), timestamp=time_start
+            ),
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([3, 0.5, 3, 0.5]),
+                timestamp=time_start + timedelta(seconds=1),
+            ),
+        ]
+    )
 
     tracks = {track1}
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
         position=np.array([[0], [0]]),
         ndim_state=4,
         rpm=60,
@@ -818,8 +827,9 @@ def test_mcts_discount_factor_effect():
     )
     sensor.timestamp = time_start
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     predictor = KalmanPredictor(transition_model)
     updater = ExtendedKalmanUpdater(measurement_model=None)
     reward_function = UncertaintyRewardFunction(predictor, updater, return_tracks=True)
@@ -830,13 +840,10 @@ def test_mcts_discount_factor_effect():
             sensors={copy.deepcopy(sensor)},
             reward_function=reward_function,
             niterations=10,
-            discount_factor=discount_factor
+            discount_factor=discount_factor,
         )
 
-        chosen_configs = sensor_manager.choose_actions(
-            tracks,
-            time_start + timedelta(seconds=2)
-        )
+        chosen_configs = sensor_manager.choose_actions(tracks, time_start + timedelta(seconds=2))
 
         assert isinstance(chosen_configs, list)
 
@@ -845,21 +852,24 @@ def test_mcts_time_step_parameter():
     """Test that time_step parameter affects search correctly."""
     time_start = datetime.now()
 
-    track1 = Track([
-        GaussianState([[1], [1], [1], [1]],
-                     np.diag([1.5, 0.25, 1.5, 0.25]),
-                     timestamp=time_start),
-        GaussianState([[2], [1.5], [2], [1.5]],
-                     np.diag([3, 0.5, 3, 0.5]),
-                     timestamp=time_start + timedelta(seconds=1))
-    ])
+    track1 = Track(
+        [
+            GaussianState(
+                [[1], [1], [1], [1]], np.diag([1.5, 0.25, 1.5, 0.25]), timestamp=time_start
+            ),
+            GaussianState(
+                [[2], [1.5], [2], [1.5]],
+                np.diag([3, 0.5, 3, 0.5]),
+                timestamp=time_start + timedelta(seconds=1),
+            ),
+        ]
+    )
 
     tracks = {track1}
 
     sensor = RadarRotatingBearingRange(
         position_mapping=(0, 2),
-        noise_covar=np.array([[np.radians(0.5) ** 2, 0],
-                              [0, 0.75 ** 2]]),
+        noise_covar=np.array([[np.radians(0.5) ** 2, 0], [0, 0.75**2]]),
         position=np.array([[0], [0]]),
         ndim_state=4,
         rpm=60,
@@ -869,8 +879,9 @@ def test_mcts_time_step_parameter():
     )
     sensor.timestamp = time_start
 
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                              ConstantVelocity(0.005)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+    )
     predictor = KalmanPredictor(transition_model)
     updater = ExtendedKalmanUpdater(measurement_model=None)
     reward_function = UncertaintyRewardFunction(predictor, updater, return_tracks=True)
@@ -881,12 +892,9 @@ def test_mcts_time_step_parameter():
             sensors={copy.deepcopy(sensor)},
             reward_function=reward_function,
             niterations=10,
-            time_step=timedelta(seconds=time_step_seconds)
+            time_step=timedelta(seconds=time_step_seconds),
         )
 
-        chosen_configs = sensor_manager.choose_actions(
-            tracks,
-            time_start + timedelta(seconds=10)
-        )
+        chosen_configs = sensor_manager.choose_actions(tracks, time_start + timedelta(seconds=10))
 
         assert isinstance(chosen_configs, list)

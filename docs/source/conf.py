@@ -14,6 +14,7 @@
 
 import sys
 import os
+
 # import shlex
 import re
 
@@ -21,11 +22,12 @@ import re
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.insert(0, os.path.abspath('.'))
-sys.path.insert(0, os.path.abspath('../../'))
+sys.path.insert(0, os.path.abspath("."))
+sys.path.insert(0, os.path.abspath("../../"))
 
 import plotly.io as pio
-pio.renderers.default = 'sphinx_gallery'
+
+pio.renderers.default = "sphinx_gallery"
 
 # -- General configuration ------------------------------------------------
 
@@ -36,97 +38,97 @@ pio.renderers.default = 'sphinx_gallery'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.viewcode',
-    'doc_extensions',
-    'sphinx.ext.napoleon',
-    'sphinx.ext.mathjax',
-    'sphinx.ext.intersphinx',
-    'sphinx.ext.autosectionlabel',
-    'sphinx_gallery.gen_gallery',
-    'sphinx_needs',
+    "sphinx.ext.autodoc",
+    "sphinx.ext.viewcode",
+    "doc_extensions",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.mathjax",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.autosectionlabel",
+    "sphinx_gallery.gen_gallery",
+    "sphinx_needs",
 ]
 napoleon_google_docstring = False
 
 # -- sphinx-needs configuration -----------------------------------------------
 
 # Define the ID format for needs items
-needs_id_regex = '^[A-Z0-9_]+-[0-9]+'
+needs_id_regex = "^[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]+"
 
 # Define custom need types for requirements traceability
 needs_types = [
     {
-        'directive': 'req',
-        'title': 'Functional Requirement',
-        'prefix': 'REQ-',
-        'color': '#BFD8D2',
-        'style': 'node'
+        "directive": "req",
+        "title": "Functional Requirement",
+        "prefix": "REQ-",
+        "color": "#BFD8D2",
+        "style": "node",
     },
     {
-        'directive': 'spec',
-        'title': 'Specification',
-        'prefix': 'SPEC-',
-        'color': '#FEDCD2',
-        'style': 'node'
+        "directive": "spec",
+        "title": "Specification",
+        "prefix": "SPEC-",
+        "color": "#FEDCD2",
+        "style": "node",
     },
     {
-        'directive': 'test',
-        'title': 'Test Case',
-        'prefix': 'TEST-',
-        'color': '#DF744A',
-        'style': 'node'
+        "directive": "test",
+        "title": "Test Case",
+        "prefix": "TEST-",
+        "color": "#DF744A",
+        "style": "node",
     },
     {
-        'directive': 'perf',
-        'title': 'Performance Requirement',
-        'prefix': 'PERF-',
-        'color': '#DCB239',
-        'style': 'node'
+        "directive": "perf",
+        "title": "Performance Requirement",
+        "prefix": "PERF-",
+        "color": "#DCB239",
+        "style": "node",
     },
     {
-        'directive': 'safety',
-        'title': 'Safety Requirement',
-        'prefix': 'SAFETY-',
-        'color': '#FF6B6B',
-        'style': 'node'
+        "directive": "safety",
+        "title": "Safety Requirement",
+        "prefix": "SAFETY-",
+        "color": "#FF6B6B",
+        "style": "node",
     },
     {
-        'directive': 'icd',
-        'title': 'Interface Requirement',
-        'prefix': 'ICD-',
-        'color': '#95E1D3',
-        'style': 'node'
+        "directive": "icd",
+        "title": "Interface Requirement",
+        "prefix": "ICD-",
+        "color": "#95E1D3",
+        "style": "node",
     },
 ]
 
 # Define extra link types for traceability
 needs_extra_links = [
     {
-        'option': 'implements',
-        'incoming': 'is implemented by',
-        'outgoing': 'implements',
-        'copy': False,
-        'color': '#00AA00',
+        "option": "implements",
+        "incoming": "is implemented by",
+        "outgoing": "implements",
+        "copy": False,
+        "color": "#00AA00",
     },
     {
-        'option': 'tests',
-        'incoming': 'is tested by',
-        'outgoing': 'tests',
-        'copy': False,
-        'color': '#0000AA',
+        "option": "tests",
+        "incoming": "is tested by",
+        "outgoing": "tests",
+        "copy": False,
+        "color": "#0000AA",
     },
     {
-        'option': 'satisfies',
-        'incoming': 'is satisfied by',
-        'outgoing': 'satisfies',
-        'copy': False,
-        'color': '#AA00AA',
+        "option": "satisfies",
+        "incoming": "is satisfied by",
+        "outgoing": "satisfies",
+        "copy": False,
+        "color": "#AA00AA",
     },
 ]
 
 # Additional sphinx-needs configuration options
-needs_table_columns = 'id;title;status;type'
-needs_table_style = 'table'
+needs_table_columns = "id;title;status;type"
+needs_table_style = "table"
 
 # Enable JSON/ReqIF export for requirements interchange
 needs_build_json = True
@@ -134,29 +136,28 @@ needs_build_needumls = True
 
 # ReqIF export configuration
 needs_services = {}
-needs_extra_options = ['verification_method', 'priority', 'risk']
+needs_extra_options = ["verification_method", "priority", "risk"]
 
 # Generate needumls diagrams
-needuml_graph_style = 'lefttoright'
+needuml_graph_style = "lefttoright"
 
 # Custom status values for requirements
 needs_statuses = [
-    {'name': 'draft', 'description': 'Requirement is in draft state'},
-    {'name': 'open', 'description': 'Requirement is open and pending'},
-    {'name': 'implemented', 'description': 'Requirement has been implemented'},
-    {'name': 'verified', 'description': 'Requirement has been verified'},
-    {'name': 'closed', 'description': 'Requirement is closed/completed'},
+    {"name": "draft", "description": "Requirement is in draft state"},
+    {"name": "open", "description": "Requirement is open and pending"},
+    {"name": "implemented", "description": "Requirement has been implemented"},
+    {"name": "verified", "description": "Requirement has been verified"},
+    {"name": "closed", "description": "Requirement is closed/completed"},
 ]
 
 # Default status for new requirements
-needs_default_status = 'open'
+needs_default_status = "open"
 
 autodoc_default_options = {
-    'members': None,
-    'member-order': 'bysource',
+    "members": None,
+    "member-order": "bysource",
 }
-autodoc_mock_imports = [
-    'ffmpeg', 'moviepy', 'tensorflow', 'object_detection', 'cv2', 'ortools']
+autodoc_mock_imports = ["ffmpeg", "moviepy", "tensorflow", "object_detection", "cv2", "ortools"]
 
 autosectionlabel_prefix_document = True
 
@@ -165,73 +166,73 @@ if binder_branch == "latest":
     binder_branch = "main"
 
 sphinx_gallery_conf = {
-    'examples_dirs': ['../tutorials', '../examples', '../demos'],
-    'gallery_dirs': ['auto_tutorials', 'auto_examples', 'auto_demos'],
-    'filename_pattern': re.escape(os.sep),
-    'image_scrapers': ('doc_extensions.gallery_scraper',),
-    'reset_modules': ('matplotlib', 'seaborn', 'doc_extensions.reset_numpy_random_seed'),
-    'reset_modules_order': 'both',
-    'abort_on_example_error': False,
-    'reference_url': {'stonesoup': None},
-    'remove_config_comments': True,
-    'ignore_repr_types': r'matplotlib\.(?:figure|animation|legend)',
-    'nested_sections': False,
-    'within_subsection_order': "FileNameSortKey",
-    'matplotlib_animations': True,
-    'notebook_images':
-        f'https://stonesoup.rtfd.io/en/{os.environ.get("READTHEDOCS_VERSION", "latest")}/',
-    'binder': {
-        'org': 'dstl',
-        'repo': 'Stone-Soup',
-        'branch': binder_branch,
-        'binderhub_url': 'https://mybinder.org',
-        'dependencies': ['requirements.txt'],
+    "examples_dirs": ["../tutorials", "../examples", "../demos"],
+    "gallery_dirs": ["auto_tutorials", "auto_examples", "auto_demos"],
+    "filename_pattern": re.escape(os.sep),
+    "image_scrapers": ("doc_extensions.gallery_scraper",),
+    "reset_modules": ("matplotlib", "seaborn", "doc_extensions.reset_numpy_random_seed"),
+    "reset_modules_order": "both",
+    "abort_on_example_error": False,
+    "reference_url": {"stonesoup": None},
+    "remove_config_comments": True,
+    "ignore_repr_types": r"matplotlib\.(?:figure|animation|legend)",
+    "nested_sections": False,
+    "within_subsection_order": "FileNameSortKey",
+    "matplotlib_animations": True,
+    "notebook_images": f'https://stonesoup.rtfd.io/en/{os.environ.get("READTHEDOCS_VERSION", "latest")}/',
+    "binder": {
+        "org": "dstl",
+        "repo": "Stone-Soup",
+        "branch": binder_branch,
+        "binderhub_url": "https://mybinder.org",
+        "dependencies": ["requirements.txt"],
     },
-    'parallel': int(os.environ.get('SPHINX_GALLERY_PARALLEL', 1)),
+    "parallel": int(os.environ.get("SPHINX_GALLERY_PARALLEL", 1)),
 }
 
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/{.major}'.format(sys.version_info), None),
-    'matplotlib': ('https://matplotlib.org/stable', None),
-    'numpy': ('https://numpy.org/doc/stable', None),
-    'scipy': ('https://docs.scipy.org/doc/scipy', None),
-    'networkx': ('https://networkx.org/documentation/stable', None),
+    "python": ("https://docs.python.org/{.major}".format(sys.version_info), None),
+    "matplotlib": ("https://matplotlib.org/stable", None),
+    "numpy": ("https://numpy.org/doc/stable", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy", None),
+    "networkx": ("https://networkx.org/documentation/stable", None),
 }
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 # source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+source_suffix = ".rst"
 
 # The encoding of source files.
 # source_encoding = 'utf-8-sig'
 
 # The master toctree document.
-master_doc = 'index'
+master_doc = "index"
 toc_object_entries = False
 
 # General information about the project.
-project = 'Stone Soup'
-copyright = '2017-2025 Stone Soup contributors'
-author = 'Dstl'
+project = "Stone Soup"
+copyright = "2017-2025 Stone Soup contributors"
+author = "Dstl"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
 from importlib.metadata import version as get_version
+
 # The full version, including alpha/beta/rc tags.
-version = release = get_version('stonesoup')
+version = release = get_version("stonesoup")
 
 # The language for content autogenerated by Sphinx. Refer to documentation
 # for a list of supported languages.
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = 'en'
+language = "en"
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:
@@ -259,7 +260,7 @@ exclude_patterns = []
 # show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+pygments_style = "sphinx"
 
 # A list of ignored prefixes for module index sorting.
 # modindex_common_prefix = []
@@ -275,7 +276,7 @@ todo_include_todos = False
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'sphinx_rtd_theme'
+html_theme = "sphinx_rtd_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -304,9 +305,9 @@ html_logo = "_static/stone_soup_logo.svg"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
-html_css_files = ['css/custom.css']
+html_css_files = ["css/custom.css"]
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
@@ -369,20 +370,17 @@ html_css_files = ['css/custom.css']
 # html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'StoneSoupdoc'
+htmlhelp_basename = "StoneSoupdoc"
 
 # -- Options for LaTeX output ---------------------------------------------
 
 latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
     # 'papersize': 'letterpaper',
-
     # The font size ('10pt', '11pt' or '12pt').
     # 'pointsize': '10pt',
-
     # Additional stuff for the LaTeX preamble.
     # 'preamble': '',
-
     # Latex figure (float) alignment
     # 'figure_align': 'htbp',
 }
@@ -391,8 +389,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'StoneSoup.tex', 'Stone Soup Documentation',
-     'Dstl', 'manual'),
+    (master_doc, "StoneSoup.tex", "Stone Soup Documentation", "Dstl", "manual"),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -420,10 +417,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    (master_doc, 'stonesoup', 'Stone Soup Documentation',
-     [author], 1)
-]
+man_pages = [(master_doc, "stonesoup", "Stone Soup Documentation", [author], 1)]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False
@@ -435,9 +429,15 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'StoneSoup', 'Stone Soup Documentation',
-     author, 'StoneSoup', 'One line description of project.',
-     'Miscellaneous'),
+    (
+        master_doc,
+        "StoneSoup",
+        "Stone Soup Documentation",
+        author,
+        "StoneSoup",
+        "One line description of project.",
+        "Miscellaneous",
+    ),
 ]
 
 # Documents to append as an appendix to all manuals.

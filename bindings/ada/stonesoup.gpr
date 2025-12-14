@@ -40,9 +40,8 @@ project StoneSoup is
        "-gnatyp",       -- Check pragma casing
        "-gnatyr",       -- Check casing for identifier references
        "-gnatys",       -- Check separate subprogram specs
-       "-gnatyt",       -- Check token separation rules
-       "-gnatyU",       -- Check unneeded parentheses
-       "-gnatyx");      -- Check extra parentheses
+       "-gnatyt");      -- Check token separation rules
+       -- Note: -gnatyU and -gnatyx removed for GNAT < 12 compatibility
 
    package Compiler is
       case Build is

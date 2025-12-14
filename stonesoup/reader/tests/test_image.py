@@ -1,5 +1,5 @@
-import pytest
 import numpy as np
+import pytest
 from PIL import Image
 
 from ...reader.image import SingleImageFileReader
@@ -9,7 +9,7 @@ from ...reader.image import SingleImageFileReader
 def img_gt_filename(tmpdir):
     img_filename = tmpdir.join("test.png")
     imarray = np.random.rand(100, 100, 3) * 255
-    im = Image.fromarray(imarray.astype('uint8')).convert('RGB')
+    im = Image.fromarray(imarray.astype("uint8")).convert("RGB")
     im.save(img_filename.strpath)
     return img_filename
 

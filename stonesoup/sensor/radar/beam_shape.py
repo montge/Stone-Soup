@@ -2,11 +2,12 @@ from abc import abstractmethod
 
 import numpy as np
 
-from ...base import Property, Base
+from ...base import Base, Property
 
 
 class BeamShape(Base):
     """Base class for beam shape"""
+
     peak_power: float = Property(doc="peak power of the main lobe in Watts")
 
     @abstractmethod
@@ -18,17 +19,18 @@ class BeamShape(Base):
 
 class Beam2DGaussian(BeamShape):
     r"""The beam is in the shape of a 2D gaussian in the azimuth and elevation.
-     The width at half the maxima is the beam width. It is described by:
+    The width at half the maxima is the beam width. It is described by:
 
-     .. math::
+    .. math::
 
-        P = P_p\exp \left( 0.5 \times \left(\left(\frac{2.35\,az}{B_w}\right)
-        ^2 +\left(\frac{2.35\,el}{B_w}\right)^2 \right) \right)
+       P = P_p\exp \left( 0.5 \times \left(\left(\frac{2.35\,az}{B_w}\right)
+       ^2 +\left(\frac{2.35\,el}{B_w}\right)^2 \right) \right)
 
-     where :math:`az` and :math:`el` are the azimuth and elevation angles away
-     from the centre. :math:`B_w` is the beam width and :math:`P_p` is the peak
-     power.
-     """
+    where :math:`az` and :math:`el` are the azimuth and elevation angles away
+    from the centre. :math:`B_w` is the beam width and :math:`P_p` is the peak
+    power.
+    """
+
     # Full width half maximum
     FWHM = 2 * np.sqrt(2 * np.log(2))
 
@@ -51,4 +53,6 @@ class Beam2DGaussian(BeamShape):
             the power directed towards the target
         """
         return self.peak_power * np.exp(
-            -0.5 * ((azimuth/beam_width*self.FWHM)**2 + (elevation/beam_width*self.FWHM)**2))
+            -0.5
+            * ((azimuth / beam_width * self.FWHM) ** 2 + (elevation / beam_width * self.FWHM) ** 2)
+        )

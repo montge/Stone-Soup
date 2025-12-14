@@ -2,22 +2,22 @@ import datetime
 
 import pytest
 
-from ..time import TimeRange, CompoundTimeRange
+from ..time import CompoundTimeRange, TimeRange
 
 
 @pytest.fixture
 def times():
     # Note times are returned chronologically for ease of reading
     before = datetime.datetime(year=2018, month=3, day=1, hour=3, minute=10, second=3)
-    t1 = datetime.datetime(year=2018, month=3, day=1, hour=5, minute=3,
-                           second=35, microsecond=500)
+    t1 = datetime.datetime(year=2018, month=3, day=1, hour=5, minute=3, second=35, microsecond=500)
     inside = datetime.datetime(year=2018, month=3, day=1, hour=5, minute=10, second=3)
-    t2 = datetime.datetime(year=2018, month=3, day=1, hour=6, minute=5,
-                           second=41, microsecond=500)
-    after = datetime.datetime(year=2019, month=3, day=1, hour=6, minute=5,
-                              second=41, microsecond=500)
-    long_after = datetime.datetime(year=2022, month=6, day=1, hour=6, minute=5,
-                                   second=41, microsecond=500)
+    t2 = datetime.datetime(year=2018, month=3, day=1, hour=6, minute=5, second=41, microsecond=500)
+    after = datetime.datetime(
+        year=2019, month=3, day=1, hour=6, minute=5, second=41, microsecond=500
+    )
+    long_after = datetime.datetime(
+        year=2022, month=6, day=1, hour=6, minute=5, second=41, microsecond=500
+    )
     return [before, t1, inside, t2, after, long_after]
 
 
@@ -69,8 +69,9 @@ def test_duration(times):
     # CompoundTimeRange
 
     # times[2] is inside of [1] and [3], so should be equivalent to a TimeRange(times[1], times[4])
-    test_range2 = CompoundTimeRange([TimeRange(start=times[1], end=times[3]),
-                                     TimeRange(start=times[2], end=times[4])])
+    test_range2 = CompoundTimeRange(
+        [TimeRange(start=times[1], end=times[3]), TimeRange(start=times[2], end=times[4])]
+    )
 
     assert test_range.duration == times[3] - times[1]
     assert test_range2.duration == times[4] - times[1]
@@ -191,10 +192,8 @@ def test_and(times):
 
 
 def test_key_times(times):
-    test1 = CompoundTimeRange([TimeRange(times[0], times[1]),
-                               TimeRange(times[3], times[4])])
-    test2 = CompoundTimeRange([TimeRange(times[3], times[4]),
-                               TimeRange(times[0], times[1])])
+    test1 = CompoundTimeRange([TimeRange(times[0], times[1]), TimeRange(times[3], times[4])])
+    test2 = CompoundTimeRange([TimeRange(times[3], times[4]), TimeRange(times[0], times[1])])
     test3 = CompoundTimeRange()
     test4 = CompoundTimeRange([TimeRange(times[0], times[4])])
     test5 = TimeRange(times[0], times[4])
@@ -207,19 +206,19 @@ def test_key_times(times):
 
 
 def test_remove_overlap(times):
-    test1_ro = CompoundTimeRange([TimeRange(times[0], times[1]),
-                                  TimeRange(times[3], times[4])])
+    test1_ro = CompoundTimeRange([TimeRange(times[0], times[1]), TimeRange(times[3], times[4])])
     test1_ro._remove_overlap()
-    test2_ro = CompoundTimeRange([TimeRange(times[3], times[4]),
-                                  TimeRange(times[0], times[4])])
+    test2_ro = CompoundTimeRange([TimeRange(times[3], times[4]), TimeRange(times[0], times[4])])
     test2_ro._remove_overlap()
     test3_ro = CompoundTimeRange()
     test3_ro._remove_overlap()
 
     test2 = CompoundTimeRange([TimeRange(times[0], times[4])])
 
-    assert test1_ro.duration == TimeRange(times[0], times[1]).duration + \
-           TimeRange(times[3], times[4]).duration
+    assert (
+        test1_ro.duration
+        == TimeRange(times[0], times[1]).duration + TimeRange(times[3], times[4]).duration
+    )
     assert test2_ro == test2
     assert test3_ro == CompoundTimeRange()
 
@@ -228,8 +227,7 @@ def test_fuse_components(times):
     # Note this is called inside the __init__ method, but is tested here explicitly
     test1 = CompoundTimeRange([TimeRange(times[1], times[2])])
     test1._fuse_components()
-    test2 = CompoundTimeRange([TimeRange(times[1], times[2]),
-                               TimeRange(times[2], times[4])])
+    test2 = CompoundTimeRange([TimeRange(times[1], times[2]), TimeRange(times[2], times[4])])
     test2._fuse_components()
     assert test1 == CompoundTimeRange([TimeRange(times[1], times[2])])
     assert test2 == CompoundTimeRange([TimeRange(times[1], times[4])])
@@ -239,8 +237,7 @@ def test_add(times):
     test1 = CompoundTimeRange([TimeRange(times[1], times[2])])
     test2 = CompoundTimeRange([TimeRange(times[0], times[1])])
     test3 = CompoundTimeRange([TimeRange(times[0], times[2])])
-    test4 = CompoundTimeRange([TimeRange(times[0], times[2]),
-                               TimeRange(times[4], times[5])])
+    test4 = CompoundTimeRange([TimeRange(times[0], times[2]), TimeRange(times[4], times[5])])
     with pytest.raises(TypeError):
         test1.add(True)
     assert test1 != test2
@@ -254,16 +251,16 @@ def test_add(times):
 
 
 def test_remove(times):
-    test1 = CompoundTimeRange([TimeRange(times[0], times[2]),
-                               TimeRange(times[4], times[5])])
+    test1 = CompoundTimeRange([TimeRange(times[0], times[2]), TimeRange(times[4], times[5])])
     with pytest.raises(TypeError):
         test1.remove(0.4)
     with pytest.raises(ValueError):
         test1.remove(TimeRange(times[2], times[3]))
     # Remove part of a component
     test1.remove(TimeRange(times[0], times[1]))
-    assert test1 == CompoundTimeRange([TimeRange(times[1], times[2]),
-                                       TimeRange(times[4], times[5])])
+    assert test1 == CompoundTimeRange(
+        [TimeRange(times[1], times[2]), TimeRange(times[4], times[5])]
+    )
     # Remove whole component
     test1.remove(TimeRange(times[1], times[2]))
     assert test1 == CompoundTimeRange([TimeRange(times[4], times[5])])

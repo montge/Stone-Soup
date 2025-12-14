@@ -1,10 +1,12 @@
 """Tests for voxel-based predictors."""
+
 import datetime
+
 import numpy as np
 import pytest
 
 from stonesoup.models.transition.linear import ConstantVelocity
-from stonesoup.predictor.voxel import VoxelPredictor, DiffusionVoxelPredictor
+from stonesoup.predictor.voxel import DiffusionVoxelPredictor, VoxelPredictor
 from stonesoup.types.prediction import VoxelPrediction
 from stonesoup.types.voxel import VoxelGrid, VoxelState
 
@@ -13,19 +15,13 @@ from stonesoup.types.voxel import VoxelGrid, VoxelState
 @pytest.fixture
 def voxel_grid():
     """Create a simple 10x10x10 voxel grid for testing."""
-    return VoxelGrid(
-        bounds=np.array([0, 10, 0, 10, 0, 10]),
-        resolution=1.0
-    )
+    return VoxelGrid(bounds=np.array([0, 10, 0, 10, 0, 10]), resolution=1.0)
 
 
 @pytest.fixture
 def small_voxel_grid():
     """Create a smaller 5x5x5 voxel grid for faster testing."""
-    return VoxelGrid(
-        bounds=np.array([0, 5, 0, 5, 0, 5]),
-        resolution=1.0
-    )
+    return VoxelGrid(bounds=np.array([0, 5, 0, 5, 0, 5]), resolution=1.0)
 
 
 @pytest.fixture
@@ -44,12 +40,7 @@ def dense_voxel_state(voxel_grid):
 @pytest.fixture
 def sparse_voxel_state(voxel_grid):
     """Create a voxel state with sparse occupancy representation."""
-    occupancy = {
-        (5, 5, 5): 0.9,
-        (5, 5, 6): 0.7,
-        (5, 6, 5): 0.6,
-        (6, 5, 5): 0.5
-    }
+    occupancy = {(5, 5, 5): 0.9, (5, 5, 6): 0.7, (5, 6, 5): 0.6, (6, 5, 5): 0.5}
 
     timestamp = datetime.datetime(2023, 1, 1, 12, 0, 0)
     return VoxelState(grid=voxel_grid, occupancy=occupancy, timestamp=timestamp)
@@ -83,9 +74,7 @@ class MockVoxelTransitionModel:
 def test_voxel_predictor_instantiation(simple_transition_model):
     """Test creating a VoxelPredictor with valid parameters."""
     predictor = VoxelPredictor(
-        transition_model=simple_transition_model,
-        birth_probability=0.01,
-        death_probability=0.02
+        transition_model=simple_transition_model, birth_probability=0.01, death_probability=0.02
     )
 
     assert predictor.transition_model == simple_transition_model
@@ -104,49 +93,33 @@ def test_voxel_predictor_default_probabilities(simple_transition_model):
 def test_voxel_predictor_invalid_birth_probability(simple_transition_model):
     """Test that invalid birth probability raises ValueError."""
     with pytest.raises(ValueError, match="birth_probability must be in \\[0, 1\\]"):
-        VoxelPredictor(
-            transition_model=simple_transition_model,
-            birth_probability=-0.1
-        )
+        VoxelPredictor(transition_model=simple_transition_model, birth_probability=-0.1)
 
     with pytest.raises(ValueError, match="birth_probability must be in \\[0, 1\\]"):
-        VoxelPredictor(
-            transition_model=simple_transition_model,
-            birth_probability=1.5
-        )
+        VoxelPredictor(transition_model=simple_transition_model, birth_probability=1.5)
 
 
 def test_voxel_predictor_invalid_death_probability(simple_transition_model):
     """Test that invalid death probability raises ValueError."""
     with pytest.raises(ValueError, match="death_probability must be in \\[0, 1\\]"):
-        VoxelPredictor(
-            transition_model=simple_transition_model,
-            death_probability=-0.1
-        )
+        VoxelPredictor(transition_model=simple_transition_model, death_probability=-0.1)
 
     with pytest.raises(ValueError, match="death_probability must be in \\[0, 1\\]"):
-        VoxelPredictor(
-            transition_model=simple_transition_model,
-            death_probability=1.2
-        )
+        VoxelPredictor(transition_model=simple_transition_model, death_probability=1.2)
 
 
 def test_voxel_predictor_extreme_probabilities(simple_transition_model):
     """Test VoxelPredictor with boundary probability values."""
     # Test with zero probabilities
     predictor_zero = VoxelPredictor(
-        transition_model=simple_transition_model,
-        birth_probability=0.0,
-        death_probability=0.0
+        transition_model=simple_transition_model, birth_probability=0.0, death_probability=0.0
     )
     assert predictor_zero.birth_probability == 0.0
     assert predictor_zero.death_probability == 0.0
 
     # Test with maximum probabilities
     predictor_max = VoxelPredictor(
-        transition_model=simple_transition_model,
-        birth_probability=1.0,
-        death_probability=1.0
+        transition_model=simple_transition_model, birth_probability=1.0, death_probability=1.0
     )
     assert predictor_max.birth_probability == 1.0
     assert predictor_max.death_probability == 1.0
@@ -156,9 +129,7 @@ def test_voxel_predictor_extreme_probabilities(simple_transition_model):
 def test_voxel_predictor_predict_dense_state(dense_voxel_state):
     """Test prediction with dense voxel state."""
     predictor = VoxelPredictor(
-        transition_model=MockVoxelTransitionModel(),
-        birth_probability=0.01,
-        death_probability=0.01
+        transition_model=MockVoxelTransitionModel(), birth_probability=0.01, death_probability=0.01
     )
 
     new_timestamp = dense_voxel_state.timestamp + datetime.timedelta(seconds=1)
@@ -168,16 +139,14 @@ def test_voxel_predictor_predict_dense_state(dense_voxel_state):
     assert isinstance(prediction, VoxelPrediction)
     assert prediction.timestamp == new_timestamp
     assert prediction.grid == dense_voxel_state.grid
-    assert hasattr(prediction, 'transition_model')
+    assert hasattr(prediction, "transition_model")
     assert prediction.prior == dense_voxel_state
 
 
 def test_voxel_predictor_predict_sparse_state(sparse_voxel_state):
     """Test prediction with sparse voxel state."""
     predictor = VoxelPredictor(
-        transition_model=MockVoxelTransitionModel(),
-        birth_probability=0.01,
-        death_probability=0.01
+        transition_model=MockVoxelTransitionModel(), birth_probability=0.01, death_probability=0.01
     )
 
     new_timestamp = sparse_voxel_state.timestamp + datetime.timedelta(seconds=1)
@@ -201,9 +170,7 @@ def test_voxel_predictor_birth_death_process(small_voxel_grid):
 
     # Create predictor with known birth/death probabilities
     predictor = VoxelPredictor(
-        transition_model=MockVoxelTransitionModel(),
-        birth_probability=0.1,
-        death_probability=0.2
+        transition_model=MockVoxelTransitionModel(), birth_probability=0.1, death_probability=0.2
     )
 
     new_timestamp = timestamp + datetime.timedelta(seconds=1)
@@ -230,9 +197,7 @@ def test_voxel_predictor_probability_bounds(small_voxel_grid):
     state = VoxelState(grid=small_voxel_grid, occupancy=occupancy, timestamp=timestamp)
 
     predictor = VoxelPredictor(
-        transition_model=MockVoxelTransitionModel(),
-        birth_probability=0.05,
-        death_probability=0.05
+        transition_model=MockVoxelTransitionModel(), birth_probability=0.05, death_probability=0.05
     )
 
     new_timestamp = timestamp + datetime.timedelta(seconds=1)
@@ -246,9 +211,7 @@ def test_voxel_predictor_probability_bounds(small_voxel_grid):
 def test_voxel_predictor_no_timestamp(dense_voxel_state):
     """Test prediction when timestamp is None."""
     predictor = VoxelPredictor(
-        transition_model=MockVoxelTransitionModel(),
-        birth_probability=0.01,
-        death_probability=0.01
+        transition_model=MockVoxelTransitionModel(), birth_probability=0.01, death_probability=0.01
     )
 
     prediction = predictor.predict(dense_voxel_state, timestamp=None)
@@ -262,16 +225,12 @@ def test_voxel_predictor_invalid_prior_type(simple_transition_model):
     from stonesoup.types.state import GaussianState
 
     predictor = VoxelPredictor(
-        transition_model=simple_transition_model,
-        birth_probability=0.01,
-        death_probability=0.01
+        transition_model=simple_transition_model, birth_probability=0.01, death_probability=0.01
     )
 
     # Try to predict with wrong state type
     invalid_prior = GaussianState(
-        state_vector=np.array([[0], [0]]),
-        covar=np.eye(2),
-        timestamp=datetime.datetime.now()
+        state_vector=np.array([[0], [0]]), covar=np.eye(2), timestamp=datetime.datetime.now()
     )
 
     with pytest.raises(TypeError, match="prior must be a VoxelState"):
@@ -281,9 +240,7 @@ def test_voxel_predictor_invalid_prior_type(simple_transition_model):
 def test_voxel_predictor_preserves_grid_structure(dense_voxel_state):
     """Test that prediction preserves the grid structure."""
     predictor = VoxelPredictor(
-        transition_model=MockVoxelTransitionModel(),
-        birth_probability=0.01,
-        death_probability=0.01
+        transition_model=MockVoxelTransitionModel(), birth_probability=0.01, death_probability=0.01
     )
 
     new_timestamp = dense_voxel_state.timestamp + datetime.timedelta(seconds=1)
@@ -299,9 +256,7 @@ def test_voxel_predictor_preserves_grid_structure(dense_voxel_state):
 def test_diffusion_predictor_instantiation():
     """Test creating a DiffusionVoxelPredictor."""
     predictor = DiffusionVoxelPredictor(
-        diffusion_coefficient=0.2,
-        birth_probability=0.01,
-        death_probability=0.02
+        diffusion_coefficient=0.2, birth_probability=0.01, death_probability=0.02
     )
 
     assert predictor.diffusion_coefficient == 0.2
@@ -365,7 +320,7 @@ def test_diffusion_predictor_predict_dense(small_voxel_grid):
     predictor = DiffusionVoxelPredictor(
         diffusion_coefficient=0.6,  # High diffusion for visible effect
         birth_probability=0.0,  # No birth for clearer diffusion test
-        death_probability=0.0   # No death for clearer diffusion test
+        death_probability=0.0,  # No death for clearer diffusion test
     )
 
     new_timestamp = timestamp + datetime.timedelta(seconds=1)
@@ -392,18 +347,13 @@ def test_diffusion_predictor_predict_dense(small_voxel_grid):
 
 def test_diffusion_predictor_predict_sparse(small_voxel_grid):
     """Test diffusion prediction with sparse occupancy."""
-    occupancy = {
-        (2, 2, 2): 0.9,
-        (2, 2, 3): 0.5
-    }
+    occupancy = {(2, 2, 2): 0.9, (2, 2, 3): 0.5}
 
     timestamp = datetime.datetime.now()
     state = VoxelState(grid=small_voxel_grid, occupancy=occupancy, timestamp=timestamp)
 
     predictor = DiffusionVoxelPredictor(
-        diffusion_coefficient=0.3,
-        birth_probability=0.0,
-        death_probability=0.0
+        diffusion_coefficient=0.3, birth_probability=0.0, death_probability=0.0
     )
 
     new_timestamp = timestamp + datetime.timedelta(seconds=1)
@@ -429,9 +379,7 @@ def test_diffusion_predictor_mass_conservation(small_voxel_grid):
     state = VoxelState(grid=small_voxel_grid, occupancy=occupancy, timestamp=timestamp)
 
     predictor = DiffusionVoxelPredictor(
-        diffusion_coefficient=0.5,
-        birth_probability=0.0,
-        death_probability=0.0
+        diffusion_coefficient=0.5, birth_probability=0.0, death_probability=0.0
     )
 
     new_timestamp = timestamp + datetime.timedelta(seconds=1)
@@ -454,9 +402,7 @@ def test_diffusion_predictor_with_birth_death(small_voxel_grid):
     state = VoxelState(grid=small_voxel_grid, occupancy=occupancy, timestamp=timestamp)
 
     predictor = DiffusionVoxelPredictor(
-        diffusion_coefficient=0.2,
-        birth_probability=0.05,
-        death_probability=0.1
+        diffusion_coefficient=0.2, birth_probability=0.05, death_probability=0.1
     )
 
     new_timestamp = timestamp + datetime.timedelta(seconds=1)
@@ -480,9 +426,7 @@ def test_diffusion_predictor_boundary_handling(small_voxel_grid):
     state = VoxelState(grid=small_voxel_grid, occupancy=occupancy, timestamp=timestamp)
 
     predictor = DiffusionVoxelPredictor(
-        diffusion_coefficient=0.6,
-        birth_probability=0.0,
-        death_probability=0.0
+        diffusion_coefficient=0.6, birth_probability=0.0, death_probability=0.0
     )
 
     new_timestamp = timestamp + datetime.timedelta(seconds=1)
@@ -503,9 +447,7 @@ def test_diffusion_predictor_invalid_prior_type():
     predictor = DiffusionVoxelPredictor()
 
     invalid_prior = GaussianState(
-        state_vector=np.array([[0], [0]]),
-        covar=np.eye(2),
-        timestamp=datetime.datetime.now()
+        state_vector=np.array([[0], [0]]), covar=np.eye(2), timestamp=datetime.datetime.now()
     )
 
     with pytest.raises(TypeError, match="prior must be a VoxelState"):
@@ -521,9 +463,7 @@ def test_diffusion_predictor_zero_diffusion(small_voxel_grid):
     state = VoxelState(grid=small_voxel_grid, occupancy=occupancy, timestamp=timestamp)
 
     predictor = DiffusionVoxelPredictor(
-        diffusion_coefficient=0.0,
-        birth_probability=0.0,
-        death_probability=0.0
+        diffusion_coefficient=0.0, birth_probability=0.0, death_probability=0.0
     )
 
     new_timestamp = timestamp + datetime.timedelta(seconds=1)
@@ -542,9 +482,7 @@ def test_diffusion_predictor_multiple_steps(small_voxel_grid):
     state = VoxelState(grid=small_voxel_grid, occupancy=occupancy, timestamp=timestamp)
 
     predictor = DiffusionVoxelPredictor(
-        diffusion_coefficient=0.3,
-        birth_probability=0.0,
-        death_probability=0.0
+        diffusion_coefficient=0.3, birth_probability=0.0, death_probability=0.0
     )
 
     # First prediction
@@ -565,9 +503,7 @@ def test_diffusion_predictor_multiple_steps(small_voxel_grid):
 def test_voxel_predictor_lru_cache(dense_voxel_state):
     """Test that LRU cache works for predictions."""
     predictor = VoxelPredictor(
-        transition_model=MockVoxelTransitionModel(),
-        birth_probability=0.01,
-        death_probability=0.01
+        transition_model=MockVoxelTransitionModel(), birth_probability=0.01, death_probability=0.01
     )
 
     new_timestamp = dense_voxel_state.timestamp + datetime.timedelta(seconds=1)
@@ -594,17 +530,13 @@ def test_predictor_types_comparison(small_voxel_grid):
 
     # Generic predictor with mock model
     generic_predictor = VoxelPredictor(
-        transition_model=MockVoxelTransitionModel(),
-        birth_probability=0.01,
-        death_probability=0.01
+        transition_model=MockVoxelTransitionModel(), birth_probability=0.01, death_probability=0.01
     )
     generic_prediction = generic_predictor.predict(state, timestamp=new_timestamp)
 
     # Diffusion predictor
     diffusion_predictor = DiffusionVoxelPredictor(
-        diffusion_coefficient=0.2,
-        birth_probability=0.01,
-        death_probability=0.01
+        diffusion_coefficient=0.2, birth_probability=0.01, death_probability=0.01
     )
     diffusion_prediction = diffusion_predictor.predict(state, timestamp=new_timestamp)
 

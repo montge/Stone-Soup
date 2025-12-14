@@ -1,10 +1,11 @@
+import contextlib
 from functools import lru_cache
 
 import numpy as np
 
-from .kalman import KalmanUpdater
 from ..types.prediction import MeasurementPrediction
 from ..types.update import Update
+from .kalman import KalmanUpdater
 
 
 class ASDKalmanUpdater(KalmanUpdater):
@@ -21,9 +22,11 @@ class ASDKalmanUpdater(KalmanUpdater):
         Electronic Systems,
         vol. 47, no. 4, pp. 2766-2778, OCTOBER 2011, doi: 10.1109/TAES.2011.6034663.
     """
-    @lru_cache()
-    def predict_measurement(self, predicted_state, measurement_model=None, measurement_noise=True,
-                            **kwargs):
+
+    @lru_cache
+    def predict_measurement(
+        self, predicted_state, measurement_model=None, measurement_noise=True, **kwargs
+    ):
         r"""Predict the measurement implied by the predicted state mean
 
         Parameters
@@ -52,21 +55,23 @@ class ASDKalmanUpdater(KalmanUpdater):
 
         pred_meas = measurement_model.function(state_at_t, **kwargs)
 
-        hh = self._measurement_matrix(predicted_state=state_at_t,
-                                      measurement_model=measurement_model,
-                                      **kwargs)
-        innov_cov = hh@state_at_t.covar@hh.T
+        hh = self._measurement_matrix(
+            predicted_state=state_at_t, measurement_model=measurement_model, **kwargs
+        )
+        innov_cov = hh @ state_at_t.covar @ hh.T
         if measurement_noise:
             innov_cov += measurement_model.covar()
 
-        t2t_plus = slice(t_index * predicted_state.ndim, (t_index+1) * predicted_state.ndim)
+        t2t_plus = slice(t_index * predicted_state.ndim, (t_index + 1) * predicted_state.ndim)
         meas_cross_cov = predicted_state.multi_covar[:, t2t_plus] @ hh.T
 
         return MeasurementPrediction.from_state(
             predicted_state,
-            multi_state_vector=pred_meas, multi_covar=innov_cov,
+            multi_state_vector=pred_meas,
+            multi_covar=innov_cov,
             timestamps=[predicted_state.act_timestamp],
-            cross_covar=meas_cross_cov)
+            cross_covar=meas_cross_cov,
+        )
 
     def update(self, hypothesis, force_symmetric_covariance=False, **kwargs):
         r"""The Kalman update method. Given a hypothesised association between
@@ -107,7 +112,8 @@ class ASDKalmanUpdater(KalmanUpdater):
 
             # Attach the measurement prediction to the hypothesis
             hypothesis.measurement_prediction = self.predict_measurement(
-                predicted_state, measurement_model=measurement_model, **kwargs)
+                predicted_state, measurement_model=measurement_model, **kwargs
+            )
 
         # Get the predicted measurement mean, innovation covariance and
         # measurement cross-covariance
@@ -118,33 +124,34 @@ class ASDKalmanUpdater(KalmanUpdater):
         # Complete the calculation of the posterior
         # This isn't optimised
         kalman_gain = m_cross_cov @ np.linalg.inv(innov_cov)
-        posterior_mean = \
-            predicted_state.multi_state_vector \
-            + kalman_gain @ (hypothesis.measurement.state_vector - pred_meas)
-        posterior_covariance = predicted_state.multi_covar - kalman_gain@innov_cov@kalman_gain.T
+        posterior_mean = predicted_state.multi_state_vector + kalman_gain @ (
+            hypothesis.measurement.state_vector - pred_meas
+        )
+        posterior_covariance = (
+            predicted_state.multi_covar - kalman_gain @ innov_cov @ kalman_gain.T
+        )
 
         if force_symmetric_covariance:
-            posterior_covariance = \
-                (posterior_covariance + posterior_covariance.T) / 2
+            posterior_covariance = (posterior_covariance + posterior_covariance.T) / 2
 
         t_index = predicted_state.timestamps.index(predicted_state.act_timestamp)
-        t2t_plus = slice(t_index * predicted_state.ndim, (t_index+1) * predicted_state.ndim)
+        t2t_plus = slice(t_index * predicted_state.ndim, (t_index + 1) * predicted_state.ndim)
         # save the new posterior, if it is no out of sequence measurement
         correlation_matrices[t_index] = pred_corr_matrices = correlation_matrices[t_index].copy()
 
         # update covariance after calculating
-        pred_corr_matrices['P'] = posterior_covariance[t2t_plus, t2t_plus]
-        try:
-            pred_corr_matrices['PFP'] = (
-                pred_corr_matrices['P']
-                @ pred_corr_matrices['F'].T
-                @ np.linalg.inv(pred_corr_matrices['P_pred']))
-        except KeyError:
-            pass
+        pred_corr_matrices["P"] = posterior_covariance[t2t_plus, t2t_plus]
+        with contextlib.suppress(KeyError):
+            pred_corr_matrices["PFP"] = (
+                pred_corr_matrices["P"]
+                @ pred_corr_matrices["F"].T
+                @ np.linalg.inv(pred_corr_matrices["P_pred"])
+            )
 
         return Update.from_state(
             predicted_state,
             multi_state_vector=posterior_mean,
             multi_covar=posterior_covariance,
             hypothesis=hypothesis,
-            correlation_matrices=correlation_matrices)
+            correlation_matrices=correlation_matrices,
+        )

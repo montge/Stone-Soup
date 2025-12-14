@@ -1,9 +1,9 @@
+import contextlib
 import copy
 import operator
 from collections.abc import MutableSequence, Sequence
 from itertools import combinations
 from numbers import Real
-from typing import Union
 
 from ..base import Property
 from ..types import Type
@@ -16,13 +16,14 @@ class Interval(Type):
     Represents a continuous, closed interval of real numbers.
     Represented by a lower and upper bound.
     """
-    start: Union[int, float] = Property(doc="Lower bound of interval")
-    end: Union[int, float] = Property(doc="Upper bound of interval")
+
+    start: int | float = Property(doc="Lower bound of interval")
+    end: int | float = Property(doc="Upper bound of interval")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.start >= self.end:
-            raise ValueError('Must have left < right')
+            raise ValueError("Must have left < right")
 
     def __hash__(self):
         return hash((self.start, self.end))
@@ -48,7 +49,7 @@ class Interval(Type):
             return False
 
     def __str__(self):
-        return '[{left}, {right}]'.format(left=self.start, right=self.end)
+        return f"[{self.start}, {self.end}]"
 
     def __eq__(self, other):
         return isinstance(other, Interval) and (self.start, self.end) == (other.start, other.end)
@@ -165,8 +166,8 @@ class Intervals(Type):
     """
 
     intervals: MutableSequence[Interval] = Property(
-        default_factory=list,
-        doc="Container of :class:`Interval`")
+        default_factory=list, doc="Container of :class:`Interval`"
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -234,7 +235,7 @@ class Intervals(Type):
                 new_intervals.remove(int_2)
                 new_intervals.extend(int_1 | int_2)
 
-        return sorted(new_intervals, key=operator.attrgetter('left'))
+        return sorted(new_intervals, key=operator.attrgetter("left"))
 
     def __contains__(self, item):
 
@@ -254,8 +255,7 @@ class Intervals(Type):
         return sum(interval.length for interval in self)
 
     def _iter(self, reverse):
-        for interval in sorted(self.intervals, key=operator.attrgetter('left'), reverse=reverse):
-            yield interval
+        yield from sorted(self.intervals, key=operator.attrgetter("left"), reverse=reverse)
 
     def __iter__(self):
         return self._iter(reverse=False)
@@ -270,7 +270,8 @@ class Intervals(Type):
             other = Intervals(other)
 
         return isinstance(other, Intervals) and all(
-            any(int1 == int2 for int2 in other) for int1 in self)
+            any(int1 == int2 for int2 in other) for int1 in self
+        )
 
     def __and__(self, other):
         """Set-like intersection"""
@@ -283,7 +284,7 @@ class Intervals(Type):
         if isinstance(other, Interval):
             other = Intervals(other)
 
-        new_intervals = list()
+        new_intervals = []
         for interval in self:
             for other_interval in other:
                 new_interval = interval & other_interval
@@ -296,7 +297,7 @@ class Intervals(Type):
     def __or__(self, other):
         """Set-like union"""
         if not isinstance(other, (Interval, Intervals)):
-            raise ValueError('Can only union with Intervals types')
+            raise ValueError("Can only union with Intervals types")
 
         if isinstance(other, Interval):
             other = Intervals(other)
@@ -320,7 +321,7 @@ class Intervals(Type):
         new_intervals = copy.copy(self.intervals)
 
         for other_interval in other:
-            temp_intervals = list()
+            temp_intervals = []
 
             for interval in new_intervals:
                 diff = interval - other_interval
@@ -353,7 +354,7 @@ class Intervals(Type):
         return all(any(interval <= other_int for other_int in other) for interval in self)
 
     def __lt__(self, other):
-        """"Proper subset check"""
+        """ "Proper subset check"""
 
         if not isinstance(other, (Interval, Intervals)):
             raise ValueError("Can only compare Intervals to Intervals")
@@ -400,10 +401,8 @@ class Intervals(Type):
             raise ValueError("Interval not in list")
 
     def discard(self, elem):
-        try:
+        with contextlib.suppress(ValueError):
             self.remove(elem)
-        except ValueError:
-            pass
 
     def pop(self):
         if len(self) == 0:
@@ -415,4 +414,4 @@ class Intervals(Type):
         return interval
 
     def clear(self):
-        self.intervals = list()
+        self.intervals = []

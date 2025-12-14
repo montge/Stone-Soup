@@ -1,6 +1,6 @@
 from ..base import Base, Property
-from ..tracker import Tracker
 from ..metricgenerator import MetricGenerator
+from ..tracker import Tracker
 
 
 class Writer(Base):

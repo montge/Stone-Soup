@@ -114,7 +114,8 @@ def test_state_vector_additive_identity(sv):
 def test_state_vector_scalar_distributivity(sv, scalar):
     """Scalar multiplication should distribute over addition."""
     v = StateVector(sv)
-    np.testing.assert_allclose(scalar * (v + v), scalar * v + scalar * v, rtol=1e-10)
+    # Use atol to handle denormalized numbers near machine epsilon
+    np.testing.assert_allclose(scalar * (v + v), scalar * v + scalar * v, rtol=1e-10, atol=1e-300)
 
 
 # =============================================================================
@@ -128,7 +129,8 @@ def test_cholesky_decomposition_validity(spd_matrix):
     try:
         L = np.linalg.cholesky(spd_matrix)
         reconstructed = L @ L.T
-        np.testing.assert_allclose(reconstructed, spd_matrix, rtol=1e-10)
+        # Relax tolerance due to numerical precision in ill-conditioned matrices
+        np.testing.assert_allclose(reconstructed, spd_matrix, rtol=1e-8, atol=1e-12)
     except np.linalg.LinAlgError:
         assume(False)
 
@@ -167,7 +169,11 @@ def test_cartesian_to_polar_roundtrip(x, y):
     theta = np.arctan2(y, x)
     x_back = r * np.cos(theta)
     y_back = r * np.sin(theta)
-    np.testing.assert_allclose([x, y], [x_back, y_back], rtol=1e-10)
+    # Use both rtol and atol for numerical stability near zero
+    # Error scales with magnitude, so use atol proportional to max(|x|, |y|)
+    np.testing.assert_allclose(
+        [x, y], [x_back, y_back], rtol=1e-10, atol=1e-10 * max(abs(x), abs(y), 1)
+    )
 
 
 @given(

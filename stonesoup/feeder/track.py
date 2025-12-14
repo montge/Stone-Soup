@@ -1,10 +1,10 @@
 import numpy as np
 
-from . import DetectionFeeder
 from ..buffered_generator import BufferedGenerator
 from ..models.measurement.linear import LinearGaussian
-from ..types.detection import GaussianDetection, Detection
+from ..types.detection import Detection, GaussianDetection
 from ..types.track import Track
+from . import DetectionFeeder
 
 
 class Tracks2GaussianDetectionFeeder(DetectionFeeder):
@@ -17,6 +17,7 @@ class Tracks2GaussianDetectionFeeder(DetectionFeeder):
     measurement model whose covariance is equal to the state covariance. The feeder assumes that
     the tracks are all live, that is each track has a state at the most recent time step.
     """
+
     @BufferedGenerator.generator_method
     def data_gen(self):
         for time, tracks in self.reader:
@@ -25,16 +26,18 @@ class Tracks2GaussianDetectionFeeder(DetectionFeeder):
                 if isinstance(track, Track):
                     dim = len(track.state.state_vector)
                     metadata = track.metadata.copy()
-                    metadata['track_id'] = track.id
+                    metadata["track_id"] = track.id
                     detections.add(
                         GaussianDetection.from_state(
                             track.state,
                             state_vector=track.mean,
                             covar=track.covar,
                             measurement_model=LinearGaussian(
-                                dim, list(range(dim)), np.asarray(track.covar)),
+                                dim, list(range(dim)), np.asarray(track.covar)
+                            ),
                             metadata=metadata,
-                            target_type=GaussianDetection)
+                            target_type=GaussianDetection,
+                        )
                     )
                 elif isinstance(track, Detection):
                     detections.add(track)

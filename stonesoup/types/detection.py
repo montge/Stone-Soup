@@ -1,20 +1,22 @@
 from collections.abc import MutableMapping, Sequence
 
-from .groundtruth import GroundTruthPath
-from .state import CategoricalState, CompositeState
-from .state import State, GaussianState, StateVector
 from ..base import Property
 from ..models.measurement import MeasurementModel
+from .groundtruth import GroundTruthPath
+from .state import CategoricalState, CompositeState, GaussianState, State, StateVector
 
 
 class Detection(State):
     """Detection type"""
+
     measurement_model: MeasurementModel = Property(
         default=None,
-        doc="The measurement model used to generate the detection (the default is ``None``)")
+        doc="The measurement model used to generate the detection (the default is ``None``)",
+    )
 
     metadata: MutableMapping = Property(
-        default_factory=dict, doc='Dictionary of metadata items for Detections.')
+        default_factory=dict, doc="Dictionary of metadata items for Detections."
+    )
 
 
 class GaussianDetection(Detection, GaussianState):
@@ -37,7 +39,8 @@ class TrueDetection(Detection):
     """
 
     groundtruth_path: GroundTruthPath = Property(
-        doc="Ground truth path that this detection came from")
+        doc="Ground truth path that this detection came from"
+    )
 
 
 class MissedDetection(Detection):
@@ -73,14 +76,16 @@ class CompositeDetection(CompositeState):
 
     sub_states: Sequence[Detection] = Property(
         doc="Sequence of sub-detections comprising the composite detection. All sub-detections "
-            "must have matching timestamp. Must not be empty.")
+        "must have matching timestamp. Must not be empty."
+    )
     groundtruth_path: GroundTruthPath = Property(
-        default=None,
-        doc="Ground truth path that this detection came from.")
+        default=None, doc="Ground truth path that this detection came from."
+    )
     mapping: Sequence[int] = Property(
         default=None,
         doc="Mapping of detections to composite state space. Defaults to `None`, where "
-            "sub-detections map to sub-state spaces in order.")
+        "sub-detections map to sub-state spaces in order.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -93,10 +98,10 @@ class CompositeDetection(CompositeState):
     @property
     def metadata(self):
         """Combined metadata of all sub-detections."""
-        metadata = dict()
+        metadata = {}
         for sub_detection in self.sub_states:
             metadata.update(sub_detection.metadata)
         return metadata
 
 
-Detection.register(CompositeDetection)  # noqa: E305
+Detection.register(CompositeDetection)

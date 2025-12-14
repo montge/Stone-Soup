@@ -1,14 +1,14 @@
 import pytest
 
-pytest.importorskip('confluent_kafka')
-from ..kafka import KafkaWriter  # noqa: E402
+pytest.importorskip("confluent_kafka")
+from ..kafka import KafkaWriter
 
 
 def test_writer_default():
     # Verify that the writer can be instantiated
     kafka_config = {
         "bootstrap.servers": "localhost:9092",
-        "delivery.timeout.ms": 1,   # This is required, since actual sending of data is not tested
+        "delivery.timeout.ms": 1,  # This is required, since actual sending of data is not tested
     }
     writer = KafkaWriter(
         kafka_config=kafka_config,

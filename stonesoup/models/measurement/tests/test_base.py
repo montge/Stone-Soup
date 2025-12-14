@@ -1,11 +1,12 @@
-import numpy as np
-import pytest
 from abc import ABC
 
-from ..base import MeasurementModel
-from ...base import LinearModel, GaussianModel
-from ....types.array import StateVector, CovarianceMatrix
+import numpy as np
+import pytest
+
+from ....types.array import CovarianceMatrix, StateVector
 from ....types.state import State
+from ...base import GaussianModel, LinearModel
+from ..base import MeasurementModel
 
 
 class ConcreteMeasurementModel(MeasurementModel):
@@ -19,10 +20,7 @@ class ConcreteMeasurementModel(MeasurementModel):
         # Simple identity function for testing
         result = state.state_vector[self.mapping, :]
         if isinstance(noise, bool) or noise is None:
-            if noise:
-                noise = np.random.randn(self.ndim_meas, 1)
-            else:
-                noise = 0
+            noise = np.random.randn(self.ndim_meas, 1) if noise else 0
         return result + noise
 
     def rvs(self, num_samples=1, **kwargs):
@@ -37,6 +35,7 @@ class ConcreteMeasurementModel(MeasurementModel):
 
 
 # Tests for MeasurementModel base class
+
 
 def test_measurement_model_is_abstract():
     """Test that MeasurementModel cannot be instantiated directly"""
@@ -70,12 +69,15 @@ def test_ndim_meas_property():
     assert model.ndim_meas == 3
 
 
-@pytest.mark.parametrize("ndim_state,mapping,expected_ndim_meas", [
-    (2, [0], 1),
-    (4, [0, 2], 2),
-    (6, [0, 2, 4], 3),
-    (4, [0, 1, 2, 3], 4),
-])
+@pytest.mark.parametrize(
+    "ndim_state,mapping,expected_ndim_meas",
+    [
+        (2, [0], 1),
+        (4, [0, 2], 2),
+        (6, [0, 2, 4], 3),
+        (4, [0, 1, 2, 3], 4),
+    ],
+)
 def test_various_dimensions(ndim_state, mapping, expected_ndim_meas):
     """Test various state and measurement dimensions"""
     model = ConcreteMeasurementModel(ndim_state=ndim_state, mapping=mapping)
@@ -172,10 +174,12 @@ def test_duplicate_mapping_indices():
 
 # Tests for LinearModel behavior in measurement models
 
+
 class LinearMeasurementModel(MeasurementModel, LinearModel, GaussianModel):
     """A simple linear Gaussian measurement model for testing"""
 
     from ....base import Property
+
     noise_covar: CovarianceMatrix = Property(doc="Noise covariance")
 
     @property
@@ -195,39 +199,23 @@ class LinearMeasurementModel(MeasurementModel, LinearModel, GaussianModel):
 
 def test_linear_model_matrix():
     """Test that matrix method produces correct measurement matrix"""
-    model = LinearMeasurementModel(
-        ndim_state=4,
-        mapping=[0, 2],
-        noise_covar=np.eye(2)
-    )
+    model = LinearMeasurementModel(ndim_state=4, mapping=[0, 2], noise_covar=np.eye(2))
     H = model.matrix()
-    expected = np.array([[1, 0, 0, 0],
-                        [0, 0, 1, 0]])
+    expected = np.array([[1, 0, 0, 0], [0, 0, 1, 0]])
     assert np.array_equal(H, expected)
 
 
 def test_linear_model_with_none_mapping():
     """Test matrix with None values in mapping"""
-    model = LinearMeasurementModel(
-        ndim_state=2,
-        mapping=[0, None, 1, None],
-        noise_covar=np.eye(4)
-    )
+    model = LinearMeasurementModel(ndim_state=2, mapping=[0, None, 1, None], noise_covar=np.eye(4))
     H = model.matrix()
-    expected = np.array([[1, 0],
-                        [0, 0],
-                        [0, 1],
-                        [0, 0]])
+    expected = np.array([[1, 0], [0, 0], [0, 1], [0, 0]])
     assert np.array_equal(H, expected)
 
 
 def test_linear_function_without_noise():
     """Test linear function evaluation without noise"""
-    model = LinearMeasurementModel(
-        ndim_state=4,
-        mapping=[1, 3],
-        noise_covar=np.diag([0.1, 0.2])
-    )
+    model = LinearMeasurementModel(ndim_state=4, mapping=[1, 3], noise_covar=np.diag([0.1, 0.2]))
     state = State(StateVector([1, 2, 3, 4]))
     result = model.function(state, noise=False)
     expected = np.array([[2], [4]])
@@ -236,12 +224,7 @@ def test_linear_function_without_noise():
 
 def test_linear_function_with_noise():
     """Test that noise is applied in linear function"""
-    model = LinearMeasurementModel(
-        ndim_state=4,
-        mapping=[0, 2],
-        noise_covar=np.eye(2),
-        seed=42
-    )
+    model = LinearMeasurementModel(ndim_state=4, mapping=[0, 2], noise_covar=np.eye(2), seed=42)
     state = State(StateVector([1, 2, 3, 4]))
 
     # Without noise
@@ -254,11 +237,7 @@ def test_linear_function_with_noise():
 
 def test_jacobian_equals_matrix_for_linear():
     """Test that Jacobian equals matrix for linear models"""
-    model = LinearMeasurementModel(
-        ndim_state=4,
-        mapping=[0, 1, 2],
-        noise_covar=np.eye(3)
-    )
+    model = LinearMeasurementModel(ndim_state=4, mapping=[0, 1, 2], noise_covar=np.eye(3))
     state = State(StateVector([1, 2, 3, 4]))
 
     H = model.matrix()
@@ -268,10 +247,12 @@ def test_jacobian_equals_matrix_for_linear():
 
 # Tests for GaussianModel behavior in measurement models
 
+
 class GaussianMeasurementModel(MeasurementModel, GaussianModel):
     """Simple Gaussian measurement model for testing"""
 
     from ....base import Property
+
     noise_covar: CovarianceMatrix = Property(doc="Noise covariance")
 
     @property
@@ -281,10 +262,7 @@ class GaussianMeasurementModel(MeasurementModel, GaussianModel):
     def function(self, state, noise=False, **kwargs):
         result = state.state_vector[self.mapping, :]
         if isinstance(noise, bool) or noise is None:
-            if noise:
-                noise = self.rvs(num_samples=state.state_vector.shape[1], **kwargs)
-            else:
-                noise = 0
+            noise = self.rvs(num_samples=state.state_vector.shape[1], **kwargs) if noise else 0
         return result + noise
 
     def covar(self, **kwargs):
@@ -293,12 +271,7 @@ class GaussianMeasurementModel(MeasurementModel, GaussianModel):
 
 def test_rvs_shape_single_sample():
     """Test rvs returns correct shape for single sample"""
-    model = GaussianMeasurementModel(
-        ndim_state=4,
-        mapping=[0, 1],
-        noise_covar=np.eye(2),
-        seed=42
-    )
+    model = GaussianMeasurementModel(ndim_state=4, mapping=[0, 1], noise_covar=np.eye(2), seed=42)
     noise = model.rvs(num_samples=1)
     assert noise.shape == (2, 1)
     assert isinstance(noise, StateVector)
@@ -307,10 +280,7 @@ def test_rvs_shape_single_sample():
 def test_rvs_shape_multiple_samples():
     """Test rvs returns correct shape for multiple samples"""
     model = GaussianMeasurementModel(
-        ndim_state=4,
-        mapping=[0, 1, 2],
-        noise_covar=np.eye(3),
-        seed=42
+        ndim_state=4, mapping=[0, 1, 2], noise_covar=np.eye(3), seed=42
     )
     noise = model.rvs(num_samples=10)
     assert noise.shape == (3, 10)
@@ -319,16 +289,10 @@ def test_rvs_shape_multiple_samples():
 def test_rvs_with_seed_reproducibility():
     """Test that same seed produces same random values"""
     model1 = GaussianMeasurementModel(
-        ndim_state=4,
-        mapping=[0, 1],
-        noise_covar=np.eye(2),
-        seed=123
+        ndim_state=4, mapping=[0, 1], noise_covar=np.eye(2), seed=123
     )
     model2 = GaussianMeasurementModel(
-        ndim_state=4,
-        mapping=[0, 1],
-        noise_covar=np.eye(2),
-        seed=123
+        ndim_state=4, mapping=[0, 1], noise_covar=np.eye(2), seed=123
     )
 
     for _ in range(3):
@@ -339,18 +303,8 @@ def test_rvs_with_seed_reproducibility():
 
 def test_rvs_different_seeds_different_values():
     """Test that different seeds produce different values"""
-    model1 = GaussianMeasurementModel(
-        ndim_state=4,
-        mapping=[0, 1],
-        noise_covar=np.eye(2),
-        seed=1
-    )
-    model2 = GaussianMeasurementModel(
-        ndim_state=4,
-        mapping=[0, 1],
-        noise_covar=np.eye(2),
-        seed=2
-    )
+    model1 = GaussianMeasurementModel(ndim_state=4, mapping=[0, 1], noise_covar=np.eye(2), seed=1)
+    model2 = GaussianMeasurementModel(ndim_state=4, mapping=[0, 1], noise_covar=np.eye(2), seed=2)
 
     noise1 = model1.rvs()
     noise2 = model2.rvs()
@@ -359,12 +313,7 @@ def test_rvs_different_seeds_different_values():
 
 def test_pdf_evaluation():
     """Test pdf evaluation"""
-    model = GaussianMeasurementModel(
-        ndim_state=2,
-        mapping=[0, 1],
-        noise_covar=np.eye(2),
-        seed=42
-    )
+    model = GaussianMeasurementModel(ndim_state=2, mapping=[0, 1], noise_covar=np.eye(2), seed=42)
     state = State(StateVector([1, 2]))
     measurement = State(StateVector([1.1, 2.1]))
 
@@ -375,12 +324,7 @@ def test_pdf_evaluation():
 
 def test_logpdf_evaluation():
     """Test logpdf evaluation"""
-    model = GaussianMeasurementModel(
-        ndim_state=2,
-        mapping=[0, 1],
-        noise_covar=np.eye(2),
-        seed=42
-    )
+    model = GaussianMeasurementModel(ndim_state=2, mapping=[0, 1], noise_covar=np.eye(2), seed=42)
     state = State(StateVector([1, 2]))
     measurement = State(StateVector([1.1, 2.1]))
 
@@ -391,22 +335,14 @@ def test_logpdf_evaluation():
 
 def test_covar_none_raises_error_in_rvs():
     """Test that None covariance raises error when generating samples"""
-    model = GaussianMeasurementModel(
-        ndim_state=2,
-        mapping=[0, 1],
-        noise_covar=None
-    )
+    model = GaussianMeasurementModel(ndim_state=2, mapping=[0, 1], noise_covar=None)
     with pytest.raises(ValueError, match="Cannot generate rvs from None-type covariance"):
         model.rvs()
 
 
 def test_covar_none_raises_error_in_pdf():
     """Test that None covariance raises error in pdf"""
-    model = GaussianMeasurementModel(
-        ndim_state=2,
-        mapping=[0, 1],
-        noise_covar=None
-    )
+    model = GaussianMeasurementModel(ndim_state=2, mapping=[0, 1], noise_covar=None)
     state = State(StateVector([1, 2]))
     measurement = State(StateVector([1, 2]))
 

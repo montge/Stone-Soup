@@ -1,15 +1,15 @@
 import datetime
 
-import pytest
 import numpy as np
+import pytest
 
-from ..general import OneToOneAssociator
 from ...measures.base import BaseMeasure, SetComparisonMeasure
 from ...measures.state import Euclidean, EuclideanWeighted
 from ...types.association import Association, AssociationSet
 from ...types.detection import Detection
-from ...types.state import State, GaussianState
+from ...types.state import GaussianState, State
 from ...types.track import Track
+from ..general import OneToOneAssociator
 
 
 class SimpleMeasure(BaseMeasure):
@@ -17,9 +17,9 @@ class SimpleMeasure(BaseMeasure):
 
     def __call__(self, item1, item2):
         """Calculate simple distance measure between two states."""
-        if hasattr(item1, 'state_vector') and hasattr(item2, 'state_vector'):
-            state_vector1 = getattr(item1, 'mean', item1.state_vector)
-            state_vector2 = getattr(item2, 'mean', item2.state_vector)
+        if hasattr(item1, "state_vector") and hasattr(item2, "state_vector"):
+            state_vector1 = getattr(item1, "mean", item1.state_vector)
+            state_vector2 = getattr(item2, "mean", item2.state_vector)
             return float(np.sum(np.abs(state_vector1 - state_vector2)))
         return None
 
@@ -29,9 +29,9 @@ class ConditionalMeasure(BaseMeasure):
 
     def __call__(self, item1, item2):
         """Return None if items are far apart, otherwise return distance."""
-        if hasattr(item1, 'state_vector') and hasattr(item2, 'state_vector'):
-            state_vector1 = getattr(item1, 'mean', item1.state_vector)
-            state_vector2 = getattr(item2, 'mean', item2.state_vector)
+        if hasattr(item1, "state_vector") and hasattr(item2, "state_vector"):
+            state_vector1 = getattr(item1, "mean", item1.state_vector)
+            state_vector2 = getattr(item2, "mean", item2.state_vector)
             distance = float(np.sum(np.abs(state_vector1 - state_vector2)))
             # Return None if distance is too large
             if distance > 20:
@@ -45,9 +45,9 @@ class MaximiseMeasure(BaseMeasure):
 
     def __call__(self, item1, item2):
         """Calculate similarity measure (higher is better)."""
-        if hasattr(item1, 'state_vector') and hasattr(item2, 'state_vector'):
-            state_vector1 = getattr(item1, 'mean', item1.state_vector)
-            state_vector2 = getattr(item2, 'mean', item2.state_vector)
+        if hasattr(item1, "state_vector") and hasattr(item2, "state_vector"):
+            state_vector1 = getattr(item1, "mean", item1.state_vector)
+            state_vector2 = getattr(item2, "mean", item2.state_vector)
             distance = float(np.sum(np.abs(state_vector1 - state_vector2)))
             # Return negative distance as similarity (closer = higher similarity)
             return -distance
@@ -106,12 +106,15 @@ def simple_tracks():
     """Create simple tracks for testing."""
     timestamp = datetime.datetime.now()
     tracks = [
-        Track([GaussianState(np.array([[0], [0], [0], [0]]),
-                            np.diag([1, 0.1, 1, 0.1]), timestamp)]),
-        Track([GaussianState(np.array([[10], [0], [10], [0]]),
-                            np.diag([1, 0.1, 1, 0.1]), timestamp)]),
-        Track([GaussianState(np.array([[20], [0], [20], [0]]),
-                            np.diag([1, 0.1, 1, 0.1]), timestamp)]),
+        Track(
+            [GaussianState(np.array([[0], [0], [0], [0]]), np.diag([1, 0.1, 1, 0.1]), timestamp)]
+        ),
+        Track(
+            [GaussianState(np.array([[10], [0], [10], [0]]), np.diag([1, 0.1, 1, 0.1]), timestamp)]
+        ),
+        Track(
+            [GaussianState(np.array([[20], [0], [20], [0]]), np.diag([1, 0.1, 1, 0.1]), timestamp)]
+        ),
     ]
     return tracks
 
@@ -130,6 +133,7 @@ def simple_detections():
 
 # Test OneToOneAssociator initialization and properties
 
+
 def test_basic_instantiation(simple_measure):
     """Test basic instantiation with required parameters."""
     associator = OneToOneAssociator(measure=simple_measure)
@@ -140,19 +144,13 @@ def test_basic_instantiation(simple_measure):
 
 def test_instantiation_with_threshold(simple_measure):
     """Test instantiation with custom association threshold."""
-    associator = OneToOneAssociator(
-        measure=simple_measure,
-        association_threshold=5.0
-    )
+    associator = OneToOneAssociator(measure=simple_measure, association_threshold=5.0)
     assert associator.association_threshold == 5.0
 
 
 def test_instantiation_with_maximise(simple_measure):
     """Test instantiation with maximise_measure flag."""
-    associator = OneToOneAssociator(
-        measure=simple_measure,
-        maximise_measure=True
-    )
+    associator = OneToOneAssociator(measure=simple_measure, maximise_measure=True)
     assert associator.maximise_measure is True
     assert associator.association_threshold == -1e10
 
@@ -160,9 +158,7 @@ def test_instantiation_with_maximise(simple_measure):
 def test_instantiation_maximise_with_threshold(simple_measure):
     """Test instantiation with both maximise and custom threshold."""
     associator = OneToOneAssociator(
-        measure=simple_measure,
-        maximise_measure=True,
-        association_threshold=-10.0
+        measure=simple_measure, maximise_measure=True, association_threshold=-10.0
     )
     assert associator.maximise_measure is True
     assert associator.association_threshold == -10.0
@@ -170,33 +166,27 @@ def test_instantiation_maximise_with_threshold(simple_measure):
 
 def test_fail_value_property_minimise(simple_measure):
     """Test fail_value property with minimise measure."""
-    associator = OneToOneAssociator(
-        measure=simple_measure,
-        association_threshold=5.0
-    )
+    associator = OneToOneAssociator(measure=simple_measure, association_threshold=5.0)
     assert associator.fail_value == 5.0
 
 
 def test_fail_value_property_maximise(simple_measure):
     """Test fail_value property with maximise measure."""
     associator = OneToOneAssociator(
-        measure=simple_measure,
-        maximise_measure=True,
-        association_threshold=-5.0
+        measure=simple_measure, maximise_measure=True, association_threshold=-5.0
     )
     assert associator.fail_value == -5.0
 
 
 # Test the associate method of OneToOneAssociator
 
+
 def test_associate_basic(simple_measure, simple_states):
     """Test basic association with equal number of objects."""
     states_a, states_b = simple_states
     associator = OneToOneAssociator(measure=simple_measure)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, unassociated_a, unassociated_b = associator.associate(states_a, states_b)
 
     # All objects should be associated
     assert len(associations.associations) == 3
@@ -214,14 +204,9 @@ def test_associate_with_threshold(simple_measure, simple_states):
     """Test association with threshold that filters some associations."""
     states_a, states_b = simple_states
     # Threshold of 1.5 should only allow the first pair (distance ~2)
-    associator = OneToOneAssociator(
-        measure=simple_measure,
-        association_threshold=1.5
-    )
+    associator = OneToOneAssociator(measure=simple_measure, association_threshold=1.5)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, unassociated_a, unassociated_b = associator.associate(states_a, states_b)
 
     # No associations should meet the threshold
     assert len(associations.associations) == 0
@@ -232,14 +217,9 @@ def test_associate_with_threshold(simple_measure, simple_states):
 def test_associate_with_high_threshold(simple_measure, simple_states):
     """Test association with high threshold that allows all associations."""
     states_a, states_b = simple_states
-    associator = OneToOneAssociator(
-        measure=simple_measure,
-        association_threshold=100.0
-    )
+    associator = OneToOneAssociator(measure=simple_measure, association_threshold=100.0)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, unassociated_a, unassociated_b = associator.associate(states_a, states_b)
 
     # All should be associated
     assert len(associations.associations) == 3
@@ -252,9 +232,7 @@ def test_associate_empty_first_collection(simple_measure, simple_states):
     _, states_b = simple_states
     associator = OneToOneAssociator(measure=simple_measure)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        [], states_b
-    )
+    associations, unassociated_a, unassociated_b = associator.associate([], states_b)
 
     assert len(associations.associations) == 0
     assert len(unassociated_a) == 0
@@ -266,9 +244,7 @@ def test_associate_empty_second_collection(simple_measure, simple_states):
     states_a, _ = simple_states
     associator = OneToOneAssociator(measure=simple_measure)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, []
-    )
+    associations, unassociated_a, unassociated_b = associator.associate(states_a, [])
 
     assert len(associations.associations) == 0
     assert len(unassociated_a) == len(states_a)
@@ -279,9 +255,7 @@ def test_associate_both_empty(simple_measure):
     """Test association with both collections empty."""
     associator = OneToOneAssociator(measure=simple_measure)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        [], []
-    )
+    associations, unassociated_a, unassociated_b = associator.associate([], [])
 
     assert len(associations.associations) == 0
     assert len(unassociated_a) == 0
@@ -303,9 +277,7 @@ def test_associate_unequal_sizes(simple_measure):
 
     associator = OneToOneAssociator(measure=simple_measure)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, unassociated_a, unassociated_b = associator.associate(states_a, states_b)
 
     # Should have 2 associations (limited by smaller collection)
     assert len(associations.associations) == 2
@@ -327,9 +299,7 @@ def test_associate_with_euclidean_measure(euclidean_measure):
 
     associator = OneToOneAssociator(measure=euclidean_measure)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, unassociated_a, unassociated_b = associator.associate(states_a, states_b)
 
     assert len(associations.associations) == 2
     assert len(unassociated_a) == 0
@@ -350,14 +320,13 @@ def test_associate_with_gaussian_states(euclidean_measure):
 
     associator = OneToOneAssociator(measure=euclidean_measure)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, _unassociated_a, _unassociated_b = associator.associate(states_a, states_b)
 
     assert len(associations.associations) == 2
 
 
 # Test OneToOneAssociator with maximise_measure=True
+
 
 def test_maximise_basic(maximise_measure):
     """Test association with maximisation objective."""
@@ -371,14 +340,9 @@ def test_maximise_basic(maximise_measure):
         State(state_vector=np.array([[11], [11]]), timestamp=timestamp),
     ]
 
-    associator = OneToOneAssociator(
-        measure=maximise_measure,
-        maximise_measure=True
-    )
+    associator = OneToOneAssociator(measure=maximise_measure, maximise_measure=True)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, unassociated_a, unassociated_b = associator.associate(states_a, states_b)
 
     # Should associate closest pairs (highest similarity scores)
     assert len(associations.associations) == 2
@@ -401,14 +365,10 @@ def test_maximise_with_threshold(maximise_measure):
     # Threshold of -5 means similarity must be greater than -5
     # (i.e., distance must be less than 5)
     associator = OneToOneAssociator(
-        measure=maximise_measure,
-        maximise_measure=True,
-        association_threshold=-5.0
+        measure=maximise_measure, maximise_measure=True, association_threshold=-5.0
     )
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, unassociated_a, unassociated_b = associator.associate(states_a, states_b)
 
     # Only the first pair should meet the threshold (distance ~2)
     # The second pair has distance ~80
@@ -419,16 +379,14 @@ def test_maximise_with_threshold(maximise_measure):
 
 # Test the individual_weighting method
 
+
 def test_individual_weighting_minimise(simple_measure):
     """Test individual_weighting with minimise measure."""
     timestamp = datetime.datetime.now()
     state_a = State(state_vector=np.array([[0], [0]]), timestamp=timestamp)
     state_b = State(state_vector=np.array([[1], [1]]), timestamp=timestamp)
 
-    associator = OneToOneAssociator(
-        measure=simple_measure,
-        association_threshold=10.0
-    )
+    associator = OneToOneAssociator(measure=simple_measure, association_threshold=10.0)
 
     weight = associator.individual_weighting(state_a, state_b)
 
@@ -443,10 +401,7 @@ def test_individual_weighting_with_none(conditional_measure):
     # This state is far away, so measure will return None
     state_b = State(state_vector=np.array([[100], [100]]), timestamp=timestamp)
 
-    associator = OneToOneAssociator(
-        measure=conditional_measure,
-        association_threshold=10.0
-    )
+    associator = OneToOneAssociator(measure=conditional_measure, association_threshold=10.0)
 
     weight = associator.individual_weighting(state_a, state_b)
 
@@ -461,9 +416,7 @@ def test_individual_weighting_maximise(maximise_measure):
     state_b = State(state_vector=np.array([[1], [1]]), timestamp=timestamp)
 
     associator = OneToOneAssociator(
-        measure=maximise_measure,
-        maximise_measure=True,
-        association_threshold=-10.0
+        measure=maximise_measure, maximise_measure=True, association_threshold=-10.0
     )
 
     weight = associator.individual_weighting(state_a, state_b)
@@ -479,10 +432,7 @@ def test_individual_weighting_caps_to_threshold_minimise(simple_measure):
     state_a = State(state_vector=np.array([[0], [0]]), timestamp=timestamp)
     state_b = State(state_vector=np.array([[100], [100]]), timestamp=timestamp)
 
-    associator = OneToOneAssociator(
-        measure=simple_measure,
-        association_threshold=5.0
-    )
+    associator = OneToOneAssociator(measure=simple_measure, association_threshold=5.0)
 
     weight = associator.individual_weighting(state_a, state_b)
 
@@ -497,9 +447,7 @@ def test_individual_weighting_caps_to_threshold_maximise(maximise_measure):
     state_b = State(state_vector=np.array([[100], [100]]), timestamp=timestamp)
 
     associator = OneToOneAssociator(
-        measure=maximise_measure,
-        maximise_measure=True,
-        association_threshold=-5.0
+        measure=maximise_measure, maximise_measure=True, association_threshold=-5.0
     )
 
     weight = associator.individual_weighting(state_a, state_b)
@@ -509,6 +457,7 @@ def test_individual_weighting_caps_to_threshold_maximise(maximise_measure):
 
 
 # Test the association_dict method
+
 
 def test_association_dict_basic(simple_measure, simple_states):
     """Test association_dict with all objects associated."""
@@ -542,10 +491,7 @@ def test_association_dict_with_unassociated(simple_measure):
         State(state_vector=np.array([[100], [100]]), timestamp=timestamp),
     ]
 
-    associator = OneToOneAssociator(
-        measure=simple_measure,
-        association_threshold=50.0
-    )
+    associator = OneToOneAssociator(measure=simple_measure, association_threshold=50.0)
 
     assoc_dict = associator.association_dict(states_a, states_b)
 
@@ -584,6 +530,7 @@ def test_association_dict_one_empty(simple_measure, simple_states):
 
 # Test OneToOneAssociator with Track objects
 
+
 def test_associate_tracks_and_detections(euclidean_measure):
     """Test associating tracks with detections."""
     timestamp = datetime.datetime.now()
@@ -616,6 +563,7 @@ def test_associate_tracks_and_detections(euclidean_measure):
 
 # Test OneToOneAssociator with set collections
 
+
 def test_associate_with_sets(simple_measure):
     """Test that association works with set collections."""
     timestamp = datetime.datetime.now()
@@ -630,9 +578,7 @@ def test_associate_with_sets(simple_measure):
 
     associator = OneToOneAssociator(measure=simple_measure)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, unassociated_a, unassociated_b = associator.associate(states_a, states_b)
 
     assert len(associations.associations) == 2
     assert len(unassociated_a) == 0
@@ -645,6 +591,7 @@ def test_associate_with_sets(simple_measure):
 
 # Test edge cases and error conditions
 
+
 def test_single_object_each(simple_measure):
     """Test association with single object in each collection."""
     timestamp = datetime.datetime.now()
@@ -653,9 +600,7 @@ def test_single_object_each(simple_measure):
 
     associator = OneToOneAssociator(measure=simple_measure)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, unassociated_a, unassociated_b = associator.associate(states_a, states_b)
 
     assert len(associations.associations) == 1
     assert len(unassociated_a) == 0
@@ -674,14 +619,9 @@ def test_very_large_threshold(simple_measure):
         State(state_vector=np.array([[1001], [1001]]), timestamp=timestamp),
     ]
 
-    associator = OneToOneAssociator(
-        measure=simple_measure,
-        association_threshold=1e15
-    )
+    associator = OneToOneAssociator(measure=simple_measure, association_threshold=1e15)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, _unassociated_a, _unassociated_b = associator.associate(states_a, states_b)
 
     # All should associate despite large distances
     assert len(associations.associations) == 2
@@ -699,14 +639,9 @@ def test_very_small_threshold(simple_measure):
         State(state_vector=np.array([[10.001], [10.001]]), timestamp=timestamp),
     ]
 
-    associator = OneToOneAssociator(
-        measure=simple_measure,
-        association_threshold=0.001
-    )
+    associator = OneToOneAssociator(measure=simple_measure, association_threshold=0.001)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, unassociated_a, unassociated_b = associator.associate(states_a, states_b)
 
     # None should associate (all distances > 0.001)
     assert len(associations.associations) == 0
@@ -721,14 +656,9 @@ def test_threshold_exactly_at_boundary(simple_measure):
     states_b = [State(state_vector=np.array([[1], [1]]), timestamp=timestamp)]
 
     # Distance is exactly 2.0
-    associator = OneToOneAssociator(
-        measure=simple_measure,
-        association_threshold=2.0
-    )
+    associator = OneToOneAssociator(measure=simple_measure, association_threshold=2.0)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, unassociated_a, unassociated_b = associator.associate(states_a, states_b)
 
     # Should not associate (threshold is non-inclusive)
     assert len(associations.associations) == 0
@@ -743,14 +673,9 @@ def test_threshold_just_above_boundary(simple_measure):
     states_b = [State(state_vector=np.array([[1], [1]]), timestamp=timestamp)]
 
     # Distance is 2.0, threshold is 2.1
-    associator = OneToOneAssociator(
-        measure=simple_measure,
-        association_threshold=2.1
-    )
+    associator = OneToOneAssociator(measure=simple_measure, association_threshold=2.1)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, _unassociated_a, _unassociated_b = associator.associate(states_a, states_b)
 
     # Should associate
     assert len(associations.associations) == 1
@@ -769,9 +694,7 @@ def test_all_measure_returns_none(conditional_measure):
     # Conditional measure returns None for distances > 20
     associator = OneToOneAssociator(measure=conditional_measure)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, unassociated_a, unassociated_b = associator.associate(states_a, states_b)
 
     # No associations should be made
     assert len(associations.associations) == 0
@@ -780,6 +703,7 @@ def test_all_measure_returns_none(conditional_measure):
 
 
 # Test that return types are correct
+
 
 def test_association_set_type(simple_measure, simple_states):
     """Test that first return value is AssociationSet."""
@@ -825,13 +749,11 @@ def test_association_dict_return_type(simple_measure, simple_states):
 
 # Test complex real-world scenarios
 
+
 def test_many_to_few_association(simple_measure):
     """Test scenario with many objects in first collection, few in second."""
     timestamp = datetime.datetime.now()
-    states_a = [
-        State(state_vector=np.array([[i], [i]]), timestamp=timestamp)
-        for i in range(10)
-    ]
+    states_a = [State(state_vector=np.array([[i], [i]]), timestamp=timestamp) for i in range(10)]
     states_b = [
         State(state_vector=np.array([[1], [1]]), timestamp=timestamp),
         State(state_vector=np.array([[5], [5]]), timestamp=timestamp),
@@ -839,9 +761,7 @@ def test_many_to_few_association(simple_measure):
 
     associator = OneToOneAssociator(measure=simple_measure)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, unassociated_a, unassociated_b = associator.associate(states_a, states_b)
 
     # Only 2 associations possible
     assert len(associations.associations) == 2
@@ -856,16 +776,11 @@ def test_few_to_many_association(simple_measure):
         State(state_vector=np.array([[1], [1]]), timestamp=timestamp),
         State(state_vector=np.array([[5], [5]]), timestamp=timestamp),
     ]
-    states_b = [
-        State(state_vector=np.array([[i], [i]]), timestamp=timestamp)
-        for i in range(10)
-    ]
+    states_b = [State(state_vector=np.array([[i], [i]]), timestamp=timestamp) for i in range(10)]
 
     associator = OneToOneAssociator(measure=simple_measure)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, unassociated_a, unassociated_b = associator.associate(states_a, states_b)
 
     # Only 2 associations possible
     assert len(associations.associations) == 2
@@ -890,9 +805,7 @@ def test_clustered_objects(simple_measure):
 
     associator = OneToOneAssociator(measure=simple_measure)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, unassociated_a, unassociated_b = associator.associate(states_a, states_b)
 
     # Should find optimal one-to-one assignment
     assert len(associations.associations) == 3
@@ -903,8 +816,8 @@ def test_clustered_objects(simple_measure):
     total_distance = 0
     for assoc in associations.associations:
         obj_list = list(assoc.objects)
-        sv1 = getattr(obj_list[0], 'mean', obj_list[0].state_vector)
-        sv2 = getattr(obj_list[1], 'mean', obj_list[1].state_vector)
+        sv1 = getattr(obj_list[0], "mean", obj_list[0].state_vector)
+        sv2 = getattr(obj_list[1], "mean", obj_list[1].state_vector)
         distance = float(np.sum(np.abs(sv1 - sv2)))
         total_distance += distance
 
@@ -928,14 +841,9 @@ def test_mixed_thresholds(simple_measure):
     ]
 
     # Threshold of 2.0 should allow first two pairs but not the third
-    associator = OneToOneAssociator(
-        measure=simple_measure,
-        association_threshold=2.0
-    )
+    associator = OneToOneAssociator(measure=simple_measure, association_threshold=2.0)
 
-    associations, unassociated_a, unassociated_b = associator.associate(
-        states_a, states_b
-    )
+    associations, unassociated_a, unassociated_b = associator.associate(states_a, states_b)
 
     # Should get 2 associations, 1 unassociated in each
     assert len(associations.associations) == 2

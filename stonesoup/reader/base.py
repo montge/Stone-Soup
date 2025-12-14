@@ -1,4 +1,5 @@
 """Base classes for different Readers."""
+
 import datetime
 from abc import abstractmethod
 from collections.abc import Iterator
@@ -7,8 +8,8 @@ from ..base import Base
 from ..buffered_generator import BufferedGenerator
 from ..types.detection import Detection
 from ..types.groundtruth import GroundTruthPath
+from ..types.sensordata import ImageFrame, SensorData
 from ..types.track import Track
-from ..types.sensordata import SensorData, ImageFrame
 
 
 class Reader(Base, BufferedGenerator):

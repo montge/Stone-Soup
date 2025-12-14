@@ -5,9 +5,9 @@ from functools import lru_cache
 import numpy as np
 from scipy.spatial import distance
 
-from .base import BaseMeasure
 from ..base import Property
-from ..types.state import State, ParticleState, GaussianState
+from ..types.state import GaussianState, ParticleState, State
+from .base import BaseMeasure
 
 
 class Measure(BaseMeasure):
@@ -16,24 +16,27 @@ class Measure(BaseMeasure):
     A measure provides a means to assess the separation between two
     :class:`~.State` objects state1 and state2.
     """
+
     mapping: np.ndarray = Property(
         default=None,
         doc="Mapping array which specifies which elements within the"
-            " state vectors are to be assessed as part of the measure"
+        " state vectors are to be assessed as part of the measure",
     )
     mapping2: np.ndarray = Property(
         default=None,
         doc="A second mapping for when the states being compared exist "
-            "in different parameter spaces. Defaults to the same as the"
-            " first mapping"
+        "in different parameter spaces. Defaults to the same as the"
+        " first mapping",
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.mapping2 is not None and self.mapping is None:
-            raise ValueError("Cannot set mapping2 if mapping is None. "
-                             "If this is really what you meant to do, then"
-                             " set mapping to include all dimensions.")
+            raise ValueError(
+                "Cannot set mapping2 if mapping is None. "
+                "If this is really what you meant to do, then"
+                " set mapping to include all dimensions."
+            )
         if self.mapping2 is None and self.mapping is not None:
             self.mapping2 = self.mapping
 
@@ -69,6 +72,7 @@ class Euclidean(Measure):
          \sqrt{\sum_{i=1}^{N}{(u_i - v_i)^2}}
 
     """
+
     def __call__(self, state1, state2):
         r"""Calculate the Euclidean distance between a pair of state vectors
 
@@ -84,12 +88,13 @@ class Euclidean(Measure):
 
         """
         # Calculate Euclidean distance between two state
-        state_vector1 = getattr(state1, 'mean', state1.state_vector)
-        state_vector2 = getattr(state2, 'mean', state2.state_vector)
+        state_vector1 = getattr(state1, "mean", state1.state_vector)
+        state_vector2 = getattr(state2, "mean", state2.state_vector)
 
         if self.mapping is not None:
-            return distance.euclidean(state_vector1[self.mapping, 0],
-                                      state_vector2[self.mapping2, 0])
+            return distance.euclidean(
+                state_vector1[self.mapping, 0], state_vector2[self.mapping2, 0]
+            )
         else:
             return distance.euclidean(state_vector1[:, 0], state_vector2[:, 0])
 
@@ -114,6 +119,7 @@ class EuclideanWeighted(Measure):
     :class:`Measure` objects must be created with the specific weighting
 
     """
+
     weighting: np.ndarray = Property(doc="Weighting vector for the Euclidean calculation")
 
     def __call__(self, state1, state2):
@@ -132,17 +138,15 @@ class EuclideanWeighted(Measure):
             :class:`~.State` objects
 
         """
-        state_vector1 = getattr(state1, 'mean', state1.state_vector)
-        state_vector2 = getattr(state2, 'mean', state2.state_vector)
+        state_vector1 = getattr(state1, "mean", state1.state_vector)
+        state_vector2 = getattr(state2, "mean", state2.state_vector)
 
         if self.mapping is not None:
-            return distance.euclidean(state_vector1[self.mapping, 0],
-                                      state_vector2[self.mapping2, 0],
-                                      self.weighting)
+            return distance.euclidean(
+                state_vector1[self.mapping, 0], state_vector2[self.mapping2, 0], self.weighting
+            )
         else:
-            return distance.euclidean(state_vector1[:, 0],
-                                      state_vector2[:, 0],
-                                      self.weighting)
+            return distance.euclidean(state_vector1[:, 0], state_vector2[:, 0], self.weighting)
 
 
 class SquaredMahalanobis(Measure):
@@ -160,11 +164,13 @@ class SquaredMahalanobis(Measure):
 
 
     """
+
     state_covar_inv_cache_size: int = Property(
         default=128,
         doc="Number of covariance matrix inversions to cache. Setting to `0` will disable the "
-            "cache, whilst setting to `None` will not limit the size of the cache. Default is "
-            "128.")
+        "cache, whilst setting to `None` will not limit the size of the cache. Default is "
+        "128.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -198,8 +204,8 @@ class SquaredMahalanobis(Measure):
             objects
 
         """
-        state_vector1 = getattr(state1, 'mean', state1.state_vector)
-        state_vector2 = getattr(state2, 'mean', state2.state_vector)
+        state_vector1 = getattr(state1, "mean", state1.state_vector)
+        state_vector2 = getattr(state2, "mean", state2.state_vector)
 
         if self.mapping is not None:
             u = state_vector1[self.mapping, 0]
@@ -242,6 +248,7 @@ class Mahalanobis(SquaredMahalanobis):
 
 
     """
+
     def __call__(self, state1, state2):
         r"""Calculate the Mahalanobis distance between a pair of state objects
 
@@ -284,8 +291,9 @@ class SquaredGaussianHellinger(Measure):
     ----
     This distance is bounded between 0 and 1
     """
+
     def __call__(self, state1, state2):
-        r""" Calculate the Squared Hellinger distance multivariate normal
+        r"""Calculate the Squared Hellinger distance multivariate normal
         distributions
 
         Parameters
@@ -302,15 +310,9 @@ class SquaredGaussianHellinger(Measure):
 
 
         """
-        if hasattr(state1, 'mean'):
-            state_vector1 = state1.mean
-        else:
-            state_vector1 = state1.state_vector
+        state_vector1 = state1.mean if hasattr(state1, "mean") else state1.state_vector
 
-        if hasattr(state2, 'mean'):
-            state_vector2 = state2.mean
-        else:
-            state_vector2 = state2.state_vector
+        state_vector2 = state2.mean if hasattr(state2, "mean") else state2.state_vector
 
         if self.mapping is not None:
             mu1 = state_vector1[self.mapping, :]
@@ -329,11 +331,11 @@ class SquaredGaussianHellinger(Measure):
 
         sigma1_plus_sigma2 = sigma1 + sigma2
         mu1_minus_mu2 = mu1 - mu2
-        E = mu1_minus_mu2.T @ np.linalg.inv(sigma1_plus_sigma2/2) @ mu1_minus_mu2
-        epsilon = -0.125*E
+        E = mu1_minus_mu2.T @ np.linalg.inv(sigma1_plus_sigma2 / 2) @ mu1_minus_mu2
+        epsilon = -0.125 * E
         numerator = np.sqrt(np.linalg.det(sigma1 @ sigma2))
-        denominator = np.linalg.det(sigma1_plus_sigma2/2)
-        squared_hellinger = 1 - np.sqrt(numerator/denominator)*np.exp(epsilon)
+        denominator = np.linalg.det(sigma1_plus_sigma2 / 2)
+        squared_hellinger = 1 - np.sqrt(numerator / denominator) * np.exp(epsilon)
         squared_hellinger = squared_hellinger.item()
 
         if -1e-10 < squared_hellinger < 0.0:
@@ -364,8 +366,9 @@ class GaussianHellinger(SquaredGaussianHellinger):
     ----
     This distance is bounded between 0 and 1
     """
+
     def __call__(self, state1, state2):
-        r""" Calculate the Hellinger distance between 2 state elements
+        r"""Calculate the Hellinger distance between 2 state elements
 
         Parameters
         ----------
@@ -389,19 +392,13 @@ class ObservationAccuracy(Measure):
 
     def __call__(self, state1, state2):
 
-        if isinstance(state1, State):
-            s1 = state1.state_vector
-        else:
-            s1 = state1
+        s1 = state1.state_vector if isinstance(state1, State) else state1
 
-        if isinstance(state2, State):
-            s2 = state2.state_vector
-        else:
-            s2 = state2
+        s2 = state2.state_vector if isinstance(state2, State) else state2
 
-        mins = [min(s1, s2) for s1, s2 in zip(s1, s2)]
-        maxs = [max(s1, s2) for s1, s2 in zip(s1, s2)]
-        return np.sum(mins)/np.sum(maxs)
+        mins = [min(s1, s2) for s1, s2 in zip(s1, s2, strict=False)]
+        maxs = [max(s1, s2) for s1, s2 in zip(s1, s2, strict=False)]
+        return np.sum(mins) / np.sum(maxs)
 
 
 class KLDivergence(Measure):
@@ -425,7 +422,7 @@ class KLDivergence(Measure):
     References
     ----------
     .. [1] MacKay, David J. C. 2003. Information Theory, Inference and Learning
-       Algorithms, 1st Ed. Cambridge University Press, """
+       Algorithms, 1st Ed. Cambridge University Press,"""
 
     def __call__(self, state1, state2):
         r"""
@@ -447,17 +444,23 @@ class KLDivergence(Measure):
 
                 log_term = np.zeros(state1.log_weight.shape)
 
-                invalid_indx = (np.isinf(state1.log_weight) | np.isnan(state1.log_weight)
-                                | np.isinf(state2.log_weight) | np.isnan(state2.log_weight))
+                invalid_indx = (
+                    np.isinf(state1.log_weight)
+                    | np.isnan(state1.log_weight)
+                    | np.isinf(state2.log_weight)
+                    | np.isnan(state2.log_weight)
+                )
 
                 # Do not consider NANs and inf in the subtraction
-                log_term[~invalid_indx] = state1.log_weight[~invalid_indx] \
-                    - state2.log_weight[~invalid_indx]
+                log_term[~invalid_indx] = (
+                    state1.log_weight[~invalid_indx] - state2.log_weight[~invalid_indx]
+                )
 
-                kld = np.sum(np.exp(state1.log_weight)*log_term)
+                kld = np.sum(np.exp(state1.log_weight) * log_term)
             else:
-                raise ValueError(f'The input sizes are not compatible '
-                                 f'({len(state1)} != {len(state2)})')
+                raise ValueError(
+                    f"The input sizes are not compatible " f"({len(state1)} != {len(state2)})"
+                )
 
         elif isinstance(state1, GaussianState) and isinstance(state2, GaussianState):
 
@@ -483,19 +486,22 @@ class KLDivergence(Measure):
                 n_dims = state1.ndim
 
                 inv_state2_covar = np.linalg.inv(state2.covar)
-                trace_term = np.trace(inv_state2_covar@state1.covar)
+                trace_term = np.trace(inv_state2_covar @ state1.covar)
 
                 delta = (state2.state_vector - state1.state_vector).ravel()
                 mahalanobis_term = np.dot(np.dot(delta, inv_state2_covar), delta)
 
-                kld = 0.5*(log_term - n_dims + trace_term + mahalanobis_term)
+                kld = 0.5 * (log_term - n_dims + trace_term + mahalanobis_term)
 
             else:
-                raise ValueError(f'The state dimensions are not compatible '
-                                 f'({state1.ndim} != {state2.ndim}')
+                raise ValueError(
+                    f"The state dimensions are not compatible " f"({state1.ndim} != {state2.ndim}"
+                )
 
         else:
-            raise NotImplementedError('This measure is currently only compatible with '
-                                      'ParticleState or GaussianState types')
+            raise NotImplementedError(
+                "This measure is currently only compatible with "
+                "ParticleState or GaussianState types"
+            )
 
         return kld

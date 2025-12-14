@@ -3,12 +3,13 @@
 This module provides updaters for voxel-based state representations,
 updating occupancy probabilities using Bayesian inference with measurements.
 """
+
 import numpy as np
 
-from .base import Updater
 from ..base import Property
 from ..types.update import VoxelUpdate
 from ..types.voxel import VoxelState
+from .base import Updater
 
 
 class VoxelUpdater(Updater):
@@ -79,12 +80,12 @@ class VoxelUpdater(Updater):
     detection_probability: float = Property(
         default=0.9,
         doc="Probability of detection for an occupied voxel. Must be in range (0, 1]. "
-            "Higher values mean occupied voxels are more likely to generate measurements."
+        "Higher values mean occupied voxels are more likely to generate measurements.",
     )
     clutter_intensity: float = Property(
         default=None,
         doc="Clutter spatial density (false alarms per unit volume). Default None means no "
-            "clutter. Must be non-negative. Used to model spurious measurements."
+        "clutter. Must be non-negative. Used to model spurious measurements.",
     )
 
     def __init__(self, *args, **kwargs):
@@ -92,14 +93,16 @@ class VoxelUpdater(Updater):
         if not 0 < self.detection_probability <= 1:
             raise ValueError(
                 f"detection_probability must be in range (0, 1], "
-                f"got {self.detection_probability}")
+                f"got {self.detection_probability}"
+            )
         if self.clutter_intensity is not None and self.clutter_intensity < 0:
             raise ValueError(
-                f"clutter_intensity must be non-negative, "
-                f"got {self.clutter_intensity}")
+                f"clutter_intensity must be non-negative, " f"got {self.clutter_intensity}"
+            )
 
-    def predict_measurement(self, predicted_state, measurement_model=None,
-                            measurement_noise=True, **kwargs):
+    def predict_measurement(
+        self, predicted_state, measurement_model=None, measurement_noise=True, **kwargs
+    ):
         """Predict measurement from voxel state.
 
         For voxel states, measurement prediction is not typically computed
@@ -132,7 +135,8 @@ class VoxelUpdater(Updater):
         raise NotImplementedError(
             "Measurement prediction is not implemented for voxel updaters. "
             "Voxel updates are performed directly without explicit measurement "
-            "prediction.")
+            "prediction."
+        )
 
     def update(self, hypothesis, **kwargs):
         """Update voxel occupancy using measurement.
@@ -170,13 +174,12 @@ class VoxelUpdater(Updater):
 
         # Check that predicted state is a VoxelState
         if not isinstance(predicted_state, VoxelState):
-            raise TypeError(
-                f"predicted_state must be a VoxelState, got {type(predicted_state)}")
+            raise TypeError(f"predicted_state must be a VoxelState, got {type(predicted_state)}")
 
         # Get measurement model
         measurement_model = self._check_measurement_model(
-            measurement.measurement_model if hasattr(measurement, 'measurement_model')
-            else None)
+            measurement.measurement_model if hasattr(measurement, "measurement_model") else None
+        )
 
         # Initialize new occupancy (will be updated)
         if predicted_state.is_sparse:
@@ -190,17 +193,23 @@ class VoxelUpdater(Updater):
             # p(m|no detection) = (1 - P_D * p(m)) / (1 - P_D * p(m))
             # Simplified: p(m|no detection) ∝ (1 - P_D) * p(m)
             if predicted_state.is_sparse:
-                for idx in new_occupancy.keys():
+                for idx in new_occupancy:
                     prior_prob = new_occupancy[idx]
                     # Bayesian update for missed detection
-                    posterior = ((1 - self.detection_probability) * prior_prob /
-                                 (1 - self.detection_probability * prior_prob))
+                    posterior = (
+                        (1 - self.detection_probability)
+                        * prior_prob
+                        / (1 - self.detection_probability * prior_prob)
+                    )
                     new_occupancy[idx] = posterior
             else:
                 # Dense array update
                 prior_prob = new_occupancy
-                posterior = ((1 - self.detection_probability) * prior_prob /
-                             (1 - self.detection_probability * prior_prob))
+                posterior = (
+                    (1 - self.detection_probability)
+                    * prior_prob
+                    / (1 - self.detection_probability * prior_prob)
+                )
                 new_occupancy = posterior
 
         else:
@@ -218,7 +227,8 @@ class VoxelUpdater(Updater):
                     # Compute likelihood p(z|m_i)
                     # Measurement model likelihood at this voxel location
                     likelihood = self._compute_likelihood(
-                        measurement_vector, voxel_center, measurement_model, **kwargs)
+                        measurement_vector, voxel_center, measurement_model, **kwargs
+                    )
 
                     # Bayesian update: p(m|z) ∝ p(z|m) * p(m)
                     # Detection probability weighted likelihood
@@ -233,13 +243,11 @@ class VoxelUpdater(Updater):
                     # Posterior: p(m|z) = p(z|m) * p(m) / p(z)
                     # where p(z) = p(z|m) * p(m) + p(z|not m) * p(not m)
                     numerator = detection_likelihood * prior_prob
-                    denominator = (detection_likelihood * prior_prob +
-                                   clutter_term * (1 - prior_prob))
+                    denominator = detection_likelihood * prior_prob + clutter_term * (
+                        1 - prior_prob
+                    )
 
-                    if denominator > 0:
-                        posterior = numerator / denominator
-                    else:
-                        posterior = prior_prob
+                    posterior = numerator / denominator if denominator > 0 else prior_prob
 
                     # Clamp to valid probability range
                     posterior = np.clip(posterior, 0.0, 1.0)
@@ -257,8 +265,8 @@ class VoxelUpdater(Updater):
 
                             # Compute likelihood
                             likelihood = self._compute_likelihood(
-                                measurement_vector, voxel_center, measurement_model,
-                                **kwargs)
+                                measurement_vector, voxel_center, measurement_model, **kwargs
+                            )
 
                             # Detection likelihood
                             detection_likelihood = self.detection_probability * likelihood
@@ -271,13 +279,11 @@ class VoxelUpdater(Updater):
 
                             # Bayesian update
                             numerator = detection_likelihood * prior_prob
-                            denominator = (detection_likelihood * prior_prob +
-                                           clutter_term * (1 - prior_prob))
+                            denominator = detection_likelihood * prior_prob + clutter_term * (
+                                1 - prior_prob
+                            )
 
-                            if denominator > 0:
-                                posterior = numerator / denominator
-                            else:
-                                posterior = prior_prob
+                            posterior = numerator / denominator if denominator > 0 else prior_prob
 
                             # Clamp to valid range
                             posterior = np.clip(posterior, 0.0, 1.0)
@@ -288,11 +294,10 @@ class VoxelUpdater(Updater):
             grid=predicted_state.grid,
             occupancy=new_occupancy,
             timestamp=measurement.timestamp,
-            hypothesis=hypothesis
+            hypothesis=hypothesis,
         )
 
-    def _compute_likelihood(self, measurement_vector, voxel_center,
-                            measurement_model, **kwargs):
+    def _compute_likelihood(self, measurement_vector, voxel_center, measurement_model, **kwargs):
         """Compute measurement likelihood at a voxel location.
 
         Computes the probability density of the measurement given that the
@@ -314,21 +319,20 @@ class VoxelUpdater(Updater):
         float
             Likelihood value (probability density).
         """
-        from ..types.state import GaussianState
         from ..types.array import StateVector
+        from ..types.state import GaussianState
 
         # Create a hypothetical state at the voxel center
         # This is a simplification: we assume the target is exactly at the voxel center
         # For more accurate likelihood, integration over the voxel volume could be performed
         hypothetical_state = GaussianState(
             state_vector=StateVector(voxel_center),
-            covar=np.eye(3) * 1e-6  # Very small covariance (point target)
+            covar=np.eye(3) * 1e-6,  # Very small covariance (point target)
         )
 
         # Compute likelihood using measurement model
         try:
-            likelihood = measurement_model.pdf(
-                measurement_vector, hypothetical_state, **kwargs)
+            likelihood = measurement_model.pdf(measurement_vector, hypothetical_state, **kwargs)
         except Exception:
             # If PDF computation fails, return small likelihood
             likelihood = 1e-10

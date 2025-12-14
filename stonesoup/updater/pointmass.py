@@ -72,7 +72,7 @@ class PointMassUpdater(Updater):
 
         return predicted_state
 
-    @lru_cache()
+    @lru_cache
     def predict_measurement(self, state_prediction, measurement_model=None, **kwargs):
 
         if measurement_model is None:

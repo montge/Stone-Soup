@@ -1,14 +1,16 @@
 import uuid
-from collections.abc import MutableSequence, MutableMapping, Sequence
+from collections.abc import MutableMapping, MutableSequence, Sequence
 
-from .state import State, StateMutableSequence, CategoricalState, CompositeState
 from ..base import Property
+from .state import CategoricalState, CompositeState, State, StateMutableSequence
 
 
 class GroundTruthState(State):
     """Ground Truth State type"""
+
     metadata: MutableMapping = Property(
-        default_factory=dict, doc='Dictionary of metadata items for Detections.')
+        default_factory=dict, doc="Dictionary of metadata items for Detections."
+    )
 
 
 class CategoricalGroundTruthState(GroundTruthState, CategoricalState):
@@ -24,11 +26,12 @@ class GroundTruthPath(StateMutableSequence):
     states: MutableSequence[GroundTruthState] = Property(
         default_factory=list,
         doc="List of groundtruth states to initialise path with. Default "
-            "`None` which initialises with an empty list.")
+        "`None` which initialises with an empty list.",
+    )
     id: str = Property(
         default_factory=lambda: str(uuid.uuid4()),
-        doc="The unique path ID. Default `None` where random UUID is "
-            "generated.")
+        doc="The unique path ID. Default `None` where random UUID is " "generated.",
+    )
 
 
 class CompositeGroundTruthState(CompositeState):
@@ -40,15 +43,16 @@ class CompositeGroundTruthState(CompositeState):
 
     sub_states: Sequence[GroundTruthState] = Property(
         doc="Sequence of sub-states comprising the composite state. All sub-states must have "
-            "matching timestamp and `metadata` attributes. Must not be empty.")
+        "matching timestamp and `metadata` attributes. Must not be empty."
+    )
 
     @property
     def metadata(self):
         """Combined metadata of all sub-detections."""
-        metadata = dict()
+        metadata = {}
         for sub_state in self.sub_states:
             metadata.update(sub_state.metadata)
         return metadata
 
 
-GroundTruthState.register(CompositeGroundTruthState)  # noqa: E305
+GroundTruthState.register(CompositeGroundTruthState)

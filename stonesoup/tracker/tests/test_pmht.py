@@ -1,13 +1,14 @@
-import numpy as np
 import datetime
 
-from ...types.array import StateVector
-from ...types.state import GaussianState
+import numpy as np
+
 from ...models.measurement.linear import LinearGaussian
+from ...models.transition.linear import CombinedLinearGaussianTransitionModel, ConstantVelocity
 from ...predictor.kalman import KalmanPredictor
 from ...smoother.kalman import KalmanSmoother
+from ...types.array import StateVector
+from ...types.state import GaussianState
 from ...updater.kalman import KalmanUpdater
-from ...models.transition.linear import CombinedLinearGaussianTransitionModel, ConstantVelocity
 from ..pmht import PMHTTracker
 
 
@@ -22,20 +23,22 @@ def test_pmht(detector):
     # Initial estimate for tracks
     init_means = preexisting_states
     init_cov = np.diag([1.0, 1.0, 1.0, 1.0])
-    init_priors = [GaussianState(StateVector(init_mean), init_cov, timestamp=timestamp)
-                   for init_mean in init_means]
+    init_priors = [
+        GaussianState(StateVector(init_mean), init_cov, timestamp=timestamp)
+        for init_mean in init_means
+    ]
 
     measurement_model = LinearGaussian(
         ndim_state=4,  # Number of state dimensions (position and velocity in 2D)
         mapping=(0, 2),  # Mapping measurement vector index to state index
-        noise_covar=np.array([[1, 0],  # Covariance matrix for Gaussian PDF
-                              [0, 1]])
+        noise_covar=np.array([[1, 0], [0, 1]]),  # Covariance matrix for Gaussian PDF
     )
 
     q_x = 1.0
     q_y = 1.0
-    transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(q_x),
-                                                              ConstantVelocity(q_y)])
+    transition_model = CombinedLinearGaussianTransitionModel(
+        [ConstantVelocity(q_x), ConstantVelocity(q_y)]
+    )
 
     updater = KalmanUpdater(measurement_model)
 
@@ -77,7 +80,8 @@ def test_pmht(detector):
         overlap_len=overlap_len,
         init_priors=init_priors,
         max_num_iterations=max_num_iterations,
-        update_log_pi=update_log_pi)
+        update_log_pi=update_log_pi,
+    )
 
     for time, ctracks in pmht:
         assert time > start_time

@@ -1,5 +1,5 @@
-import os
 import datetime
+import os
 import shutil
 
 import pytest
@@ -11,7 +11,7 @@ from ...types.detection import Detection
 from ...types.groundtruth import GroundTruthPath, GroundTruthState
 
 
-@pytest.fixture(params=['detector', 'groundtruth'])
+@pytest.fixture(params=["detector", "groundtruth"])
 def reader(request):
     return request.getfixturevalue(request.param)
 
@@ -24,115 +24,150 @@ def detector():
             time = datetime.datetime(2019, 4, 1, 14)
             time_step = datetime.timedelta(seconds=1)
 
-            class DummyModel():
+            class DummyModel:
                 def inverse_function(self, state, *args, **kwargs):
                     return StateVector([state.state_vector[0], 0, state.state_vector[1], 0])
+
             model = DummyModel()
 
             yield time, {
-                Detection([[50], [0]], timestamp=time,
-                          measurement_model=model,
-                          metadata={'colour': 'red',
-                                    'score': 0}),
-                Detection([[20], [5]], timestamp=time,
-                          measurement_model=model,
-                          metadata={'colour': 'green',
-                                    'score': 0.5}),
-                Detection([[1], [1]], timestamp=time,
-                          measurement_model=model,
-                          metadata={'colour': 'blue',
-                                    'score': 0.1}),
+                Detection(
+                    [[50], [0]],
+                    timestamp=time,
+                    measurement_model=model,
+                    metadata={"colour": "red", "score": 0},
+                ),
+                Detection(
+                    [[20], [5]],
+                    timestamp=time,
+                    measurement_model=model,
+                    metadata={"colour": "green", "score": 0.5},
+                ),
+                Detection(
+                    [[1], [1]],
+                    timestamp=time,
+                    measurement_model=model,
+                    metadata={"colour": "blue", "score": 0.1},
+                ),
             }
 
             time += time_step
             yield time, {
-                Detection([[-5], [4]], timestamp=time,
-                          measurement_model=model,
-                          metadata={'colour': 'red',
-                                    'score': 0.4}),
-                Detection([[11], [200]], timestamp=time,
-                          measurement_model=model,
-                          metadata={'colour': 'green'}),
-                Detection([[0], [0]], timestamp=time,
-                          measurement_model=model,
-                          metadata={'colour': 'green',
-                                    'score': 0.2}),
-                Detection([[-43], [-10]], timestamp=time,
-                          measurement_model=model,
-                          metadata={'colour': 'blue',
-                                    'score': 0.326}),
+                Detection(
+                    [[-5], [4]],
+                    timestamp=time,
+                    measurement_model=model,
+                    metadata={"colour": "red", "score": 0.4},
+                ),
+                Detection(
+                    [[11], [200]],
+                    timestamp=time,
+                    measurement_model=model,
+                    metadata={"colour": "green"},
+                ),
+                Detection(
+                    [[0], [0]],
+                    timestamp=time,
+                    measurement_model=model,
+                    metadata={"colour": "green", "score": 0.2},
+                ),
+                Detection(
+                    [[-43], [-10]],
+                    timestamp=time,
+                    measurement_model=model,
+                    metadata={"colour": "blue", "score": 0.326},
+                ),
             }
 
             time += time_step
             yield time, {
-                Detection([[561], [10]], timestamp=time,
-                          measurement_model=model,
-                          metadata={'colour': 'red',
-                                    'score': 0.745}),
-                Detection([[1], [-10]], timestamp=time - time_step/2,
-                          measurement_model=model,
-                          metadata={'colour': 'red',
-                                    'score': 0}),
-                Detection([[-11], [-50]], timestamp=time,
-                          measurement_model=model,
-                          metadata={'colour': 'blue',
-                                    'score': 2}),
+                Detection(
+                    [[561], [10]],
+                    timestamp=time,
+                    measurement_model=model,
+                    metadata={"colour": "red", "score": 0.745},
+                ),
+                Detection(
+                    [[1], [-10]],
+                    timestamp=time - time_step / 2,
+                    measurement_model=model,
+                    metadata={"colour": "red", "score": 0},
+                ),
+                Detection(
+                    [[-11], [-50]],
+                    timestamp=time,
+                    measurement_model=model,
+                    metadata={"colour": "blue", "score": 2},
+                ),
             }
 
             time += time_step
             yield time, {
-                Detection([[1], [-5]], timestamp=time,
-                          measurement_model=model,
-                          metadata={'colour': 'red',
-                                    'score': 0.3412}),
-                Detection([[1], [-5]], timestamp=time,
-                          measurement_model=model,
-                          metadata={'colour': 'blue',
-                                    'score': 0.214}),
+                Detection(
+                    [[1], [-5]],
+                    timestamp=time,
+                    measurement_model=model,
+                    metadata={"colour": "red", "score": 0.3412},
+                ),
+                Detection(
+                    [[1], [-5]],
+                    timestamp=time,
+                    measurement_model=model,
+                    metadata={"colour": "blue", "score": 0.214},
+                ),
             }
 
             time += time_step
             yield time, {
-                Detection([[-11], [5]], timestamp=time,
-                          measurement_model=model,
-                          metadata={'colour': 'red',
-                                    'score': 0.5}),
-                Detection([[13], [654]], timestamp=time,
-                          measurement_model=model,
-                          metadata={'colour': 'blue',
-                                    'score': 0}),
-                Detection([[-3], [6]], timestamp=time,
-                          measurement_model=model,
-                          metadata={}),
+                Detection(
+                    [[-11], [5]],
+                    timestamp=time,
+                    measurement_model=model,
+                    metadata={"colour": "red", "score": 0.5},
+                ),
+                Detection(
+                    [[13], [654]],
+                    timestamp=time,
+                    measurement_model=model,
+                    metadata={"colour": "blue", "score": 0},
+                ),
+                Detection([[-3], [6]], timestamp=time, measurement_model=model, metadata={}),
             }
 
-            time += time_step*2
+            time += time_step * 2
             yield time, {
-                Detection([[0], [0]], timestamp=time,
-                          measurement_model=model,
-                          metadata={'colour': 'red',
-                                    'score': 1}),
-                Detection([[0], [0]], timestamp=time,
-                          measurement_model=model,
-                          metadata={'colour': 'blue',
-                                    'score': 0.612}),
-                Detection([[0], [0]], timestamp=time,
-                          measurement_model=model,
-                          metadata={'score': 0}),
-                Detection([[0], [0]], timestamp=time,
-                          measurement_model=model,
-                          metadata={}),
+                Detection(
+                    [[0], [0]],
+                    timestamp=time,
+                    measurement_model=model,
+                    metadata={"colour": "red", "score": 1},
+                ),
+                Detection(
+                    [[0], [0]],
+                    timestamp=time,
+                    measurement_model=model,
+                    metadata={"colour": "blue", "score": 0.612},
+                ),
+                Detection(
+                    [[0], [0]], timestamp=time, measurement_model=model, metadata={"score": 0}
+                ),
+                Detection([[0], [0]], timestamp=time, measurement_model=model, metadata={}),
             }
 
             time -= time_step
             yield time, {
-                Detection([[5], [-6]], timestamp=time,
-                          measurement_model=model,
-                          metadata={'colour': 'red',
-                                    'score': 0.2}),
-                Detection([[10], [0]], timestamp=time,
-                          measurement_model=model,
-                          metadata={'colour': 'blue'}),
+                Detection(
+                    [[5], [-6]],
+                    timestamp=time,
+                    measurement_model=model,
+                    metadata={"colour": "red", "score": 0.2},
+                ),
+                Detection(
+                    [[10], [0]],
+                    timestamp=time,
+                    measurement_model=model,
+                    metadata={"colour": "blue"},
+                ),
             }
 
     return Detector()
@@ -146,43 +181,41 @@ def groundtruth():
 
             time = datetime.datetime(2020, 1, 1, 0)
             time_step = datetime.timedelta(seconds=1)
-            state = GroundTruthState(state_vector=[[0], [0]],
-                                     timestamp=time,
-                                     metadata={'colour': 'red',
-                                               'score': 0})
-            redpath = GroundTruthPath(id='red')
+            state = GroundTruthState(
+                state_vector=[[0], [0]], timestamp=time, metadata={"colour": "red", "score": 0}
+            )
+            redpath = GroundTruthPath(id="red")
             redpath.append(state)
-            state = GroundTruthState(state_vector=[[0], [0]],
-                                     timestamp=time,
-                                     metadata={'colour': 'yellow',
-                                               'score': 0})
-            yellowpath = GroundTruthPath(id='yellow')
+            state = GroundTruthState(
+                state_vector=[[0], [0]], timestamp=time, metadata={"colour": "yellow", "score": 0}
+            )
+            yellowpath = GroundTruthPath(id="yellow")
             yellowpath.append(state)
             yield time, {redpath, yellowpath}
 
             time += time_step
-            state = GroundTruthState(state_vector=[[1], [0]],
-                                     timestamp=time,
-                                     metadata={'colour': 'red',
-                                               'score': 2})
+            state = GroundTruthState(
+                state_vector=[[1], [0]], timestamp=time, metadata={"colour": "red", "score": 2}
+            )
             redpath.append(state)
-            state = GroundTruthState(state_vector=[[0], [101]],
-                                     timestamp=time,
-                                     metadata={'colour': 'yellow',
-                                               'score': 5})
+            state = GroundTruthState(
+                state_vector=[[0], [101]],
+                timestamp=time,
+                metadata={"colour": "yellow", "score": 5},
+            )
             yellowpath.append(state)
             yield time, {redpath, yellowpath}
 
             time -= time_step
-            state = GroundTruthState(state_vector=[[101], [0]],
-                                     timestamp=time,
-                                     metadata={'colour': 'red',
-                                               'score': 3})
+            state = GroundTruthState(
+                state_vector=[[101], [0]], timestamp=time, metadata={"colour": "red", "score": 3}
+            )
             redpath.append(state)
-            state = GroundTruthState(state_vector=[[0], [101]],
-                                     timestamp=time,
-                                     metadata={'colour': 'yellow',
-                                               'score': 10})
+            state = GroundTruthState(
+                state_vector=[[0], [101]],
+                timestamp=time,
+                metadata={"colour": "yellow", "score": 10},
+            )
             yellowpath.append(state)
             yield time, {redpath, yellowpath}
 
@@ -191,11 +224,11 @@ def groundtruth():
 
 @pytest.fixture
 def datadir(tmpdir, request):
-    '''
+    """
     Fixture responsible for searching a folder with the same name of test
     module and, if available, moving all contents to a temporary directory so
     tests can use them freely.
-    '''
+    """
     filename = request.module.__file__
     test_dir, _ = os.path.splitext(filename)
 

@@ -3,10 +3,10 @@ import heapq
 
 import pytest
 
-from ..base import Tracker, _TrackerMixInUpdate, _TrackerMixInNext
 from ...base import Property
 from ...types.detection import Detection
 from ...types.track import Track
+from ..base import Tracker, _TrackerMixInNext, _TrackerMixInUpdate
 
 
 class TrackerNextWithoutDetector(_TrackerMixInNext, Tracker):
@@ -35,8 +35,9 @@ class TrackerUpdateWithoutDetector(_TrackerMixInUpdate, Tracker):
         super().__init__(*args, **kwargs)
         self._tracks = set()
 
-    def update_tracker(self, time: datetime.datetime, detections: set[Detection]) \
-            -> tuple[datetime.datetime, set[Track]]:
+    def update_tracker(
+        self, time: datetime.datetime, detections: set[Detection]
+    ) -> tuple[datetime.datetime, set[Track]]:
 
         self._tracks = {Track(detection) for detection in detections}
         return time, self.tracks
@@ -53,8 +54,7 @@ class TrackerUpdateWithDetector(TrackerUpdateWithoutDetector):
 @pytest.fixture
 def detector() -> list[tuple[datetime.datetime, set[Detection]]]:
     detections = [
-        Detection(timestamp=datetime.datetime(2023, 11, i), state_vector=[i])
-        for i in range(1, 10)
+        Detection(timestamp=datetime.datetime(2023, 11, i), state_vector=[i]) for i in range(1, 10)
     ]
 
     detector = [(det.timestamp, {det}) for det in detections]
@@ -62,9 +62,15 @@ def detector() -> list[tuple[datetime.datetime, set[Detection]]]:
     return detector
 
 
-@pytest.mark.parametrize("tracker_class",
-                         [TrackerNextWithoutDetector, TrackerNextWithDetector,
-                          TrackerUpdateWithoutDetector, TrackerUpdateWithDetector])
+@pytest.mark.parametrize(
+    "tracker_class",
+    [
+        TrackerNextWithoutDetector,
+        TrackerNextWithDetector,
+        TrackerUpdateWithoutDetector,
+        TrackerUpdateWithDetector,
+    ],
+)
 def test_tracker_update_tracker(tracker_class, detector):
     tracker = tracker_class()
     for input_time, detections in detector:
@@ -76,8 +82,9 @@ def test_tracker_update_tracker(tracker_class, detector):
         assert tracks_state == detections
 
 
-@pytest.mark.parametrize("tracker_class",
-                         [TrackerNextWithoutDetector, TrackerUpdateWithoutDetector])
+@pytest.mark.parametrize(
+    "tracker_class", [TrackerNextWithoutDetector, TrackerUpdateWithoutDetector]
+)
 def test_tracker_without_detector_iter_error(tracker_class):
     tracker_without_detector = tracker_class()
     with pytest.raises(AttributeError):
@@ -108,7 +115,7 @@ def test_tracker_with_detector_iter(tracker_class):
 def test_tracker_with_detector_for_loop(tracker_class, detector):
     tracker = tracker_class(detector=detector)
 
-    for (tracker_time, tracks), (detect_time, detections) in zip(tracker, detector):
+    for (tracker_time, tracks), (detect_time, detections) in zip(tracker, detector, strict=False):
         assert tracker_time == detect_time
         assert tracks == tracker.tracks
         tracks_state = {track.state for track in tracks}
@@ -144,21 +151,28 @@ def test_tracker_wont_restart(tracker_class, detector):
 
 @pytest.mark.parametrize("tracker_class", [TrackerNextWithDetector, TrackerUpdateWithDetector])
 def test_heapq_merge_with_tracker(tracker_class, detector):
-    merge_output = list(heapq.merge(tracker_class(detector=detector),
-                                    tracker_class(detector=detector)))
+    merge_output = list(
+        heapq.merge(tracker_class(detector=detector), tracker_class(detector=detector))
+    )
 
-    assert len(merge_output) == len(detector)*2
+    assert len(merge_output) == len(detector) * 2
 
     for idx, (tracker_time, tracks) in enumerate(merge_output):
-        detect_time, detections = detector[int(idx/2)]
+        detect_time, detections = detector[int(idx / 2)]
         assert tracker_time == detect_time
         tracks_state = {track.state for track in tracks}
         assert tracks_state == detections
 
 
-@pytest.mark.parametrize("tracker_class",
-                         [TrackerNextWithoutDetector, TrackerNextWithDetector,
-                          TrackerUpdateWithoutDetector, TrackerUpdateWithDetector])
+@pytest.mark.parametrize(
+    "tracker_class",
+    [
+        TrackerNextWithoutDetector,
+        TrackerNextWithDetector,
+        TrackerUpdateWithoutDetector,
+        TrackerUpdateWithDetector,
+    ],
+)
 def test_tracker_detector_iter_creation(tracker_class):
     tracker_without_detector = tracker_class()
     assert tracker_without_detector.detector_iter is None
@@ -167,8 +181,9 @@ def test_tracker_detector_iter_creation(tracker_class):
 @pytest.mark.parametrize("tracker_class", [TrackerNextWithDetector, TrackerUpdateWithDetector])
 def test_tracker_with_detections_mid_iter(tracker_class, detector):
     tracker = tracker_class(detector=detector)
-    for i, ((tracker_time, tracks), (detect_time, detections)) in enumerate(zip(tracker,
-                                                                                detector)):
+    for i, ((tracker_time, tracks), (detect_time, detections)) in enumerate(
+        zip(tracker, detector, strict=False)
+    ):
         assert tracker_time == detect_time
         assert tracks == tracker.tracks
         tracks_state = {track.state for track in tracks}

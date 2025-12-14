@@ -3,11 +3,11 @@ from typing import Any
 
 import pytest
 
-from ..base import Property, Base
+from ..base import Base, Property
 
 
 def test_properties(base):
-    assert 'property_a' in base.properties
+    assert "property_a" in base.properties
     assert base(1, "2").property_a == 1
     assert base(1, "2").property_c == 123
 
@@ -27,79 +27,93 @@ def test_properties(base):
 def test_subclass(base):
     class _TestSubclass(base):
         pass
+
     assert _TestSubclass in base.subclasses
 
 
 def test_subclass_remove_property(base):
     class _TestSubclassRemoveProperty(base):
         property_a = 2
+
     assert _TestSubclassRemoveProperty("2").property_a == 2
 
 
 def test_sub_subclass_remove_property(base):
     class _TestSubclassRemoveProperty(base):
         property_a = 2
+
     assert _TestSubclassRemoveProperty("2").property_a == 2
 
     class _TestSubSubclassRemoveProperty(_TestSubclassRemoveProperty):
         pass
+
     assert _TestSubSubclassRemoveProperty("2").property_a == 2
 
 
 def test_init_unordered(base):
     with pytest.raises(TypeError):
+
         class _TestUnordered(base):
             def __init__(self, property_b, *args, **kwrags):
                 pass
 
     with pytest.raises(TypeError):
-        class _TestUnordered(base):  # noqa: F811
+
+        class _TestUnordered(base):
             def __init__(self, property_b, property_a, *args, **kwrags):
                 pass
 
 
 def test_init_missing(base):
     with pytest.raises(TypeError):
+
         class _TestMissing(base):
             def __init__(self, property_a, property_b):
                 pass
 
     with pytest.raises(TypeError):
-        class _TestMissing(base):  # noqa: F811
+
+        class _TestMissing(base):
             def __init__(self, property_a):
                 pass
 
     with pytest.raises(TypeError):
-        class _TestMissing(base):  # noqa: F811
+
+        class _TestMissing(base):
             def __init__(self):
                 pass
 
 
 def test_init_new(base):
     with pytest.raises(TypeError):
+
         class _TestNew(base):
             def __init__(self, property_d, *args, **kwargs):
                 pass
 
     with pytest.raises(TypeError):
-        class _TestNew(base):  # noqa: F811
+
+        class _TestNew(base):
             def __init__(self, property_d="default", *args, **kwargs):
                 pass
 
     with pytest.raises(TypeError):
-        class _TestNew(base):  # noqa: F811
+
+        class _TestNew(base):
             def __init__(self, property_a, property_b, property_c, property_d):
                 pass
 
     with pytest.raises(TypeError):
-        class _TestNew(base):  # noqa: F811
+
+        class _TestNew(base):
             def __init__(self, *args, property_d, **kwargs):
                 pass
 
-    class _TestNew(base):  # noqa: F811
+    class _TestNew(base):
         def __init__(self, *args, property_d="default", **kwargs):
             pass
-    assert not hasattr(_TestNew(1, "2", property_d="10"), 'property_d')
+
+    assert not hasattr(_TestNew(1, "2", property_d="10"), "property_d")
 
 
 def test_non_base_property():
@@ -109,6 +123,7 @@ def test_non_base_property():
         error_type = RuntimeError
 
     with pytest.raises(error_type):
+
         class _TestNonBase:
             property_a = Property(int)
 
@@ -122,7 +137,7 @@ def test_readonly_with_setter():
         @readonly_property_default.setter
         def readonly_property_default(self, value):
             # assign on first write only
-            if not hasattr(self, '_property_readonly_property_default'):
+            if not hasattr(self, "_property_readonly_property_default"):
                 self._property_readonly_property_default = value
             else:
                 # if the value has already been created, the raise an error as
@@ -132,15 +147,14 @@ def test_readonly_with_setter():
         @readonly_property_no_default.setter
         def readonly_property_no_default(self, value):
             # assign on first write only
-            if not hasattr(self, '_property_readonly_property_no_default'):
+            if not hasattr(self, "_property_readonly_property_no_default"):
                 self._property_readonly_property_no_default = value
             else:
                 # if the value has already been created, the raise an error as
                 # it should be read only.
                 raise AttributeError
 
-    test_object = TestReadonly(readonly_property_default=10,
-                               readonly_property_no_default=20)
+    test_object = TestReadonly(readonly_property_default=10, readonly_property_no_default=20)
 
     # first test read
     assert test_object.readonly_property_default == 10
@@ -214,8 +228,7 @@ def test_readonly():
         readonly_property_default: float = Property(default=0, readonly=True)
         readonly_property_no_default: float = Property(readonly=True)
 
-    test_object = TestReadonly(readonly_property_default=10,
-                               readonly_property_no_default=20)
+    test_object = TestReadonly(readonly_property_default=10, readonly_property_no_default=20)
 
     # first test read
     assert test_object.readonly_property_default == 10
@@ -243,8 +256,7 @@ def test_readonly_subclass():
     class TestReadonly(TestParent):
         pass
 
-    test_object = TestReadonly(readonly_property_default=10,
-                               readonly_property_no_default=20)
+    test_object = TestReadonly(readonly_property_default=10, readonly_property_no_default=20)
 
     # first test read
     assert test_object.readonly_property_default == 10
@@ -273,8 +285,7 @@ def test_readonly_with_getter():
         def readonly_property_default(self):
             return self._property_readonly_property_default
 
-    test_object = TestReadonly(readonly_property_default=10,
-                               readonly_property_no_default=20)
+    test_object = TestReadonly(readonly_property_default=10, readonly_property_no_default=20)
 
     # first test read
     assert test_object.readonly_property_default == 10
@@ -294,69 +305,87 @@ def test_readonly_with_getter():
 
 
 def test_type_hint_checking():
-    """ Check that errors are raised for some common type hint errors """
+    """Check that errors are raised for some common type hint errors"""
+
     # no error
     class TestClass(Base):
-        i: int = Property(doc='Test')
+        i: int = Property(doc="Test")
+
     _ = TestClass(i=1)
 
     # no error
     class TestClass(Base):
-        i = Property(int, doc='Test')
+        i = Property(int, doc="Test")
+
     _ = TestClass(i=1)
 
     # specify both as a type hint AND and argument
     with pytest.raises(ValueError):
+
         class TestClass(Base):
-            i: float = Property(int, doc='Test')
+            i: float = Property(int, doc="Test")
+
         obj = TestClass(i=1)
-        assert obj._properties['i'].cls is int
+        assert obj._properties["i"].cls is int
 
     with pytest.raises(ValueError):
         # Type is not specified
         class TestClass(Base):
-            i = Property(doc='Test')
+            i = Property(doc="Test")
+
         _ = TestClass(i=1)
 
     # error for [int]
     with pytest.raises(ValueError):
+
         class TestClass(Base):
-            i: [int] = Property(doc='Test')
+            i: [int] = Property(doc="Test")
+
         _ = TestClass(i=1)
 
     with pytest.raises(ValueError):
+
         class TestClass(Base):
-            i = Property([int], doc='Test')
+            i = Property([int], doc="Test")
+
         _ = TestClass(i=1)
 
     # No error for List[int]
     class TestClass(Base):
-        i: list[int] = Property(doc='Test')
+        i: list[int] = Property(doc="Test")
+
     _ = TestClass(i=1)
 
     class TestClass(Base):
-        i = Property(list[int], doc='Test')
+        i = Property(list[int], doc="Test")
+
     _ = TestClass(i=1)
 
     # errors for any
     with pytest.raises(ValueError):
+
         class TestClass(Base):
-            i: any = Property(doc='Test')
+            i: any = Property(doc="Test")
+
         _ = TestClass(i=1)
 
     with pytest.raises(ValueError):
+
         class TestClass(Base):
-            i = Property(any, doc='Test')
+            i = Property(any, doc="Test")
+
         _ = TestClass(i=1)
 
     # no error for typing.Any
     class TestClass(Base):
-        i: Any = Property(doc='Test')
+        i: Any = Property(doc="Test")
+
     _ = TestClass(i=1)
 
     # no error
     class TestClass(Base):
-        i = Property(Any, doc='Test')
+        i = Property(Any, doc="Test")
+
     _ = TestClass(i=1)
 
 
@@ -364,6 +393,7 @@ def test_default_factory():
 
     class TestClass(Base):
         i: Any = Property(default_factory=list)
+
     inst = TestClass()
     assert isinstance(inst.i, list)
     assert len(inst.i) == 0
@@ -375,6 +405,7 @@ def test_default_factory():
 
     class TestClass(Base):
         i: Any = Property(default_factory=list, allow_none_with_factory=True)
+
     inst = TestClass()
     assert isinstance(inst.i, list)
     assert len(inst.i) == 0
@@ -384,5 +415,6 @@ def test_default_factory():
     assert inst.i is None
 
     with pytest.raises(ValueError, match="Cannot have both default and default_factory"):
+
         class TestClass(Base):
             i: Any = Property(default="1", default_factory=lambda: "1")

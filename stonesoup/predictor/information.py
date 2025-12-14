@@ -1,11 +1,11 @@
 import numpy as np
 
-from ._utils import predict_lru_cache
 from ..base import Property
-from .kalman import KalmanPredictor
-from ..types.prediction import Prediction
-from ..models.transition.linear import LinearGaussianTransitionModel
 from ..models.control.linear import LinearControlModel
+from ..models.transition.linear import LinearGaussianTransitionModel
+from ..types.prediction import Prediction
+from ._utils import predict_lru_cache
+from .kalman import KalmanPredictor
 
 
 class InformationKalmanPredictor(KalmanPredictor):
@@ -67,12 +67,15 @@ class InformationKalmanPredictor(KalmanPredictor):
         pp. 479-486
 
     """
+
     transition_model: LinearGaussianTransitionModel = Property(
-        doc="The transition model to be used.")
+        doc="The transition model to be used."
+    )
     control_model: LinearControlModel = Property(
         default=None,
         doc="The control model to be used. Default `None` where the predictor "
-            "will create a zero-effect linear :class:`~.ControlModel`.")
+        "will create a zero-effect linear :class:`~.ControlModel`.",
+    )
 
     def _inverse_transition_matrix(self, **kwargs):
         """Return the inverse of the transition matrix
@@ -88,7 +91,7 @@ class InformationKalmanPredictor(KalmanPredictor):
             The inverse of the transition matrix, :math:`F_k^{-1}`
 
         """
-        if hasattr(self.transition_model, 'inverse_matrix'):
+        if hasattr(self.transition_model, "inverse_matrix"):
             inv_transition_matrix = self.transition_model.inverse_matrix(**kwargs)
         else:
             inv_transition_matrix = np.linalg.inv(self.transition_model.matrix(**kwargs))
@@ -150,9 +153,11 @@ class InformationKalmanPredictor(KalmanPredictor):
         # As this is Kalman-like, the control model must be capable of
         # returning a control matrix (B)
         inverse_transition_matrix = self._inverse_transition_matrix(
-            prior=prior, time_interval=predict_over_interval, **kwargs)
+            prior=prior, time_interval=predict_over_interval, **kwargs
+        )
         transition_covar = self.transition_model.covar(
-            time_interval=predict_over_interval, **kwargs)
+            time_interval=predict_over_interval, **kwargs
+        )
 
         # control noise doesn't appear in the information matrix literature. It's incorporation
         # here depends on the model being able to return a matrix and covariance.
@@ -163,10 +168,19 @@ class InformationKalmanPredictor(KalmanPredictor):
         Mk = inverse_transition_matrix.T @ prior.precision @ inverse_transition_matrix
         Ck = np.linalg.inv(np.eye(prior.ndim) + Mk @ transition_covar + Mk @ control_covar)
         pred_info_matrix = Ck @ Mk
-        pred_info_state = Ck @ inverse_transition_matrix.T @ prior.state_vector + \
-            pred_info_matrix @ self.control_model.function(control_input,
-                                                           time_interval=predict_over_interval,
-                                                           **kwargs)
+        pred_info_state = (
+            Ck @ inverse_transition_matrix.T @ prior.state_vector
+            + pred_info_matrix
+            @ self.control_model.function(
+                control_input, time_interval=predict_over_interval, **kwargs
+            )
+        )
 
-        return Prediction.from_state(prior, pred_info_state, pred_info_matrix, timestamp=timestamp,
-                                     transition_model=self.transition_model, prior=prior)
+        return Prediction.from_state(
+            prior,
+            pred_info_state,
+            pred_info_matrix,
+            timestamp=timestamp,
+            transition_model=self.transition_model,
+            prior=prior,
+        )

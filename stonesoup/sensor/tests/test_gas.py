@@ -4,21 +4,29 @@ import numpy as np
 import pytest
 from scipy.stats import norm
 
-from ..gas import GasIntensitySensor
-from ...types.groundtruth import GroundTruthState
 from ...types.detection import TrueDetection
+from ...types.groundtruth import GroundTruthState
+from ..gas import GasIntensitySensor
 
 
 def isoplume_h(state_vector, translation_offset):
     x, y, z, q, u, phi, zeta1, zeta2 = state_vector
-    dist = np.sqrt((x - translation_offset[0])**2 +
-                   (y - translation_offset[1])**2 +
-                   (z - translation_offset[2])**2)
-    lambda_ = np.sqrt((zeta1*zeta2)/(1 + (u**2*zeta2)/(4*zeta1)))
+    dist = np.sqrt(
+        (x - translation_offset[0]) ** 2
+        + (y - translation_offset[1]) ** 2
+        + (z - translation_offset[2]) ** 2
+    )
+    lambda_ = np.sqrt((zeta1 * zeta2) / (1 + (u**2 * zeta2) / (4 * zeta1)))
 
-    conc = q/(4*np.pi*zeta1*dist)*np.exp((-(translation_offset[0]-x)*u*np.cos(phi))/(2*zeta1) +
-                                         (-(translation_offset[1]-y)*u*np.sin(phi))/(2*zeta1) +
-                                         (-1*dist/lambda_))
+    conc = (
+        q
+        / (4 * np.pi * zeta1 * dist)
+        * np.exp(
+            (-(translation_offset[0] - x) * u * np.cos(phi)) / (2 * zeta1)
+            + (-(translation_offset[1] - y) * u * np.sin(phi)) / (2 * zeta1)
+            + (-1 * dist / lambda_)
+        )
+    )
 
     return conc
 
@@ -28,29 +36,36 @@ def isoplume_h(state_vector, translation_offset):
     "standard_deviation_percentage",
     [
         (
-                np.array([[0], [0], [0]]),  # state
-                None,  # missed_detection_probability
-                None,  # sensing_threshold
-                None,  # min_noise
-                None,  # standard_deviation_percentage
-        ), (
-                np.array([[15], [20], [1]]),  # state
-                0.3,  # missed_detection_probability
-                1e-4,  # sensing_threshold
-                5e-4,  # min_noise
-                0.4,  # standard_deviation_percentage
-        ), (
-                np.array([[30], [35], [1]]),  # state
-                0.1,  # missed_detection_probability
-                1e-4,  # sensing_threshold
-                1e-4,  # min_noise
-                0.5,  # standard_deviation_percentage
-        )
+            np.array([[0], [0], [0]]),  # state
+            None,  # missed_detection_probability
+            None,  # sensing_threshold
+            None,  # min_noise
+            None,  # standard_deviation_percentage
+        ),
+        (
+            np.array([[15], [20], [1]]),  # state
+            0.3,  # missed_detection_probability
+            1e-4,  # sensing_threshold
+            5e-4,  # min_noise
+            0.4,  # standard_deviation_percentage
+        ),
+        (
+            np.array([[30], [35], [1]]),  # state
+            0.1,  # missed_detection_probability
+            1e-4,  # sensing_threshold
+            1e-4,  # min_noise
+            0.5,  # standard_deviation_percentage
+        ),
     ],
-    ids=["pos1_no_params", "pos2_params", "pos3_params"]
+    ids=["pos1_no_params", "pos2_params", "pos3_params"],
 )
-def test_gas(position, missed_detection_probability, sensing_threshold, min_noise,
-             standard_deviation_percentage):
+def test_gas(
+    position,
+    missed_detection_probability,
+    sensing_threshold,
+    min_noise,
+    standard_deviation_percentage,
+):
 
     start_time = datetime.now()
 
@@ -61,26 +76,23 @@ def test_gas(position, missed_detection_probability, sensing_threshold, min_nois
         assert sensor.min_noise == 1e-4
         assert sensor.sensing_threshold == 1e-4
     else:
-        sensor = GasIntensitySensor(missed_detection_probability=missed_detection_probability,
-                                    sensing_threshold=sensing_threshold,
-                                    standard_deviation_percentage=standard_deviation_percentage,
-                                    min_noise=min_noise,
-                                    position=position)
+        sensor = GasIntensitySensor(
+            missed_detection_probability=missed_detection_probability,
+            sensing_threshold=sensing_threshold,
+            standard_deviation_percentage=standard_deviation_percentage,
+            min_noise=min_noise,
+            position=position,
+        )
         assert sensor.missed_detection_probability == missed_detection_probability
         assert sensor.standard_deviation_percentage == standard_deviation_percentage
         assert sensor.min_noise == min_noise
         assert sensor.sensing_threshold == sensing_threshold
         assert np.all(sensor.position == position)
 
-    source_truth = GroundTruthState([30,  # x
-                                    40,  # y
-                                    1,  # z
-                                    5,  # Q
-                                    4,  # u
-                                    np.radians(90),  # phi
-                                    1,  # ci
-                                    8],  # cii
-                                    timestamp=start_time)
+    source_truth = GroundTruthState(
+        [30, 40, 1, 5, 4, np.radians(90), 1, 8],  # x  # y  # z  # Q  # u  # phi  # ci  # cii
+        timestamp=start_time,
+    )
 
     # Generate noiseless measurement
     measurement = sensor.measure({source_truth}, noise=False)
@@ -100,9 +112,11 @@ def test_gas(position, missed_detection_probability, sensing_threshold, min_nois
     measurement = next(iter(measurement))
 
     rng.set_state(rng_state)
-    noise = norm.rvs(loc=np.zeros(eval_meas.shape[0]),
-                     scale=np.ravel(eval_meas*sensor.standard_deviation_percentage),
-                     random_state=rng)
+    noise = norm.rvs(
+        loc=np.zeros(eval_meas.shape[0]),
+        scale=np.ravel(eval_meas * sensor.standard_deviation_percentage),
+        random_state=rng,
+    )
     eval_meas += noise
     eval_meas[eval_meas < sensor.sensing_threshold] = 0
     eval_meas[:, rng.uniform() > (1 - sensor.missed_detection_probability)] = 0

@@ -1,37 +1,32 @@
 """Tests for Viterbi Track Initiator"""
 
-import pytest
-import numpy as np
 from datetime import datetime, timedelta
 from unittest.mock import Mock
 
+import numpy as np
+import pytest
+
 from stonesoup.initiator.viterbi import ViterbiTrackInitiator
+from stonesoup.models.measurement.linear import LinearGaussian
+from stonesoup.models.transition.linear import (
+    CombinedLinearGaussianTransitionModel,
+    ConstantVelocity,
+)
 from stonesoup.types.detection import Detection
 from stonesoup.types.state import GaussianState
 from stonesoup.types.track import Track
-from stonesoup.models.transition.linear import (
-    CombinedLinearGaussianTransitionModel,
-    ConstantVelocity
-)
-from stonesoup.models.measurement.linear import LinearGaussian
 
 
 @pytest.fixture
 def transition_model():
     """Create a simple transition model for testing."""
-    return CombinedLinearGaussianTransitionModel(
-        [ConstantVelocity(0.1), ConstantVelocity(0.1)]
-    )
+    return CombinedLinearGaussianTransitionModel([ConstantVelocity(0.1), ConstantVelocity(0.1)])
 
 
 @pytest.fixture
 def measurement_model():
     """Create a simple measurement model for testing."""
-    return LinearGaussian(
-        ndim_state=4,
-        mapping=[0, 2],
-        noise_covar=np.eye(2) * 0.5
-    )
+    return LinearGaussian(ndim_state=4, mapping=[0, 2], noise_covar=np.eye(2) * 0.5)
 
 
 @pytest.fixture
@@ -48,15 +43,11 @@ def simple_detections():
 
         detections = set()
         # True target trajectory
-        detections.add(Detection(
-            np.array([[float(i)], [float(i * 2)]]),
-            timestamp=timestamp
-        ))
+        detections.add(Detection(np.array([[float(i)], [float(i * 2)]]), timestamp=timestamp))
         # Some clutter
-        detections.add(Detection(
-            np.array([[float(i) + 10.0], [float(i * 2) + 10.0]]),
-            timestamp=timestamp
-        ))
+        detections.add(
+            Detection(np.array([[float(i) + 10.0], [float(i * 2) + 10.0]]), timestamp=timestamp)
+        )
 
         detection_sets.append(detections)
 
@@ -66,8 +57,7 @@ def simple_detections():
 def test_viterbi_initiator_instantiation(transition_model, measurement_model):
     """Test that ViterbiTrackInitiator can be instantiated with required models."""
     initiator = ViterbiTrackInitiator(
-        transition_model=transition_model,
-        measurement_model=measurement_model
+        transition_model=transition_model, measurement_model=measurement_model
     )
 
     assert initiator.transition_model is transition_model
@@ -89,7 +79,7 @@ def test_viterbi_initiator_instantiation_with_params(transition_model, measureme
         detection_threshold=5.0,
         max_detections_per_scan=50,
         missed_detection_penalty=-10.0,
-        prior_state_covar=prior_covar
+        prior_state_covar=prior_covar,
     )
 
     assert initiator.num_scans == 3
@@ -102,8 +92,7 @@ def test_viterbi_initiator_instantiation_with_params(transition_model, measureme
 def test_viterbi_initiator_initiate_single_scan(transition_model, measurement_model):
     """Test that initiate() returns empty set (Viterbi requires multiple scans)."""
     initiator = ViterbiTrackInitiator(
-        transition_model=transition_model,
-        measurement_model=measurement_model
+        transition_model=transition_model, measurement_model=measurement_model
     )
 
     timestamp = datetime.now()
@@ -116,14 +105,15 @@ def test_viterbi_initiator_initiate_single_scan(transition_model, measurement_mo
     assert isinstance(tracks, set)
 
 
-def test_viterbi_initiator_initiate_from_scans_basic(transition_model, measurement_model,
-                                                      simple_detections):
+def test_viterbi_initiator_initiate_from_scans_basic(
+    transition_model, measurement_model, simple_detections
+):
     """Test basic track initiation from multiple scans."""
     initiator = ViterbiTrackInitiator(
         transition_model=transition_model,
         measurement_model=measurement_model,
         num_scans=5,
-        detection_threshold=-10.0  # Low threshold to ensure we get tracks
+        detection_threshold=-10.0,  # Low threshold to ensure we get tracks
     )
 
     detection_sets, timestamps = simple_detections
@@ -144,18 +134,18 @@ def test_viterbi_initiator_initiate_from_scans_basic(transition_model, measureme
             assert state.timestamp is not None
 
 
-def test_viterbi_initiator_initiate_from_scans_mismatched_lengths(transition_model,
-                                                                    measurement_model):
+def test_viterbi_initiator_initiate_from_scans_mismatched_lengths(
+    transition_model, measurement_model
+):
     """Test that mismatched detection sets and timestamps raise ValueError."""
     initiator = ViterbiTrackInitiator(
-        transition_model=transition_model,
-        measurement_model=measurement_model
+        transition_model=transition_model, measurement_model=measurement_model
     )
 
     start = datetime.now()
     detection_sets = [
         {Detection(np.array([[1.0], [2.0]]), timestamp=start)},
-        {Detection(np.array([[2.0], [3.0]]), timestamp=start + timedelta(seconds=1))}
+        {Detection(np.array([[2.0], [3.0]]), timestamp=start + timedelta(seconds=1))},
     ]
     timestamps = [start]  # Only one timestamp
 
@@ -163,19 +153,18 @@ def test_viterbi_initiator_initiate_from_scans_mismatched_lengths(transition_mod
         initiator.initiate_from_scans(detection_sets, timestamps)
 
 
-def test_viterbi_initiator_initiate_from_scans_insufficient_scans(transition_model,
-                                                                    measurement_model):
+def test_viterbi_initiator_initiate_from_scans_insufficient_scans(
+    transition_model, measurement_model
+):
     """Test that insufficient scans raise ValueError."""
     initiator = ViterbiTrackInitiator(
-        transition_model=transition_model,
-        measurement_model=measurement_model,
-        num_scans=5
+        transition_model=transition_model, measurement_model=measurement_model, num_scans=5
     )
 
     start = datetime.now()
     detection_sets = [
         {Detection(np.array([[1.0], [2.0]]), timestamp=start)},
-        {Detection(np.array([[2.0], [3.0]]), timestamp=start + timedelta(seconds=1))}
+        {Detection(np.array([[2.0], [3.0]]), timestamp=start + timedelta(seconds=1))},
     ]
     timestamps = [start, start + timedelta(seconds=1)]
 
@@ -186,8 +175,7 @@ def test_viterbi_initiator_initiate_from_scans_insufficient_scans(transition_mod
 def test_viterbi_initiator_detection_to_state(transition_model, measurement_model):
     """Test conversion of detection to state estimate."""
     initiator = ViterbiTrackInitiator(
-        transition_model=transition_model,
-        measurement_model=measurement_model
+        transition_model=transition_model, measurement_model=measurement_model
     )
 
     timestamp = datetime.now()
@@ -208,15 +196,16 @@ def test_viterbi_initiator_detection_to_state(transition_model, measurement_mode
     assert state.covar is not None
 
 
-def test_viterbi_initiator_detection_to_state_with_custom_covar(transition_model,
-                                                                  measurement_model):
+def test_viterbi_initiator_detection_to_state_with_custom_covar(
+    transition_model, measurement_model
+):
     """Test detection to state conversion with custom prior covariance."""
     prior_covar = np.eye(4) * 50.0
 
     initiator = ViterbiTrackInitiator(
         transition_model=transition_model,
         measurement_model=measurement_model,
-        prior_state_covar=prior_covar
+        prior_state_covar=prior_covar,
     )
 
     timestamp = datetime.now()
@@ -231,8 +220,7 @@ def test_viterbi_initiator_detection_to_state_with_custom_covar(transition_model
 def test_viterbi_initiator_compute_detection_score(transition_model, measurement_model):
     """Test detection score computation."""
     initiator = ViterbiTrackInitiator(
-        transition_model=transition_model,
-        measurement_model=measurement_model
+        transition_model=transition_model, measurement_model=measurement_model
     )
 
     # Test detection without metadata score
@@ -245,9 +233,7 @@ def test_viterbi_initiator_compute_detection_score(transition_model, measurement
 
     # Test detection with metadata score
     detection_with_score = Detection(
-        np.array([[5.0], [10.0]]),
-        timestamp=timestamp,
-        metadata={'score': 0.8}
+        np.array([[5.0], [10.0]]), timestamp=timestamp, metadata={"score": 0.8}
     )
     score2 = initiator._compute_detection_score(detection_with_score)
 
@@ -258,19 +244,16 @@ def test_viterbi_initiator_compute_detection_score(transition_model, measurement
 def test_viterbi_initiator_compute_transition_score(transition_model, measurement_model):
     """Test transition score computation."""
     initiator = ViterbiTrackInitiator(
-        transition_model=transition_model,
-        measurement_model=measurement_model
+        transition_model=transition_model, measurement_model=measurement_model
     )
 
     state_from = GaussianState(
-        np.array([[1.0], [1.0], [2.0], [1.5]]),
-        np.eye(4),
-        timestamp=datetime.now()
+        np.array([[1.0], [1.0], [2.0], [1.5]]), np.eye(4), timestamp=datetime.now()
     )
     state_to = GaussianState(
         np.array([[2.0], [1.0], [3.5], [1.5]]),
         np.eye(4),
-        timestamp=datetime.now() + timedelta(seconds=1)
+        timestamp=datetime.now() + timedelta(seconds=1),
     )
     time_interval = timedelta(seconds=1)
 
@@ -289,7 +272,7 @@ def test_viterbi_initiator_max_detections_per_scan(transition_model, measurement
         measurement_model=measurement_model,
         num_scans=3,
         max_detections_per_scan=2,  # Limit to 2 detections
-        detection_threshold=-100.0  # Low threshold
+        detection_threshold=-100.0,  # Low threshold
     )
 
     start = datetime.now()
@@ -304,10 +287,7 @@ def test_viterbi_initiator_max_detections_per_scan(transition_model, measurement
         detections = set()
         # Add 5 detections per scan
         for j in range(5):
-            detections.add(Detection(
-                np.array([[float(j)], [float(j)]]),
-                timestamp=timestamp
-            ))
+            detections.add(Detection(np.array([[float(j)], [float(j)]]), timestamp=timestamp))
 
         detection_sets.append(detections)
 
@@ -325,7 +305,7 @@ def test_viterbi_initiator_with_scored_detections(transition_model, measurement_
         measurement_model=measurement_model,
         num_scans=3,
         max_detections_per_scan=3,
-        detection_threshold=-50.0
+        detection_threshold=-50.0,
     )
 
     start = datetime.now()
@@ -339,17 +319,21 @@ def test_viterbi_initiator_with_scored_detections(transition_model, measurement_
 
         detections = set()
         # Add high-score detection (true target)
-        detections.add(Detection(
-            np.array([[float(i)], [float(i * 2)]]),
-            timestamp=timestamp,
-            metadata={'score': 0.9}
-        ))
+        detections.add(
+            Detection(
+                np.array([[float(i)], [float(i * 2)]]),
+                timestamp=timestamp,
+                metadata={"score": 0.9},
+            )
+        )
         # Add low-score detections (clutter)
-        detections.add(Detection(
-            np.array([[float(i) + 5.0], [float(i * 2) + 5.0]]),
-            timestamp=timestamp,
-            metadata={'score': 0.1}
-        ))
+        detections.add(
+            Detection(
+                np.array([[float(i) + 5.0], [float(i * 2) + 5.0]]),
+                timestamp=timestamp,
+                metadata={"score": 0.1},
+            )
+        )
 
         detection_sets.append(detections)
 
@@ -365,7 +349,7 @@ def test_viterbi_initiator_high_threshold_filters_tracks(transition_model, measu
         transition_model=transition_model,
         measurement_model=measurement_model,
         num_scans=3,
-        detection_threshold=1000.0  # Very high threshold
+        detection_threshold=1000.0,  # Very high threshold
     )
 
     start = datetime.now()
@@ -376,10 +360,7 @@ def test_viterbi_initiator_high_threshold_filters_tracks(transition_model, measu
         timestamp = start + timedelta(seconds=i)
         timestamps.append(timestamp)
 
-        detections = {Detection(
-            np.array([[float(i)], [float(i * 2)]]),
-            timestamp=timestamp
-        )}
+        detections = {Detection(np.array([[float(i)], [float(i * 2)]]), timestamp=timestamp)}
 
         detection_sets.append(detections)
 
@@ -392,9 +373,7 @@ def test_viterbi_initiator_high_threshold_filters_tracks(transition_model, measu
 def test_viterbi_initiator_empty_detection_sets(transition_model, measurement_model):
     """Test initiator with empty detection sets."""
     initiator = ViterbiTrackInitiator(
-        transition_model=transition_model,
-        measurement_model=measurement_model,
-        num_scans=3
+        transition_model=transition_model, measurement_model=measurement_model, num_scans=3
     )
 
     start = datetime.now()
@@ -413,7 +392,7 @@ def test_viterbi_initiator_single_detection_per_scan(transition_model, measureme
         transition_model=transition_model,
         measurement_model=measurement_model,
         num_scans=3,
-        detection_threshold=-50.0  # Low enough to get a track
+        detection_threshold=-50.0,  # Low enough to get a track
     )
 
     start = datetime.now()
@@ -425,10 +404,7 @@ def test_viterbi_initiator_single_detection_per_scan(transition_model, measureme
         timestamp = start + timedelta(seconds=i)
         timestamps.append(timestamp)
 
-        detections = {Detection(
-            np.array([[float(i)], [float(i * 2)]]),
-            timestamp=timestamp
-        )}
+        detections = {Detection(np.array([[float(i)], [float(i * 2)]]), timestamp=timestamp)}
 
         detection_sets.append(detections)
 
@@ -449,30 +425,22 @@ def test_viterbi_initiator_single_detection_per_scan(transition_model, measureme
 def test_viterbi_initiator_non_gaussian_transition():
     """Test initiator with non-Gaussian transition model."""
     # Create a mock transition model without covar
-    mock_transition = Mock(spec=['function'])  # Only has function attribute
+    mock_transition = Mock(spec=["function"])  # Only has function attribute
     mock_transition.function = Mock(return_value=np.array([[1.0], [1.0], [2.0], [1.5]]))
 
-    measurement_model = LinearGaussian(
-        ndim_state=4,
-        mapping=[0, 2],
-        noise_covar=np.eye(2) * 0.5
-    )
+    measurement_model = LinearGaussian(ndim_state=4, mapping=[0, 2], noise_covar=np.eye(2) * 0.5)
 
     initiator = ViterbiTrackInitiator(
-        transition_model=mock_transition,
-        measurement_model=measurement_model,
-        num_scans=3
+        transition_model=mock_transition, measurement_model=measurement_model, num_scans=3
     )
 
     state_from = GaussianState(
-        np.array([[1.0], [1.0], [2.0], [1.5]]),
-        np.eye(4),
-        timestamp=datetime.now()
+        np.array([[1.0], [1.0], [2.0], [1.5]]), np.eye(4), timestamp=datetime.now()
     )
     state_to = GaussianState(
         np.array([[2.0], [1.0], [3.5], [1.5]]),
         np.eye(4),
-        timestamp=datetime.now() + timedelta(seconds=1)
+        timestamp=datetime.now() + timedelta(seconds=1),
     )
 
     # Should fall back to distance-based scoring (negative distance)
@@ -484,29 +452,20 @@ def test_viterbi_initiator_non_gaussian_transition():
 
 def test_viterbi_initiator_detection_with_custom_measurement_model(transition_model):
     """Test detection to state conversion when detection has its own measurement model."""
-    measurement_model = LinearGaussian(
-        ndim_state=4,
-        mapping=[0, 2],
-        noise_covar=np.eye(2) * 0.5
-    )
+    measurement_model = LinearGaussian(ndim_state=4, mapping=[0, 2], noise_covar=np.eye(2) * 0.5)
 
     initiator = ViterbiTrackInitiator(
-        transition_model=transition_model,
-        measurement_model=measurement_model
+        transition_model=transition_model, measurement_model=measurement_model
     )
 
     # Create detection with its own measurement model
     custom_meas_model = LinearGaussian(
-        ndim_state=4,
-        mapping=[0, 2],
-        noise_covar=np.eye(2) * 1.0  # Different noise
+        ndim_state=4, mapping=[0, 2], noise_covar=np.eye(2) * 1.0  # Different noise
     )
 
     timestamp = datetime.now()
     detection = Detection(
-        np.array([[5.0], [10.0]]),
-        timestamp=timestamp,
-        measurement_model=custom_meas_model
+        np.array([[5.0], [10.0]]), timestamp=timestamp, measurement_model=custom_meas_model
     )
 
     state = initiator._detection_to_state(detection)
@@ -521,7 +480,7 @@ def test_viterbi_initiator_uses_only_required_scans(transition_model, measuremen
     initiator = ViterbiTrackInitiator(
         transition_model=transition_model,
         measurement_model=measurement_model,
-        num_scans=3  # Only use 3 scans
+        num_scans=3,  # Only use 3 scans
     )
 
     start = datetime.now()
@@ -533,10 +492,7 @@ def test_viterbi_initiator_uses_only_required_scans(transition_model, measuremen
         timestamp = start + timedelta(seconds=i)
         timestamps.append(timestamp)
 
-        detections = {Detection(
-            np.array([[float(i)], [float(i * 2)]]),
-            timestamp=timestamp
-        )}
+        detections = {Detection(np.array([[float(i)], [float(i * 2)]]), timestamp=timestamp)}
 
         detection_sets.append(detections)
 
@@ -553,7 +509,7 @@ def test_viterbi_initiator_duplicate_path_filtering(transition_model, measuremen
         transition_model=transition_model,
         measurement_model=measurement_model,
         num_scans=3,
-        detection_threshold=-100.0  # Very low to allow multiple tracks
+        detection_threshold=-100.0,  # Very low to allow multiple tracks
     )
 
     start = datetime.now()
@@ -566,10 +522,7 @@ def test_viterbi_initiator_duplicate_path_filtering(transition_model, measuremen
         timestamps.append(timestamp)
 
         # Same detection appears in multiple scans
-        detections = {Detection(
-            np.array([[float(i)], [float(i * 2)]]),
-            timestamp=timestamp
-        )}
+        detections = {Detection(np.array([[float(i)], [float(i * 2)]]), timestamp=timestamp)}
 
         detection_sets.append(detections)
 
@@ -585,6 +538,6 @@ def test_viterbi_initiator_duplicate_path_filtering(transition_model, measuremen
         first_states = [track[0].state_vector for track in track_list]
         # Should not all be identical
         for i in range(len(first_states)):
-            for j in range(i + 1, len(first_states)):
+            for _j in range(i + 1, len(first_states)):
                 # At least some difference expected
                 pass  # Duplicate filtering is based on 80% overlap

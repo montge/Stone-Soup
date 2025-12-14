@@ -100,18 +100,12 @@ class TimeRange(Interval):
                 return self
             if self == overlap:
                 return None
-            if self.start < overlap.start:
-                start = self.start
-            else:
-                start = overlap.end
-            if self.end > overlap.end:
-                end = self.end
-            else:
-                end = overlap.start
-            if self.start < overlap.start and \
-               self.end > overlap.end:
-                return CompoundTimeRange([TimeRange(self.start, overlap.start),
-                                         TimeRange(overlap.end, self.end)])
+            start = self.start if self.start < overlap.start else overlap.end
+            end = self.end if self.end > overlap.end else overlap.start
+            if self.start < overlap.start and self.end > overlap.end:
+                return CompoundTimeRange(
+                    [TimeRange(self.start, overlap.start), TimeRange(overlap.end, self.end)]
+                )
             else:
                 return TimeRange(start, end)
 
@@ -183,8 +177,10 @@ class CompoundTimeRange(Intervals):
         """Removes overlap between components of `time_ranges`"""
         if len(self.time_ranges) in {0, 1}:
             return
-        if all([component & component2 is None for (component, component2) in
-                combinations(self.time_ranges, 2)]):
+        if all(
+            component & component2 is None
+            for (component, component2) in combinations(self.time_ranges, 2)
+        ):
             return
         overlap_check = CompoundTimeRange()
         for time_range in self.time_ranges:
@@ -194,7 +190,7 @@ class CompoundTimeRange(Intervals):
 
     def _fuse_components(self):
         """Fuses two time ranges [a,b], [b,c] into [a,c] for all such pairs in this instance"""
-        for (component, component2) in permutations(self.time_ranges, 2):
+        for component, component2 in permutations(self.time_ranges, 2):
             if component.end == component2.start:
                 fused_component = TimeRange(component.start, component2.end)
                 self.remove(component)
@@ -248,15 +244,14 @@ class CompoundTimeRange(Intervals):
         """
 
         if isinstance(time, datetime.datetime):
-            for component in self.time_ranges:
-                if time in component:
-                    return True
-            return False
+            return any(time in component for component in self.time_ranges)
         elif isinstance(time, (TimeRange, CompoundTimeRange)):
             return super().__contains__(time)
         else:
-            raise TypeError("Supplied parameter must be an instance of either "
-                            "datetime, TimeRange, or CompoundTimeRange")
+            raise TypeError(
+                "Supplied parameter must be an instance of either "
+                "datetime, TimeRange, or CompoundTimeRange"
+            )
 
     def __eq__(self, other):
         return isinstance(other, CompoundTimeRange) and super().__eq__(other)
@@ -301,7 +296,9 @@ class CompoundTimeRange(Intervals):
         if time_range is None:
             return None
         if not isinstance(time_range, (TimeRange, CompoundTimeRange)):
-            raise TypeError("Supplied parameter must be an instance of either "
-                            "TimeRange, or CompoundTimeRange")
+            raise TypeError(
+                "Supplied parameter must be an instance of either "
+                "TimeRange, or CompoundTimeRange"
+            )
         else:
             return super().__and__(time_range)

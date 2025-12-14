@@ -3,23 +3,24 @@ from pathlib import Path
 from ..base import Property
 from ..buffered_generator import BufferedGenerator
 from ..serialise import YAML
-from .base import DetectionReader, GroundTruthReader, SensorDataReader
 from ..tracker import Tracker
+from .base import DetectionReader, GroundTruthReader, SensorDataReader
 from .file import FileReader
 
 
 class YAMLReader(FileReader, BufferedGenerator):
     """YAML Reader"""
+
     path: Path = Property(doc="File to read data from")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._yaml = YAML(typ='safe')
+        self._yaml = YAML(typ="safe")
 
     @BufferedGenerator.generator_method
     def data_gen(self):
         for document in self._yaml.load_all(self.path):
-            yield document.pop('time'), document
+            yield document.pop("time"), document
 
 
 class YAMLDetectionReader(YAMLReader, DetectionReader):
@@ -31,7 +32,7 @@ class YAMLDetectionReader(YAMLReader, DetectionReader):
     @BufferedGenerator.generator_method
     def detections_gen(self):
         for time, document in self.data_gen():
-            yield time, document.get('detections', set())
+            yield time, document.get("detections", set())
 
 
 class YAMLGroundTruthReader(YAMLReader, GroundTruthReader):
@@ -42,10 +43,10 @@ class YAMLGroundTruthReader(YAMLReader, GroundTruthReader):
 
     @BufferedGenerator.generator_method
     def groundtruth_paths_gen(self):
-        paths = dict()
+        paths = {}
         for time, document in self.data_gen():
             updated_paths = set()
-            for path in document.get('groundtruth_paths', set()):
+            for path in document.get("groundtruth_paths", set()):
                 if path.id in paths:
                     paths[path.id].states = path.states
                 else:
@@ -64,7 +65,7 @@ class YAMLSensorDataReader(YAMLReader, SensorDataReader):
     @BufferedGenerator.generator_method
     def sensor_data_gen(self):
         for time, document in self.data_gen():
-            yield time, document.get('sensor_data', set())
+            yield time, document.get("sensor_data", set())
 
 
 class YAMLTrackReader(YAMLReader, Tracker):
@@ -75,7 +76,7 @@ class YAMLTrackReader(YAMLReader, Tracker):
 
     def __iter__(self):
         self.data_iter = iter(self.data_gen())
-        self._tracks = dict()
+        self._tracks = {}
         return super().__iter__()
 
     @property
@@ -85,7 +86,7 @@ class YAMLTrackReader(YAMLReader, Tracker):
     def __next__(self):
         time, document = next(self.data_iter)
         updated_tracks = set()
-        for track in document.get('tracks', set()):
+        for track in document.get("tracks", set()):
             if track.id in self.tracks:
                 self._tracks[track.id].states = track.states
             else:

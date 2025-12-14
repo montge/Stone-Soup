@@ -4,8 +4,9 @@ This module implements the Viterbi algorithm for finding the most likely
 sequence of hidden states in a Hidden Markov Model (HMM), applied to target
 tracking and state estimation.
 """
+
 import copy
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy as np
 
@@ -13,8 +14,7 @@ from ..base import Property
 from ..models.measurement import MeasurementModel
 from ..models.transition import TransitionModel
 from ..types.prediction import Prediction
-from ..types.state import State, GaussianState
-from ..types.track import Track
+from ..types.state import GaussianState, State
 from ..types.update import Update
 from .base import Smoother
 
@@ -129,24 +129,24 @@ class ViterbiSmoother(Smoother):
 
     transition_model: TransitionModel = Property(
         doc="Transition model for state evolution. Used to compute transition "
-            "probabilities :math:`P(s_k|s_{k-1})`."
+        "probabilities :math:`P(s_k|s_{k-1})`."
     )
     measurement_model: MeasurementModel = Property(
         doc="Measurement model for observations. Used to compute observation "
-            "likelihoods :math:`P(z_k|s_k)`."
+        "likelihoods :math:`P(z_k|s_k)`."
     )
     num_states: int = Property(
         default=100,
         doc="Number of discrete states in the quantized state space. For continuous "
-            "state spaces, this defines the granularity of the discretization grid. "
-            "Higher values provide better resolution but increase computational cost "
-            "quadratically. Default is 100."
+        "state spaces, this defines the granularity of the discretization grid. "
+        "Higher values provide better resolution but increase computational cost "
+        "quadratically. Default is 100.",
     )
     state_bounds: Sequence = Property(
         default=None,
         doc="Bounds for state space discretization as list of (min, max) tuples for "
-            "each state dimension. If None, bounds are estimated from the track data. "
-            "Format: [(x_min, x_max), (y_min, y_max), ...] for each dimension."
+        "each state dimension. If None, bounds are estimated from the track data. "
+        "Format: [(x_min, x_max), (y_min, y_max), ...] for each dimension.",
     )
 
     def _discretize_state_space(self, track):
@@ -173,8 +173,7 @@ class ViterbiSmoother(Smoother):
             maxs = np.max(all_states, axis=1)
             # Add 10% margin
             margins = 0.1 * (maxs - mins)
-            bounds = [(mins[i] - margins[i], maxs[i] + margins[i])
-                      for i in range(ndim)]
+            bounds = [(mins[i] - margins[i], maxs[i] + margins[i]) for i in range(ndim)]
         else:
             bounds = self.state_bounds
 
@@ -216,11 +215,10 @@ class ViterbiSmoother(Smoother):
             Log probability of transition
         """
         # Compute predicted state
-        predicted = self.transition_model.function(
-            State(state_from), time_interval=time_interval)
+        predicted = self.transition_model.function(State(state_from), time_interval=time_interval)
 
         # Compute log-likelihood of reaching state_to from prediction
-        if hasattr(self.transition_model, 'covar'):
+        if hasattr(self.transition_model, "covar"):
             # Gaussian transition model
             covar = self.transition_model.covar(time_interval=time_interval)
             diff = state_to - predicted
@@ -261,7 +259,7 @@ class ViterbiSmoother(Smoother):
         predicted_meas = self.measurement_model.function(State(state))
 
         # Extract measurement vector - handle both Detection and State objects
-        if hasattr(measurement, 'state_vector'):
+        if hasattr(measurement, "state_vector"):
             # Map state to measurement space if needed
             if measurement.state_vector.shape[0] == predicted_meas.shape[0]:
                 # Already in measurement space or dimensions match
@@ -275,7 +273,7 @@ class ViterbiSmoother(Smoother):
             meas_vec = measurement
 
         # Compute log-likelihood
-        if hasattr(self.measurement_model, 'covar'):
+        if hasattr(self.measurement_model, "covar"):
             # Gaussian measurement model
             covar = self.measurement_model.covar()
             diff = meas_vec - predicted_meas
@@ -361,8 +359,7 @@ class ViterbiSmoother(Smoother):
         for s in range(self.num_states):
             if measurements[0] is not None:
                 # Log observation likelihood
-                delta_0[s] = self._log_observation_likelihood(
-                    grid_points[s], measurements[0])
+                delta_0[s] = self._log_observation_likelihood(grid_points[s], measurements[0])
             else:
                 # Uniform prior if no measurement
                 delta_0[s] = -np.log(self.num_states)
@@ -375,7 +372,7 @@ class ViterbiSmoother(Smoother):
             delta_k = np.zeros(self.num_states)
             psi_k = np.zeros(self.num_states, dtype=int)
 
-            time_interval = timestamps[k] - timestamps[k-1]
+            time_interval = timestamps[k] - timestamps[k - 1]
 
             for s in range(self.num_states):
                 # Compute max over previous states
@@ -383,8 +380,9 @@ class ViterbiSmoother(Smoother):
                 for s_prev in range(self.num_states):
                     # Transition probability
                     log_trans = self._log_transition_probability(
-                        grid_points[s_prev], grid_points[s], time_interval)
-                    log_probs[s_prev] = delta[k-1][s_prev] + log_trans
+                        grid_points[s_prev], grid_points[s], time_interval
+                    )
+                    log_probs[s_prev] = delta[k - 1][s_prev] + log_trans
 
                 # Store max and argmax
                 psi_k[s] = np.argmax(log_probs)
@@ -392,8 +390,7 @@ class ViterbiSmoother(Smoother):
 
                 # Add observation likelihood
                 if measurements[k] is not None:
-                    log_obs = self._log_observation_likelihood(
-                        grid_points[s], measurements[k])
+                    log_obs = self._log_observation_likelihood(grid_points[s], measurements[k])
                     delta_k[s] = max_log_prob + log_obs
                 else:
                     delta_k[s] = max_log_prob
@@ -405,12 +402,12 @@ class ViterbiSmoother(Smoother):
         # ===========
         # Find most likely final state
         optimal_path = np.zeros(K, dtype=int)
-        optimal_path[K-1] = np.argmax(delta[K-1])
+        optimal_path[K - 1] = np.argmax(delta[K - 1])
 
         # Backtracking
         # ============
-        for k in range(K-2, -1, -1):
-            optimal_path[k] = psi[k+1][optimal_path[k+1]]
+        for k in range(K - 2, -1, -1):
+            optimal_path[k] = psi[k + 1][optimal_path[k + 1]]
 
         # Create smoothed states
         smoothed_states = []
@@ -424,14 +421,11 @@ class ViterbiSmoother(Smoother):
                 smoothed_state = type(original_state).from_state(
                     original_state,
                     optimal_state_vec,
-                    original_state.covar if hasattr(original_state, 'covar') else None
+                    original_state.covar if hasattr(original_state, "covar") else None,
                 )
             else:
                 # For non-Gaussian states
-                smoothed_state = type(original_state).from_state(
-                    original_state,
-                    optimal_state_vec
-                )
+                smoothed_state = type(original_state).from_state(original_state, optimal_state_vec)
 
             smoothed_states.append(smoothed_state)
 

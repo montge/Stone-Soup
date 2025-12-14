@@ -1,9 +1,20 @@
-from .radar import RadarBearingRange, RadarRotatingBearingRange, RadarElevationBearingRange, \
-    AESARadar
+from .beam_pattern import BeamSweep, BeamTransitionModel, StationaryBeam
 from .beam_shape import Beam2DGaussian, BeamShape
-from .beam_pattern import BeamTransitionModel, BeamSweep, StationaryBeam
+from .radar import (
+    AESARadar,
+    RadarBearingRange,
+    RadarElevationBearingRange,
+    RadarRotatingBearingRange,
+)
 
-
-__all__ = ['RadarBearingRange', 'RadarRotatingBearingRange', 'RadarElevationBearingRange',
-           'AESARadar', 'Beam2DGaussian', 'BeamShape', 'BeamTransitionModel', 'BeamSweep',
-           'StationaryBeam']
+__all__ = [
+    "AESARadar",
+    "Beam2DGaussian",
+    "BeamShape",
+    "BeamSweep",
+    "BeamTransitionModel",
+    "RadarBearingRange",
+    "RadarElevationBearingRange",
+    "RadarRotatingBearingRange",
+    "StationaryBeam",
+]

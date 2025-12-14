@@ -1,9 +1,10 @@
-# -*- coding: utf-8 -*-
 """Providing some basic astronomical readers for Stone Soup, allowing import of data that is in
 common astronomical formats.
 
 """
+
 from datetime import datetime
+
 import numpy as np
 from astropy.io import fits
 
@@ -19,12 +20,13 @@ class FITSReader(FileReader):
     FITS file must be valid i.e. have at least one Header Data Unit (HDU)
 
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         with fits.open(self.path) as hdu_list:
             self._data = []
             self._header = []
-            for index, hdu in enumerate(hdu_list):
+            for index, _hdu in enumerate(hdu_list):
                 self._data.append(hdu_list[index].data)
                 self._header.append(hdu_list[index].header)
 
@@ -52,6 +54,7 @@ class TLEDictReader(Reader):
        [CelesTrak](https://celestrak.com/columns/v04n03/)
 
     """
+
     tle: dict = Property(doc="")
 
     # Unit conversions
@@ -61,8 +64,8 @@ class TLEDictReader(Reader):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.line1 = self.tle['line_1']
-        self.line2 = self.tle['line_2']
+        self.line1 = self.tle["line_1"]
+        self.line2 = self.tle["line_2"]
 
     @classmethod
     def checksum(cls, line):
@@ -74,9 +77,9 @@ class TLEDictReader(Reader):
         L = line[0:68].strip()
         cksum = 0
         for c in L:
-            if c == ' ' or c == '.' or c == '+' or c.isalpha():
+            if c == " " or c == "." or c == "+" or c.isalpha():
                 continue
-            elif c == '-':
+            elif c == "-":
                 cksum = cksum + 1
             else:
                 cksum = cksum + int(c)
@@ -87,14 +90,12 @@ class TLEDictReader(Reader):
 
     @property
     def catalogue_number(self):
-        """NORAD Catalog Number: a unique identifier for each earth-orbiting artificial satellite
-        """
+        """NORAD Catalog Number: a unique identifier for each earth-orbiting artificial satellite"""
         return int(self.line1[2:7])
 
     @property
     def classification(self):
-        """Classification (U=Unclassified, C=Classified, S=Secret)
-        """
+        """Classification (U=Unclassified, C=Classified, S=Secret)"""
         return self.line1[7]
 
     @property
@@ -105,8 +106,7 @@ class TLEDictReader(Reader):
 
     @property
     def epoch(self):
-        """The time at which the TLE is valid. Returned as a datetime object.
-        """
+        """The time at which the TLE is valid. Returned as a datetime object."""
         # Resolve the timestamp
         halfcentury = int(self.line1[17:20])
         year = 1900 + halfcentury if halfcentury > 56 else 2000 + halfcentury
@@ -125,9 +125,20 @@ class TLEDictReader(Reader):
         mics = (seco - fseco) * 1e6
         fmics = int(np.round(mics))
 
-        return datetime.strptime(str(year) + " " + str(day) + " " + str(fhour) + " " +
-                                 str(fminu) + " " + str(fseco) + " " +
-                                 f"{fmics:06.0f}", "%Y %j %H %M %S %f")
+        return datetime.strptime(
+            str(year)
+            + " "
+            + str(day)
+            + " "
+            + str(fhour)
+            + " "
+            + str(fminu)
+            + " "
+            + str(fseco)
+            + " "
+            + f"{fmics:06.0f}",
+            "%Y %j %H %M %S %f",
+        )
 
     @property
     def ballistic_coefficient(self):
@@ -137,7 +148,7 @@ class TLEDictReader(Reader):
         SGP4.
         """
 
-        if self.line1[33] == '-':
+        if self.line1[33] == "-":
             return 0 - float(self.line1[34:43]) * 2 * self._rad_rev * self._day_s**2
         else:
             return float(self.line1[34:43]) * 2 * self._rad_rev * self._day_s**2
@@ -148,10 +159,13 @@ class TLEDictReader(Reader):
         it's divided by six and given in units of revolutions per day :math:`^3`. Here it's
         returned as :math:`mathrm{rad s}^{-3}`"""
 
-        mantissa = 0 - float(self.line1[45:50]) / 1e5 if self.line1[44] == '-' \
+        mantissa = (
+            0 - float(self.line1[45:50]) / 1e5
+            if self.line1[44] == "-"
             else float(self.line1[45:50]) / 1e5
+        )
 
-        exponent = 0 - int(self.line1[51]) if self.line1[50] == '-' else int(self.line1[51])
+        exponent = 0 - int(self.line1[51]) if self.line1[50] == "-" else int(self.line1[51])
 
         return (mantissa * 10 ** (exponent)) * 6 * self._rad_rev * self._day_s**3
 
@@ -179,23 +193,18 @@ class TLEDictReader(Reader):
         else:
             mantissa = float(self.line1[54:59]) / 1e5
 
-        if self.line1[59] == "-":
-            exponent = 0 - int(self.line1[60])
-        else:
-            exponent = int(self.line1[60])
+        exponent = 0 - int(self.line1[60]) if self.line1[59] == "-" else int(self.line1[60])
 
         return mantissa * 10 ** (exponent) / 6.371e6
 
     @property
     def ephemeris_type(self):
-        """Ephemeris type (NORAD use). Zero in distributed TLE data.
-        """
+        """Ephemeris type (NORAD use). Zero in distributed TLE data."""
         return int(self.line1[62])
 
     @property
     def element_set_number(self):
-        """Element set number. Incremented when a new TLE is generated for this object.
-        """
+        """Element set number. Incremented when a new TLE is generated for this object."""
         return int(self.line1[64:68])
 
     @property
@@ -252,13 +261,14 @@ class TLEFileReader(TextFileReader):
     the properties in the same way as :class:`~.TLEDictReader`. See that class for descriptions of
     what's accessible.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        f = open(self.path, 'r')
+        f = open(self.path)
         self.line1 = f.readline()
         self.line2 = f.readline()
-        self.tle = TLEDictReader({'line_1': self.line1, 'line_2': self.line2})
+        self.tle = TLEDictReader({"line_1": self.line1, "line_2": self.line2})
 
         # The following provides this class with the functionality from TLEDictReader to access
         # the TLE properties directly
-        [setattr(self, m, getattr(self.tle, m)) for m in dir(self.tle) if not m.startswith('__')]
+        [setattr(self, m, getattr(self.tle, m)) for m in dir(self.tle) if not m.startswith("__")]

@@ -1,9 +1,11 @@
-from .base import MetricGenerator
+import itertools
+
 from ..base import Property
 from ..measures import Measure
 from ..types.metric import SingleTimeMetric, TimeRangeMetric
 from ..types.time import TimeRange
 from ..types.track import Track
+from .base import MetricGenerator
 
 
 class SIAPMetrics(MetricGenerator):
@@ -42,18 +44,24 @@ class SIAPMetrics(MetricGenerator):
     """
 
     position_measure: Measure = Property(
-        doc="Distance measure used in calculating position accuracy scores.")
+        doc="Distance measure used in calculating position accuracy scores."
+    )
     velocity_measure: Measure = Property(
-        doc="Distance measure used in calculating velocity accuracy scores.")
-    generator_name: str = Property(doc="Unique identifier to use when accessing generated metrics "
-                                       "from MultiManager",
-                                   default='siap_generator')
-    tracks_key: str = Property(doc='Key to access set of tracks added to MetricManager',
-                               default='tracks')
-    truths_key: str = Property(doc="Key to access set of ground truths added to MetricManager. "
-                                   "Or key to access a second set of tracks for track-to-track "
-                                   "metric generation",
-                               default='groundtruth_paths')
+        doc="Distance measure used in calculating velocity accuracy scores."
+    )
+    generator_name: str = Property(
+        doc="Unique identifier to use when accessing generated metrics " "from MultiManager",
+        default="siap_generator",
+    )
+    tracks_key: str = Property(
+        doc="Key to access set of tracks added to MetricManager", default="tracks"
+    )
+    truths_key: str = Property(
+        doc="Key to access set of ground truths added to MetricManager. "
+        "Or key to access a second set of tracks for track-to-track "
+        "metric generation",
+        default="groundtruth_paths",
+    )
 
     def compute_metric(self, manager, **kwargs):
         r"""Compute metrics:
@@ -90,11 +98,11 @@ class SIAPMetrics(MetricGenerator):
 
         timestamps = manager.list_timestamps(generator=self)
 
-        completeness_at_times = list()
-        ambiguity_at_times = list()
-        spuriousness_at_times = list()
-        position_accuracy_at_times = list()
-        velocity_accuracy_at_times = list()
+        completeness_at_times = []
+        ambiguity_at_times = []
+        spuriousness_at_times = []
+        position_accuracy_at_times = []
+        velocity_accuracy_at_times = []
 
         tracks = self._get_data(manager, self.tracks_key)
         ground_truths = self._get_data(manager, self.truths_key)
@@ -116,95 +124,139 @@ class SIAPMetrics(MetricGenerator):
             VA_sum += VAt
 
             completeness_at_times.append(
-                SingleTimeMetric(title="SIAP Completeness at timestamp",
-                                 value=JTt / Jt if Jt != 0 else 0,
-                                 timestamp=timestamp,
-                                 generator=self)
+                SingleTimeMetric(
+                    title="SIAP Completeness at timestamp",
+                    value=JTt / Jt if Jt != 0 else 0,
+                    timestamp=timestamp,
+                    generator=self,
+                )
             )
             ambiguity_at_times.append(
-                SingleTimeMetric(title="SIAP Ambiguity at timestamp",
-                                 value=NAt / JTt if JTt != 0 else 1,
-                                 timestamp=timestamp,
-                                 generator=self)
+                SingleTimeMetric(
+                    title="SIAP Ambiguity at timestamp",
+                    value=NAt / JTt if JTt != 0 else 1,
+                    timestamp=timestamp,
+                    generator=self,
+                )
             )
             spuriousness_at_times.append(
-                SingleTimeMetric(title="SIAP Spuriousness at timestamp",
-                                 value=(Nt - NAt) / Nt if Nt != 0 else 0,
-                                 timestamp=timestamp,
-                                 generator=self)
+                SingleTimeMetric(
+                    title="SIAP Spuriousness at timestamp",
+                    value=(Nt - NAt) / Nt if Nt != 0 else 0,
+                    timestamp=timestamp,
+                    generator=self,
+                )
             )
             position_accuracy_at_times.append(
-                SingleTimeMetric(title="SIAP Position Accuracy at timestamp",
-                                 value=PAt / NAt if NAt != 0 else 0,
-                                 timestamp=timestamp,
-                                 generator=self)
+                SingleTimeMetric(
+                    title="SIAP Position Accuracy at timestamp",
+                    value=PAt / NAt if NAt != 0 else 0,
+                    timestamp=timestamp,
+                    generator=self,
+                )
             )
             velocity_accuracy_at_times.append(
-                SingleTimeMetric(title="SIAP Velocity Accuracy at timestamp",
-                                 value=VAt / NAt if NAt != 0 else 0,
-                                 timestamp=timestamp,
-                                 generator=self)
+                SingleTimeMetric(
+                    title="SIAP Velocity Accuracy at timestamp",
+                    value=VAt / NAt if NAt != 0 else 0,
+                    timestamp=timestamp,
+                    generator=self,
+                )
             )
 
         time_range = TimeRange(min(timestamps), max(timestamps))
 
-        completeness = TimeRangeMetric(title="SIAP Completeness",
-                                       value=JT_sum / J_sum if J_sum != 0 else 0,
-                                       time_range=time_range,
-                                       generator=self)
-        ambiguity = TimeRangeMetric(title="SIAP Ambiguity",
-                                    value=NA_sum / JT_sum if JT_sum != 0 else 1,
-                                    time_range=time_range,
-                                    generator=self)
-        spuriousness = TimeRangeMetric(title="SIAP Spuriousness",
-                                       value=(N_sum - NA_sum) / N_sum if N_sum != 0 else 0,
-                                       time_range=time_range,
-                                       generator=self)
-        position_accuracy = TimeRangeMetric(title="SIAP Position Accuracy",
-                                            value=PA_sum / NA_sum if NA_sum != 0 else 0,
-                                            time_range=time_range,
-                                            generator=self)
-        velocity_accuracy = TimeRangeMetric(title="SIAP Velocity Accuracy",
-                                            value=VA_sum / NA_sum if NA_sum != 0 else 0,
-                                            time_range=time_range,
-                                            generator=self)
+        completeness = TimeRangeMetric(
+            title="SIAP Completeness",
+            value=JT_sum / J_sum if J_sum != 0 else 0,
+            time_range=time_range,
+            generator=self,
+        )
+        ambiguity = TimeRangeMetric(
+            title="SIAP Ambiguity",
+            value=NA_sum / JT_sum if JT_sum != 0 else 1,
+            time_range=time_range,
+            generator=self,
+        )
+        spuriousness = TimeRangeMetric(
+            title="SIAP Spuriousness",
+            value=(N_sum - NA_sum) / N_sum if N_sum != 0 else 0,
+            time_range=time_range,
+            generator=self,
+        )
+        position_accuracy = TimeRangeMetric(
+            title="SIAP Position Accuracy",
+            value=PA_sum / NA_sum if NA_sum != 0 else 0,
+            time_range=time_range,
+            generator=self,
+        )
+        velocity_accuracy = TimeRangeMetric(
+            title="SIAP Velocity Accuracy",
+            value=VA_sum / NA_sum if NA_sum != 0 else 0,
+            time_range=time_range,
+            generator=self,
+        )
         R = self.rate_of_track_number_changes(manager, ground_truths)
-        rate_track_num = TimeRangeMetric(title="SIAP Rate of Track Number Change",
-                                         value=R,
-                                         time_range=time_range,
-                                         generator=self)
-        TL_sum = sum(self.longest_track_time_on_truth(manager, truth)
-                     for truth in ground_truths)
+        rate_track_num = TimeRangeMetric(
+            title="SIAP Rate of Track Number Change",
+            value=R,
+            time_range=time_range,
+            generator=self,
+        )
+        TL_sum = sum(self.longest_track_time_on_truth(manager, truth) for truth in ground_truths)
         T_sum = sum(self.truth_lifetime(truth) for truth in ground_truths)
-        longest_track_seg = TimeRangeMetric(title="SIAP Longest Track Segment",
-                                            value=TL_sum / T_sum if T_sum != 0 else 0,
-                                            time_range=time_range,
-                                            generator=self)
+        longest_track_seg = TimeRangeMetric(
+            title="SIAP Longest Track Segment",
+            value=TL_sum / T_sum if T_sum != 0 else 0,
+            time_range=time_range,
+            generator=self,
+        )
 
-        completeness_at_times = TimeRangeMetric(title="SIAP Completeness at times",
-                                                value=completeness_at_times,
-                                                time_range=time_range,
-                                                generator=self)
-        ambiguity_at_times = TimeRangeMetric(title="SIAP Ambiguity at times",
-                                             value=ambiguity_at_times,
-                                             time_range=time_range,
-                                             generator=self)
-        spuriousness_at_times = TimeRangeMetric(title="SIAP Spuriousness at times",
-                                                value=spuriousness_at_times,
-                                                time_range=time_range,
-                                                generator=self)
-        position_accuracy_at_times = TimeRangeMetric(title="SIAP Position Accuracy at times",
-                                                     value=position_accuracy_at_times,
-                                                     time_range=time_range,
-                                                     generator=self)
-        velocity_accuracy_at_times = TimeRangeMetric(title="SIAP Velocity Accuracy at times",
-                                                     value=velocity_accuracy_at_times,
-                                                     time_range=time_range,
-                                                     generator=self)
+        completeness_at_times = TimeRangeMetric(
+            title="SIAP Completeness at times",
+            value=completeness_at_times,
+            time_range=time_range,
+            generator=self,
+        )
+        ambiguity_at_times = TimeRangeMetric(
+            title="SIAP Ambiguity at times",
+            value=ambiguity_at_times,
+            time_range=time_range,
+            generator=self,
+        )
+        spuriousness_at_times = TimeRangeMetric(
+            title="SIAP Spuriousness at times",
+            value=spuriousness_at_times,
+            time_range=time_range,
+            generator=self,
+        )
+        position_accuracy_at_times = TimeRangeMetric(
+            title="SIAP Position Accuracy at times",
+            value=position_accuracy_at_times,
+            time_range=time_range,
+            generator=self,
+        )
+        velocity_accuracy_at_times = TimeRangeMetric(
+            title="SIAP Velocity Accuracy at times",
+            value=velocity_accuracy_at_times,
+            time_range=time_range,
+            generator=self,
+        )
 
-        return [completeness, ambiguity, spuriousness, position_accuracy, velocity_accuracy,
-                rate_track_num, longest_track_seg, completeness_at_times, ambiguity_at_times,
-                spuriousness_at_times, position_accuracy_at_times, velocity_accuracy_at_times]
+        return [
+            completeness,
+            ambiguity,
+            spuriousness,
+            position_accuracy,
+            velocity_accuracy,
+            rate_track_num,
+            longest_track_seg,
+            completeness_at_times,
+            ambiguity_at_times,
+            spuriousness_at_times,
+            position_accuracy_at_times,
+            velocity_accuracy_at_times,
+        ]
 
     @staticmethod
     def num_truths_at_time(ground_truths, timestamp):
@@ -222,10 +274,7 @@ class SIAPMetrics(MetricGenerator):
         float
             Number of true objects in `groundtruth` set or list at `timestamp`
         """
-        return sum(
-            1
-            for path in ground_truths
-            if timestamp in (state.timestamp for state in path))
+        return sum(1 for path in ground_truths if timestamp in (state.timestamp for state in path))
 
     @staticmethod
     def num_associated_truths_at_time(manager, ground_truths, timestamp):
@@ -268,9 +317,8 @@ class SIAPMetrics(MetricGenerator):
             Number of tracks in `tracks` set or list at `timestamp`
         """
         return sum(
-            1
-            for track in tracks
-            if timestamp in (state.timestamp for state in track.states))
+            1 for track in tracks if timestamp in (state.timestamp for state in track.states)
+        )
 
     @staticmethod
     def num_associated_tracks_at_time(manager, tracks, timestamp):
@@ -370,7 +418,7 @@ class SIAPMetrics(MetricGenerator):
 
         truth_timestamps = sorted(state.timestamp for state in truth.states)
         total_time = 0
-        for current_time, next_time in zip(truth_timestamps[:-1], truth_timestamps[1:]):
+        for current_time, next_time in itertools.pairwise(truth_timestamps):
             time_range = TimeRange(current_time, next_time)
             for assoc in assocs:
                 # If there is some overlap between time ranges, add this to total_time
@@ -399,9 +447,11 @@ class SIAPMetrics(MetricGenerator):
         int
             Minimum number of tracks needed to track `truth`
         """
-        assocs = sorted(manager.association_set.associations_including_objects([truth]),
-                        key=lambda assoc: assoc.time_range.key_times[-1],
-                        reverse=True)
+        assocs = sorted(
+            manager.association_set.associations_including_objects([truth]),
+            key=lambda assoc: assoc.time_range.key_times[-1],
+            reverse=True,
+        )
 
         if len(assocs) == 0:
             return 0
@@ -412,8 +462,9 @@ class SIAPMetrics(MetricGenerator):
 
         while timestamp_index < len(truth_timestamps):
             current_time = truth_timestamps[timestamp_index]
-            assoc_at_time = next((assoc for assoc in assocs if current_time in assoc.time_range),
-                                 None)
+            assoc_at_time = next(
+                (assoc for assoc in assocs if current_time in assoc.time_range), None
+            )
             if not assoc_at_time:
                 timestamp_index += 1
             else:
@@ -450,11 +501,12 @@ class SIAPMetrics(MetricGenerator):
         float
             Average rate of track number changes
         """
-        numerator = sum(value - 1
-                        for truth in ground_truths
-                        if (value := self.min_num_tracks_needed_to_track(manager, truth)) > 0)
-        denominator = sum(self.total_time_tracked(manager, truth)
-                          for truth in ground_truths)
+        numerator = sum(
+            value - 1
+            for truth in ground_truths
+            if (value := self.min_num_tracks_needed_to_track(manager, truth)) > 0
+        )
+        denominator = sum(self.total_time_tracked(manager, truth) for truth in ground_truths)
 
         return numerator / denominator if denominator != 0 else 0
 
@@ -526,9 +578,10 @@ class IDSIAPMetrics(SIAPMetrics):
 
     truth_id: str = Property(doc="Metadata key for ID of each ground truth path in data-set")
     track_id: str = Property(doc="Metadata key for ID of each track in data-set")
-    generator_name: str = Property(doc="Unique identifier to use when accessing generated metrics "
-                                       "from MultiManager",
-                                   default='Id_siap_generator')
+    generator_name: str = Property(
+        doc="Unique identifier to use when accessing generated metrics " "from MultiManager",
+        default="Id_siap_generator",
+    )
 
     def compute_metric(self, manager, **kwargs):
         r"""Compute metrics:
@@ -576,9 +629,9 @@ class IDSIAPMetrics(SIAPMetrics):
 
         ground_truths = self._get_data(manager, self.truths_key)
 
-        id_completeness_at_times = list()
-        id_correctness_at_times = list()
-        id_ambiguity_at_times = list()
+        id_completeness_at_times = []
+        id_correctness_at_times = []
+        id_ambiguity_at_times = []
 
         JT_sum = JU_sum = JC_sum = JI_sum = JA_sum = 0
 
@@ -593,54 +646,80 @@ class IDSIAPMetrics(SIAPMetrics):
             JA_sum += JAt
 
             id_completeness_at_times.append(
-                SingleTimeMetric(title="SIAP ID Completeness at timestamp",
-                                 value=(JTt - JUt) / JTt if JTt != 0 else 0,
-                                 timestamp=timestamp,
-                                 generator=self)
+                SingleTimeMetric(
+                    title="SIAP ID Completeness at timestamp",
+                    value=(JTt - JUt) / JTt if JTt != 0 else 0,
+                    timestamp=timestamp,
+                    generator=self,
+                )
             )
             id_correctness_at_times.append(
-                SingleTimeMetric(title="SIAP ID Correctness at timestamp",
-                                 value=JCt / JTt if JTt != 0 else 0,
-                                 timestamp=timestamp,
-                                 generator=self)
+                SingleTimeMetric(
+                    title="SIAP ID Correctness at timestamp",
+                    value=JCt / JTt if JTt != 0 else 0,
+                    timestamp=timestamp,
+                    generator=self,
+                )
             )
             id_ambiguity_at_times.append(
-                SingleTimeMetric(title="SIAP Ambiguity at timestamp",
-                                 value=JAt / JTt if JTt != 0 else 0,
-                                 timestamp=timestamp,
-                                 generator=self)
+                SingleTimeMetric(
+                    title="SIAP Ambiguity at timestamp",
+                    value=JAt / JTt if JTt != 0 else 0,
+                    timestamp=timestamp,
+                    generator=self,
+                )
             )
 
         time_range = TimeRange(min(timestamps), max(timestamps))
 
-        id_completeness = TimeRangeMetric(title="SIAP ID Completeness",
-                                          value=(JT_sum - JU_sum) / JT_sum if JT_sum != 0 else 0,
-                                          time_range=time_range,
-                                          generator=self)
-        id_correctness = TimeRangeMetric(title="SIAP ID Correctness",
-                                         value=JC_sum / JT_sum if JT_sum != 0 else 0,
-                                         time_range=time_range,
-                                         generator=self)
-        id_ambiguity = TimeRangeMetric(title="SIAP ID Ambiguity",
-                                       value=JA_sum / JT_sum if JT_sum != 0 else 0,
-                                       time_range=time_range,
-                                       generator=self)
+        id_completeness = TimeRangeMetric(
+            title="SIAP ID Completeness",
+            value=(JT_sum - JU_sum) / JT_sum if JT_sum != 0 else 0,
+            time_range=time_range,
+            generator=self,
+        )
+        id_correctness = TimeRangeMetric(
+            title="SIAP ID Correctness",
+            value=JC_sum / JT_sum if JT_sum != 0 else 0,
+            time_range=time_range,
+            generator=self,
+        )
+        id_ambiguity = TimeRangeMetric(
+            title="SIAP ID Ambiguity",
+            value=JA_sum / JT_sum if JT_sum != 0 else 0,
+            time_range=time_range,
+            generator=self,
+        )
 
-        id_completeness_at_times = TimeRangeMetric(title="SIAP ID Completeness at times",
-                                                   value=id_completeness_at_times,
-                                                   time_range=time_range,
-                                                   generator=self)
-        id_correctness_at_times = TimeRangeMetric(title="SIAP ID Correctness at times",
-                                                  value=id_correctness_at_times,
-                                                  time_range=time_range,
-                                                  generator=self)
-        id_ambiguity_at_times = TimeRangeMetric(title="SIAP ID Ambiguity at times",
-                                                value=id_ambiguity_at_times,
-                                                time_range=time_range,
-                                                generator=self)
+        id_completeness_at_times = TimeRangeMetric(
+            title="SIAP ID Completeness at times",
+            value=id_completeness_at_times,
+            time_range=time_range,
+            generator=self,
+        )
+        id_correctness_at_times = TimeRangeMetric(
+            title="SIAP ID Correctness at times",
+            value=id_correctness_at_times,
+            time_range=time_range,
+            generator=self,
+        )
+        id_ambiguity_at_times = TimeRangeMetric(
+            title="SIAP ID Ambiguity at times",
+            value=id_ambiguity_at_times,
+            time_range=time_range,
+            generator=self,
+        )
 
-        metrics.extend([id_completeness, id_correctness, id_ambiguity,
-                        id_completeness_at_times, id_correctness_at_times, id_ambiguity_at_times])
+        metrics.extend(
+            [
+                id_completeness,
+                id_correctness,
+                id_ambiguity,
+                id_completeness_at_times,
+                id_correctness_at_times,
+                id_ambiguity_at_times,
+            ]
+        )
         return metrics
 
     def find_track_id(self, track, timestamp):
@@ -702,7 +781,7 @@ class IDSIAPMetrics(SIAPMetrics):
         assocs = manager.association_set.associations_at_timestamp(timestamp)
         for truth in ground_truths:
             truth_id = truth.metadata.get(self.truth_id)
-            track_ids = list()
+            track_ids = []
 
             truth_assocs = [assoc for assoc in assocs if truth in assoc.objects]
 
@@ -716,8 +795,10 @@ class IDSIAPMetrics(SIAPMetrics):
 
             if all(track_id is None for track_id in track_ids):
                 unknown_count += 1
-            elif (all(track_id == truth_id and track_id is not None for track_id in track_ids)
-                  and truth_id is not None):
+            elif (
+                all(track_id == truth_id and track_id is not None for track_id in track_ids)
+                and truth_id is not None
+            ):
                 correct_count += 1
             elif all(track_id != truth_id and track_id is not None for track_id in track_ids):
                 incorrect_count += 1

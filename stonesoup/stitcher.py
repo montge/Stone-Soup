@@ -19,28 +19,31 @@ class TrackStitcher(Base):
     tracks. Contains functions for forward and backwards stitching, as well as the
     function to use both at the same time.
     """
+
     forward_hypothesiser: Hypothesiser = Property(
-        doc="Forward predicting hypothesiser.",
-        default=None)
+        doc="Forward predicting hypothesiser.", default=None
+    )
     backward_hypothesiser: Hypothesiser = Property(
-        doc="Backward predicting hypothesiser.",
-        default=None)
+        doc="Backward predicting hypothesiser.", default=None
+    )
     search_window: timedelta = Property(
         doc="Time window from current time to search in for potential track endpoints for "
-            "association",
-        default=timedelta(seconds=30))
+        "association",
+        default=timedelta(seconds=30),
+    )
 
     @staticmethod
-    @lru_cache()
+    @lru_cache
     def _extract_detection(track, backward=False):
         state = track[-1] if backward else track[0]
-        return Detection(state_vector=state.state_vector,
-                         timestamp=state.timestamp,
-                         measurement_model=LinearGaussian(
-                             ndim_state=track.ndim,
-                             mapping=list(range(track.ndim)),
-                             noise_covar=state.covar),
-                         metadata=track.id)
+        return Detection(
+            state_vector=state.state_vector,
+            timestamp=state.timestamp,
+            measurement_model=LinearGaussian(
+                ndim_state=track.ndim, mapping=list(range(track.ndim)), noise_covar=state.covar
+            ),
+            metadata=track.id,
+        )
 
     @staticmethod
     def _get_track(track_id, tracks):
@@ -62,10 +65,10 @@ class TrackStitcher(Base):
         endpoint of a track segment
         """
         x_forward = defaultdict(dict)
-        for n in range(int((min(track[0].timestamp for track in tracks) -
-                            start_time).total_seconds()),
-                       int((max(track[-1].timestamp for track in tracks) -
-                            start_time).total_seconds())):
+        for n in range(
+            int((min(track[0].timestamp for track in tracks) - start_time).total_seconds()),
+            int((max(track[-1].timestamp for track in tracks) - start_time).total_seconds()),
+        ):
             poss_tracks = []
             poss_detections = set()
             for track in tracks:
@@ -78,7 +81,8 @@ class TrackStitcher(Base):
                 continue
             for track in poss_tracks:
                 hypotheses = self.forward_hypothesiser.hypothesise(
-                    track, poss_detections, timestamp)
+                    track, poss_detections, timestamp
+                )
                 for hypothesis in hypotheses:
                     if hypothesis:
                         x_forward[track.id][hypothesis.measurement.metadata] = hypothesis.distance
@@ -92,11 +96,11 @@ class TrackStitcher(Base):
         the endpoint of a track segment
         """
         x_backward = defaultdict(dict)
-        for n in range(int((max(track[-1].timestamp for track in tracks) -
-                            start_time).total_seconds()),
-                       int((min(track[0].timestamp for track in tracks) -
-                            start_time).total_seconds()),
-                       -1):
+        for n in range(
+            int((max(track[-1].timestamp for track in tracks) - start_time).total_seconds()),
+            int((min(track[0].timestamp for track in tracks) - start_time).total_seconds()),
+            -1,
+        ):
             poss_tracks = []
             poss_detections = set()
             for track in tracks:
@@ -109,12 +113,12 @@ class TrackStitcher(Base):
                     continue
             for track in poss_tracks:
                 hypotheses = self.backward_hypothesiser.hypothesise(
-                    track, poss_detections, start_time + timedelta(seconds=n))
+                    track, poss_detections, start_time + timedelta(seconds=n)
+                )
                 missed_hyp = next(hypothesis for hypothesis in hypotheses if not hypothesis)
                 for hypothesis in hypotheses:
                     if hypothesis:
-                        x_backward[hypothesis.measurement.metadata][track.id] =\
-                            hypothesis.distance
+                        x_backward[hypothesis.measurement.metadata][track.id] = hypothesis.distance
                         # TODO: Not ideal. Is there a better way?
                         x_backward[hypothesis.measurement.metadata][None] = missed_hyp.distance
         return x_backward
@@ -128,7 +132,7 @@ class TrackStitcher(Base):
             elif key in x_forward and key not in x_backward:
                 x[key] = x_forward[key]
             else:
-                arr = dict()
+                arr = {}
                 missed_f_val = missed_b_val = None
 
                 for f_id, f_val in x_forward[key].items():
@@ -204,8 +208,9 @@ class TrackStitcher(Base):
             if x[key] is None:
                 continue
             elif len(combo) == 0 or not (
-                    any(key in sublist for sublist in combo) or
-                    any(x[key] in sublist for sublist in combo)):
+                any(key in sublist for sublist in combo)
+                or any(x[key] in sublist for sublist in combo)
+            ):
                 combo.append([key, x[key]])
             elif any(x[key] in sublist for sublist in combo):
                 for track_list in combo:
@@ -240,7 +245,7 @@ class TrackStitcher(Base):
                 continue
 
         tracks = set(tracks)
-        stitched_track_map = dict()
+        stitched_track_map = {}
         for ids in combo:
             x = []
             for a in ids:

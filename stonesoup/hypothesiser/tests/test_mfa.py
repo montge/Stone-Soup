@@ -3,8 +3,6 @@ import datetime
 import numpy as np
 import pytest
 
-from ..probability import PDAHypothesiser
-from ..mfa import MFAHypothesiser
 from ...gater.distance import DistanceGater
 from ...measures import Euclidean
 from ...types.detection import Detection, MissedDetection
@@ -13,6 +11,8 @@ from ...types.numeric import Probability
 from ...types.state import TaggedWeightedGaussianState
 from ...types.track import Track
 from ...types.update import GaussianMixtureUpdate
+from ..mfa import MFAHypothesiser
+from ..probability import PDAHypothesiser
 
 
 @pytest.fixture()
@@ -24,13 +24,21 @@ def test_mfa(hypothesiser, updater):
     hypothesiser = MFAHypothesiser(hypothesiser)
 
     timestamp = datetime.datetime.now()
-    track = Track([GaussianMixture(
-        [TaggedWeightedGaussianState(
-            state_vector=[[0]],
-            covar=[[1]],
-            weight=Probability(1),
-            tag=[],
-            timestamp=timestamp)])])
+    track = Track(
+        [
+            GaussianMixture(
+                [
+                    TaggedWeightedGaussianState(
+                        state_vector=[[0]],
+                        covar=[[1]],
+                        weight=Probability(1),
+                        tag=[],
+                        timestamp=timestamp,
+                    )
+                ]
+            )
+        ]
+    )
     detection1 = Detection(np.array([[2]]), timestamp)
     detection2 = Detection(np.array([[8]]), timestamp)
     detections = {detection1, detection2}
@@ -38,19 +46,27 @@ def test_mfa(hypothesiser, updater):
 
     # All detections
     multi_hypothesis = hypothesiser.hypothesise(
-        track, detections, timestamp, detections_tuple=detections_tuple)
+        track, detections, timestamp, detections_tuple=detections_tuple
+    )
 
     assert all(detection in multi_hypothesis for detection in detections)
     # Should be on missed detection
-    assert sum(1 for hypothesis in multi_hypothesis
-               if isinstance(hypothesis.measurement, MissedDetection)) == 1
+    assert (
+        sum(
+            1
+            for hypothesis in multi_hypothesis
+            if isinstance(hypothesis.measurement, MissedDetection)
+        )
+        == 1
+    )
 
     for hypothesis in multi_hypothesis:
         assert len(hypothesis.prediction.tag) == 1
         if hypothesis:
             # Index offset by 1
-            assert hypothesis.prediction.tag \
-                == [detections_tuple.index(hypothesis.measurement) + 1]
+            assert hypothesis.prediction.tag == [
+                detections_tuple.index(hypothesis.measurement) + 1
+            ]
         else:
             # 0 means missed detection
             assert hypothesis.prediction.tag == [0]
@@ -58,7 +74,8 @@ def test_mfa(hypothesiser, updater):
     # Only detection2
     detections.remove(detection1)
     multi_hypothesis = hypothesiser.hypothesise(
-        track, detections, timestamp, detections_tuple=detections_tuple)
+        track, detections, timestamp, detections_tuple=detections_tuple
+    )
 
     assert detection1 not in multi_hypothesis
     assert detection2 in multi_hypothesis
@@ -75,7 +92,8 @@ def test_mfa(hypothesiser, updater):
     # Add gate; detection2 outside, so should get missed only
     hypothesiser = DistanceGater(hypothesiser, Euclidean(), 5)
     multi_hypothesis = hypothesiser.hypothesise(
-        track, detections, timestamp, detections_tuple=detections_tuple)
+        track, detections, timestamp, detections_tuple=detections_tuple
+    )
 
     assert len(multi_hypothesis) == 1
     assert not multi_hypothesis[0]
@@ -84,7 +102,8 @@ def test_mfa(hypothesiser, updater):
     # Now with only detection1, which is within
     detections = {detection1}
     multi_hypothesis = hypothesiser.hypothesise(
-        track, detections, timestamp, detections_tuple=detections_tuple)
+        track, detections, timestamp, detections_tuple=detections_tuple
+    )
 
     assert len(multi_hypothesis) == 2
     assert detection1 in multi_hypothesis
@@ -108,8 +127,7 @@ def test_mfa(hypothesiser, updater):
 
     # And now check that tag history is built up for
     # all components
-    multi_hypothesis = hypothesiser.hypothesise(
-        track, {}, timestamp, detections_tuple=tuple())
+    multi_hypothesis = hypothesiser.hypothesise(track, {}, timestamp, detections_tuple=())
 
     assert len(multi_hypothesis) == 2
 
@@ -121,13 +139,21 @@ def test_mfa_bad_timestamp(hypothesiser):
     hypothesiser = MFAHypothesiser(hypothesiser)
 
     timestamp = datetime.datetime.now()
-    track = Track([GaussianMixture(
-        [TaggedWeightedGaussianState(
-            state_vector=[[0]],
-            covar=[[1]],
-            weight=Probability(1),
-            tag=[],
-            timestamp=timestamp)])])
+    track = Track(
+        [
+            GaussianMixture(
+                [
+                    TaggedWeightedGaussianState(
+                        state_vector=[[0]],
+                        covar=[[1]],
+                        weight=Probability(1),
+                        tag=[],
+                        timestamp=timestamp,
+                    )
+                ]
+            )
+        ]
+    )
     detection1 = Detection(np.array([[2]]), timestamp)
     detection2 = Detection(np.array([[8]]), timestamp - datetime.timedelta(seconds=1))
     detections = {detection1, detection2}

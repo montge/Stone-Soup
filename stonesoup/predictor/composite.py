@@ -15,15 +15,18 @@ class CompositePredictor(Predictor):
     """
 
     sub_predictors: Sequence[Predictor] = Property(
-        doc="Sequence of sub-predictors comprising the composite predictor. Must not be empty.")
+        doc="Sequence of sub-predictors comprising the composite predictor. Must not be empty."
+    )
 
     def __init__(self, *args, **kwargs):
 
         super().__init__(*args, **kwargs)
 
         if not isinstance(self.sub_predictors, Sequence):
-            raise ValueError(f"Sub-predictors must be defined as an ordered list, not "
-                             f"{type(self.sub_predictors)}")
+            raise ValueError(
+                f"Sub-predictors must be defined as an ordered list, not "
+                f"{type(self.sub_predictors)}"
+            )
 
         if len(self.sub_predictors) == 0:
             raise ValueError("Cannot create an empty composite predictor")
@@ -58,12 +61,14 @@ class CompositePredictor(Predictor):
             raise ValueError("CompositePredictor can only predict forward CompositeState types")
 
         if len(prior) != len(self):
-            raise ValueError(f"Mismatch in number of prior sub-states {len(prior)} and number "
-                             f"of sub-predictors {len(self)}")
+            raise ValueError(
+                f"Mismatch in number of prior sub-states {len(prior)} and number "
+                f"of sub-predictors {len(self)}"
+            )
 
         prediction_sub_states = []
 
-        for sub_predictor, sub_state in zip(self.sub_predictors, prior.sub_states):
+        for sub_predictor, sub_state in zip(self.sub_predictors, prior.sub_states, strict=False):
             sub_prediction = sub_predictor.predict(prior=sub_state, timestamp=timestamp, **kwargs)
             prediction_sub_states.append(sub_prediction)
 

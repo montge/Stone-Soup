@@ -2,32 +2,46 @@ import datetime
 import weakref
 from collections.abc import Sequence
 
-from .array import CovarianceMatrix
-from .base import Type
-from .state import (State, GaussianState, EnsembleState,
-                    ParticleState, MultiModelParticleState, RaoBlackwellisedParticleState,
-                    SqrtGaussianState, InformationState, TaggedWeightedGaussianState,
-                    WeightedGaussianState, CategoricalState, ASDGaussianState,
-                    BernoulliParticleState, KernelParticleState, ASDTaggedWeightedGaussianState)
-from .voxel import VoxelState
 from ..base import Property
 from ..models.transition.base import TransitionModel
-from ..types.state import CreatableFromState, CompositeState, PointMassState
+from ..types.state import CompositeState, CreatableFromState, PointMassState
+from .array import CovarianceMatrix
+from .base import Type
+from .state import (
+    ASDGaussianState,
+    ASDTaggedWeightedGaussianState,
+    BernoulliParticleState,
+    CategoricalState,
+    EnsembleState,
+    GaussianState,
+    InformationState,
+    KernelParticleState,
+    MultiModelParticleState,
+    ParticleState,
+    RaoBlackwellisedParticleState,
+    SqrtGaussianState,
+    State,
+    TaggedWeightedGaussianState,
+    WeightedGaussianState,
+)
+from .voxel import VoxelState
 
 
 class Prediction(Type, CreatableFromState):
-    """ Prediction type
+    """Prediction type
 
-    This is the base prediction class. """
+    This is the base prediction class."""
+
     transition_model: TransitionModel = Property(
-        default=None, doc='The transition model used to make the prediction')
+        default=None, doc="The transition model used to make the prediction"
+    )
     prior: State = Property(default=None)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if hasattr(self.prior, 'hypothesis'):
-            if hasattr(self.prior.hypothesis, 'prediction'):
-                prior_prediction_prior = getattr(self.prior.hypothesis.prediction, 'prior', None)
+        if hasattr(self.prior, "hypothesis"):
+            if hasattr(self.prior.hypothesis, "prediction"):
+                prior_prediction_prior = getattr(self.prior.hypothesis.prediction, "prior", None)
                 if prior_prediction_prior is not None:
                     # Create weakref to avoid using significant memory
                     self.prior.hypothesis.prediction.prior = weakref.ref(prior_prediction_prior)
@@ -42,32 +56,32 @@ class Prediction(Type, CreatableFromState):
     def __getstate__(self):
         state = super().__getstate__().copy()
         # Resolve weakref
-        state['_property_prior'] = self.prior
+        state["_property_prior"] = self.prior
         return state
 
 
 class MeasurementPrediction(Type, CreatableFromState):
-    """ Prediction type
+    """Prediction type
 
-    This is the base measurement prediction class. """
+    This is the base measurement prediction class."""
 
 
 class StatePrediction(Prediction, State):
-    """ StatePrediction type
+    """StatePrediction type
 
     Most simple state prediction type, which only has time and a state vector.
     """
 
 
 class InformationStatePrediction(Prediction, InformationState):
-    """ InformationStatePrediction type
+    """InformationStatePrediction type
 
     Information state prediction type: contains state vector, precision matrix and timestamp
     """
 
 
 class StateMeasurementPrediction(MeasurementPrediction, State):
-    """ MeasurementPrediction type
+    """MeasurementPrediction type
 
     Most simple measurement prediction type, which only has time and a state
     vector.
@@ -75,7 +89,7 @@ class StateMeasurementPrediction(MeasurementPrediction, State):
 
 
 class GaussianStatePrediction(Prediction, GaussianState):
-    """ GaussianStatePrediction type
+    """GaussianStatePrediction type
 
     This is a simple Gaussian state prediction object, which, as the name
     suggests, is described by a Gaussian distribution.
@@ -83,23 +97,27 @@ class GaussianStatePrediction(Prediction, GaussianState):
 
 
 class ASDGaussianStatePrediction(Prediction, ASDGaussianState):
-    """ ASDGaussianStatePrediction type
+    """ASDGaussianStatePrediction type
 
     This is a simple ASDGaussian state prediction object, which, as the name
     suggests, is described by a Gaussian distribution.
     """
+
     act_timestamp: datetime.datetime = Property(
-        doc="The timestamp for which the state is predicted")
+        doc="The timestamp for which the state is predicted"
+    )
 
 
 class ASDTaggedWeightedGaussianStatePrediction(Prediction, ASDTaggedWeightedGaussianState):
     """ASD Tagged Weighted Gaussian Prediction"""
+
     act_timestamp: datetime.datetime = Property(
-        doc="The timestamp for which the state is predicted")
+        doc="The timestamp for which the state is predicted"
+    )
 
 
 class SqrtGaussianStatePrediction(Prediction, SqrtGaussianState):
-    """ SqrtGaussianStatePrediction type
+    """SqrtGaussianStatePrediction type
 
     This is a Gaussian state prediction object, with the covariance held
     as the square root of the covariance matrix
@@ -107,7 +125,7 @@ class SqrtGaussianStatePrediction(Prediction, SqrtGaussianState):
 
 
 class WeightedGaussianStatePrediction(Prediction, WeightedGaussianState):
-    """ WeightedGaussianStatePrediction type
+    """WeightedGaussianStatePrediction type
 
     This is a simple Gaussian state prediction object, which, as the name
     suggests, is described by a Gaussian distribution
@@ -115,9 +133,8 @@ class WeightedGaussianStatePrediction(Prediction, WeightedGaussianState):
     """
 
 
-class TaggedWeightedGaussianStatePrediction(Prediction,
-                                            TaggedWeightedGaussianState):
-    """ TaggedWeightedGaussianStatePrediction type
+class TaggedWeightedGaussianStatePrediction(Prediction, TaggedWeightedGaussianState):
+    """TaggedWeightedGaussianStatePrediction type
 
     This is a simple Gaussian state prediction object, which, as the name
     suggests, is described by a Gaussian distribution, with an associated
@@ -126,39 +143,50 @@ class TaggedWeightedGaussianStatePrediction(Prediction,
 
 
 class GaussianMeasurementPrediction(MeasurementPrediction, GaussianState):
-    """ GaussianMeasurementPrediction type
+    """GaussianMeasurementPrediction type
 
     This is a simple Gaussian measurement prediction object, which, as the name
     suggests, is described by a Gaussian distribution.
     """
 
     cross_covar: CovarianceMatrix = Property(
-        default=None, doc="The state-measurement cross covariance matrix")
+        default=None, doc="The state-measurement cross covariance matrix"
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.cross_covar is not None \
-                and self.cross_covar.shape[1] != self.state_vector.shape[0]:
-            raise ValueError("cross_covar should have the same number of "
-                             "columns as the number of rows in state_vector")
+        if (
+            self.cross_covar is not None
+            and self.cross_covar.shape[1] != self.state_vector.shape[0]
+        ):
+            raise ValueError(
+                "cross_covar should have the same number of "
+                "columns as the number of rows in state_vector"
+            )
 
 
 # Don't need to support Sqrt Covar for MeasurementPrediction
-CreatableFromState.class_mapping[MeasurementPrediction][SqrtGaussianState] = \
-    GaussianMeasurementPrediction
+CreatableFromState.class_mapping[MeasurementPrediction][
+    SqrtGaussianState
+] = GaussianMeasurementPrediction
 
 
 class ASDGaussianMeasurementPrediction(MeasurementPrediction, ASDGaussianState):
     """ASD Gaussian Measurement Prediction"""
+
     cross_covar: CovarianceMatrix = Property(
-        doc="The state-measurement cross covariance matrix", default=None)
+        doc="The state-measurement cross covariance matrix", default=None
+    )
 
 
 class ASDTaggedWeightedGaussianMeasurementPrediction(
-        MeasurementPrediction, ASDTaggedWeightedGaussianState):
+    MeasurementPrediction, ASDTaggedWeightedGaussianState
+):
     """ASD Tagged Weighted Gaussian Measurement Prediction"""
+
     cross_covar: CovarianceMatrix = Property(
-        doc="The state-measurement cross covariance matrix", default=None)
+        doc="The state-measurement cross covariance matrix", default=None
+    )
 
 
 class ParticleStatePrediction(Prediction, ParticleState):
@@ -253,10 +281,11 @@ class CompositePrediction(Prediction, CompositeState):
 
     sub_states: Sequence[Prediction] = Property(
         doc="Sequence of sub-predictions comprising the composite prediction. All sub-predictions "
-            "must have matching timestamp. Must not be empty.")
+        "must have matching timestamp. Must not be empty."
+    )
 
 
-Prediction.register(CompositeState)  # noqa: E305
+Prediction.register(CompositeState)
 
 
 class CompositeMeasurementPrediction(MeasurementPrediction, CompositeState):
@@ -268,10 +297,11 @@ class CompositeMeasurementPrediction(MeasurementPrediction, CompositeState):
     sub_states: Sequence[MeasurementPrediction] = Property(
         default=None,
         doc="Sequence of sub-measurement-predictions comprising the composite measurement "
-            "prediction. All sub-measurement-predictions must have matching timestamp.")
+        "prediction. All sub-measurement-predictions must have matching timestamp.",
+    )
 
 
-MeasurementPrediction.register(CompositeState)  # noqa: E305
+MeasurementPrediction.register(CompositeState)
 
 
 class VoxelPrediction(Prediction, VoxelState):

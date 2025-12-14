@@ -3,13 +3,13 @@ from functools import lru_cache
 import numpy as np
 import scipy
 
-from .kalman import KalmanUpdater
 from ..base import Property
-from ..types.state import State, EnsembleState
+from ..models.measurement import MeasurementModel
 from ..types.array import StateVectors
 from ..types.prediction import MeasurementPrediction
+from ..types.state import EnsembleState, State
 from ..types.update import Update
-from ..models.measurement import MeasurementModel
+from .kalman import KalmanUpdater
 
 
 class EnsembleUpdater(KalmanUpdater):
@@ -69,9 +69,9 @@ class EnsembleUpdater(KalmanUpdater):
     measurement_model: MeasurementModel = Property(
         default=None,
         doc="A measurement model. This need not be defined if a measurement "
-            "model is provided in the measurement. If no model specified on "
-            "construction, or in the measurement, then error will be thrown. "
-            )
+        "model is provided in the measurement. If no model specified on "
+        "construction, or in the measurement, then error will be thrown. ",
+    )
 
     def _check_measurement_prediction(self, hypothesis, **kwargs):
         """Check to see if a measurement prediction exists in the hypothesis.
@@ -99,17 +99,18 @@ class EnsembleUpdater(KalmanUpdater):
             # If not, use the one native to the updater (which might still be
             # none)
             measurement_model = hypothesis.measurement.measurement_model
-            measurement_model = self._check_measurement_model(
-                measurement_model)
+            measurement_model = self._check_measurement_model(measurement_model)
 
             # Attach the measurement prediction to the hypothesis
             hypothesis.measurement_prediction = self.predict_measurement(
-                predicted_state, measurement_model=measurement_model, **kwargs)
+                predicted_state, measurement_model=measurement_model, **kwargs
+            )
         return hypothesis
 
-    @lru_cache()
-    def predict_measurement(self, predicted_state, measurement_model=None, measurement_noise=True,
-                            **kwargs):
+    @lru_cache
+    def predict_measurement(
+        self, predicted_state, measurement_model=None, measurement_noise=True, **kwargs
+    ):
         r"""Predict the measurement implied by the predicted state mean
 
         Parameters
@@ -134,7 +135,8 @@ class EnsembleUpdater(KalmanUpdater):
 
         # Propagate each vector through the measurement model.
         pred_meas_ensemble = measurement_model.function(
-            predicted_state, noise=measurement_noise, **kwargs)
+            predicted_state, noise=measurement_noise, **kwargs
+        )
 
         return MeasurementPrediction.from_state(predicted_state, state_vector=pred_meas_ensemble)
 
@@ -170,30 +172,38 @@ class EnsembleUpdater(KalmanUpdater):
 
         # Generate an ensemble of measurements based on measurement
         measurement_ensemble = pred_state.generate_ensemble(
-                                   mean=meas_mean,
-                                   covar=meas_covar,
-                                   num_vectors=num_vectors)
+            mean=meas_mean, covar=meas_covar, num_vectors=num_vectors
+        )
 
         # Calculate Kalman Gain according to Dr. Jan Mandel's EnKF formalism.
         innovation_ensemble = pred_state.state_vector - pred_state.mean
 
-        meas_innovation = (
-            measurement_model.function(pred_state, num_samples=num_vectors)
-            - measurement_model.function(State(pred_state.mean)))
+        meas_innovation = measurement_model.function(
+            pred_state, num_samples=num_vectors
+        ) - measurement_model.function(State(pred_state.mean))
 
         # Calculate Kalman Gain
-        kalman_gain = 1/(num_vectors-1) * innovation_ensemble @ meas_innovation.T @ \
-            scipy.linalg.inv(1/(num_vectors-1) * meas_innovation @ meas_innovation.T + meas_covar)
+        kalman_gain = (
+            1
+            / (num_vectors - 1)
+            * innovation_ensemble
+            @ meas_innovation.T
+            @ scipy.linalg.inv(
+                1 / (num_vectors - 1) * meas_innovation @ meas_innovation.T + meas_covar
+            )
+        )
 
         # Calculate Posterior Ensemble
-        posterior_ensemble = (
-            pred_state.state_vector
-            + kalman_gain@(measurement_ensemble - hypothesis.measurement_prediction.state_vector))
+        posterior_ensemble = pred_state.state_vector + kalman_gain @ (
+            measurement_ensemble - hypothesis.measurement_prediction.state_vector
+        )
 
-        return Update.from_state(pred_state,
-                                 posterior_ensemble,
-                                 timestamp=hypothesis.measurement.timestamp,
-                                 hypothesis=hypothesis)
+        return Update.from_state(
+            pred_state,
+            posterior_ensemble,
+            timestamp=hypothesis.measurement.timestamp,
+            hypothesis=hypothesis,
+        )
 
 
 class EnsembleSqrtUpdater(EnsembleUpdater):
@@ -287,18 +297,21 @@ class EnsembleSqrtUpdater(EnsembleUpdater):
         posterior_mean = pred_state + kalman_gain @ (measurement - pred_measurement)
 
         # Calculate Posterior Covariance. Note that B has no obvious name.
-        B = scipy.linalg.sqrtm(np.eye(hypothesis.prediction.num_vectors) -
-                               pred_meas_sqrt_covar.T @
-                               scipy.linalg.inv(innovation_covar)
-                               @ pred_meas_sqrt_covar)
+        B = scipy.linalg.sqrtm(
+            np.eye(hypothesis.prediction.num_vectors)
+            - pred_meas_sqrt_covar.T @ scipy.linalg.inv(innovation_covar) @ pred_meas_sqrt_covar
+        )
         posterior_covar = pred_state_sqrt_covar @ B @ (pred_state_sqrt_covar @ B).T
-        posterior_ensemble = EnsembleState.generate_ensemble(posterior_mean,
-                                                             posterior_covar,
-                                                             hypothesis.prediction.num_vectors)
+        posterior_ensemble = EnsembleState.generate_ensemble(
+            posterior_mean, posterior_covar, hypothesis.prediction.num_vectors
+        )
 
-        return Update.from_state(hypothesis.prediction,
-                                 posterior_ensemble, timestamp=hypothesis.measurement.timestamp,
-                                 hypothesis=hypothesis)
+        return Update.from_state(
+            hypothesis.prediction,
+            posterior_ensemble,
+            timestamp=hypothesis.measurement.timestamp,
+            hypothesis=hypothesis,
+        )
 
 
 class LinearisedEnsembleUpdater(EnsembleUpdater):
@@ -316,9 +329,8 @@ class LinearisedEnsembleUpdater(EnsembleUpdater):
     1. K. Michaelson, A. A. Popov and R. Zanetti,
     "Ensemble Kalman Filter with Bayesian Recursive Update"
     """
-    inflation_factor: float = Property(
-        default=1.,
-        doc="Parameter to control inflation")
+
+    inflation_factor: float = Property(default=1.0, doc="Parameter to control inflation")
 
     def update(self, hypothesis, **kwargs):
         r"""The LinearisedEnsembleUpdater update method. This method includes an additional step
@@ -358,19 +370,20 @@ class LinearisedEnsembleUpdater(EnsembleUpdater):
         X = StateVectors(m + self.inflation_factor * (X0 - m))
 
         # Line 3: Recompute prior covariance
-        P = 1/(num_vectors-1) * (X0 - m) @ (X0 - m).T
+        P = 1 / (num_vectors - 1) * (X0 - m) @ (X0 - m).T
 
-        states = list()
+        states = []
 
         # Line 5: Y_hat
         Y_hat = hypothesis.measurement_prediction.state_vector
 
         # Line 4
-        for x, y_hat in zip(X, Y_hat):
+        for x, y_hat in zip(X, Y_hat, strict=False):
 
             # Line 6: Compute Jacobian
-            H = measurement_model.jacobian(State(state_vector=x,
-                                                 timestamp=hypothesis.prediction.timestamp))
+            H = measurement_model.jacobian(
+                State(state_vector=x, timestamp=hypothesis.prediction.timestamp)
+            )
 
             # Line 7: Calculate Innovation
             S = H @ P @ H.T + R
@@ -387,7 +400,9 @@ class LinearisedEnsembleUpdater(EnsembleUpdater):
         # Convert list of state vectors into a StateVectors class
         X = StateVectors(np.hstack(states))
 
-        return Update.from_state(hypothesis.prediction,
-                                 X,
-                                 timestamp=hypothesis.measurement.timestamp,
-                                 hypothesis=hypothesis)
+        return Update.from_state(
+            hypothesis.prediction,
+            X,
+            timestamp=hypothesis.measurement.timestamp,
+            hypothesis=hypothesis,
+        )

@@ -14,7 +14,7 @@ B = Intervals([c])
 C = Intervals([Interval(1, 2)])
 D = Intervals([Interval(4, 5), Interval(6, 7)])
 
-attr = operator.attrgetter('left')
+attr = operator.attrgetter("left")
 
 
 def test_interval_init():
@@ -34,7 +34,7 @@ def test_interval_contains():
     assert Interval(0.25, 0.75) in a
     assert Interval(2, 3) not in a
     assert Interval(0.5, 1.5) not in a
-    assert 'a string' not in a
+    assert "a string" not in a
 
 
 def test_interval_eq():
@@ -45,7 +45,7 @@ def test_interval_eq():
 
 def test_interval_and():
     with pytest.raises(ValueError, match="Can only intersect with Interval types"):
-        a & 'a string'  # Can't intersect with non-interval
+        a & "a string"  # Can't intersect with non-interval
     assert a & a == a
     assert a & b is None and b & a is None  # Don't intersect
     assert a & c == c & a == Interval(0.5, 1)  # Intersect
@@ -54,7 +54,7 @@ def test_interval_and():
 
 def test_interval_or():
     with pytest.raises(ValueError, match="Can only union with Interval types"):
-        a | 'a string'  # Can't union with non-interval
+        a | "a string"  # Can't union with non-interval
     assert a | a == [a]
     assert sorted(a | b, key=attr) == sorted(b | a, key=attr) == sorted([a, b], key=attr)
     assert a | c == c | a == [Interval(0, 2)]
@@ -63,48 +63,50 @@ def test_interval_or():
 
 def test_interval_sub():
     with pytest.raises(ValueError, match="Can only subtract Interval types from Interval types"):
-        a - 'a string'
+        a - "a string"
     assert a - None == [a]
     assert a - a == [None]
     assert a - b == [a] and b - a == [b]
     assert a - Interval(-1, 2) == [None]
     assert a - Interval(-0.5, 0.5) == [Interval(0.5, 1)]
     assert a - c == [Interval(0, 0.5)]
-    assert sorted(a - Interval(0.25, 0.75), key=attr) == \
-           sorted([Interval(0, 0.25), Interval(0.75, 1)], key=attr)
+    assert sorted(a - Interval(0.25, 0.75), key=attr) == sorted(
+        [Interval(0, 0.25), Interval(0.75, 1)], key=attr
+    )
 
 
 def test_interval_xor():
     with pytest.raises(ValueError, match="Can only subtract Interval types from Interval types"):
-        a ^ 'a string'
+        a ^ "a string"
     assert a ^ a == [None]
     assert sorted(a ^ b, key=attr) == sorted(b ^ a, key=attr) == sorted([a, b], key=attr)
-    assert sorted(a ^ Interval(0.75, 2), key=attr) == \
-           sorted([Interval(0, 0.75), Interval(1, 2)], key=attr)
+    assert sorted(a ^ Interval(0.75, 2), key=attr) == sorted(
+        [Interval(0, 0.75), Interval(1, 2)], key=attr
+    )
     assert sorted(a ^ Interval(-1, 1), key=attr) == sorted([d], key=attr)
 
 
 def test_interval_ineq():
     with pytest.raises(ValueError, match="Can only compare Interval types to Interval types"):
-        a <= 'a string'
+        a <= "a string"
     assert a <= a
     assert a <= Interval(-0.5, 1.5)
     assert not a <= b
 
     with pytest.raises(ValueError, match="Can only compare Interval types to Interval types"):
-        a < 'a string'
+        a < "a string"
     assert a < Interval(-0.5, 1.5)
     assert not a < a
     assert not a < b
 
     with pytest.raises(ValueError, match="Can only compare Interval types to Interval types"):
-        a >= 'a string'
+        a >= "a string"
     assert a >= a
     assert a >= Interval(0.25, 0.75)
     assert not a >= b
 
     with pytest.raises(ValueError, match="Can only compare Interval types to Interval types"):
-        a > 'a string'
+        a > "a string"
     assert a > Interval(0.25, 0.75)
     assert not a > a
     assert not a > b
@@ -112,7 +114,7 @@ def test_interval_ineq():
 
 def test_interval_disjoint():
     with pytest.raises(ValueError, match="Interval types can only overlap with Interval types"):
-        a.isdisjoint('a string')
+        a.isdisjoint("a string")
     assert a.isdisjoint(b)  # No overlap
     assert not a.isdisjoint(c)  # Overlap
     assert not a.isdisjoint(d)  # Meet and no overlap
@@ -130,7 +132,7 @@ def test_intervals_init():
     assert temp.intervals[0] == a
 
     with pytest.raises(TypeError, match="Must contain Interval types"):
-        Intervals('a string')
+        Intervals("a string")
 
     temp = Intervals((0, 1))
     assert isinstance(temp.intervals, list)
@@ -141,9 +143,10 @@ def test_intervals_init():
     assert len(A.intervals) == 2
     assert A.intervals == [a, b]  # Converts lists of tuples to lists of Interval types
 
-    with pytest.raises(TypeError,
-                       match="Individual intervals must be an Interval or Sequence type"):
-        Intervals([(0, 1), 'a string'])
+    with pytest.raises(
+        TypeError, match="Individual intervals must be an Interval or Sequence type"
+    ):
+        Intervals([(0, 1), "a string"])
 
     temp = Intervals([a, b, c])
     assert isinstance(temp.intervals, list)
@@ -151,7 +154,7 @@ def test_intervals_init():
 
 
 def test_intervals_hash():
-    assert hash(Intervals([])) == hash(tuple(list()))
+    assert hash(Intervals([])) == hash(())
     assert hash(A) == hash(tuple(A.intervals))
     assert hash(B) == hash(tuple(B.intervals))
     assert hash(C) == hash(tuple(C.intervals))
@@ -159,7 +162,7 @@ def test_intervals_hash():
 
 
 def test_intervals_overlap():
-    attr = operator.attrgetter('left')
+    attr = operator.attrgetter("left")
 
     assert sorted(Intervals.overlap([a, c]), key=attr) == sorted([a, c], key=attr)
     assert Intervals.overlap([a, b]) is None
@@ -177,7 +180,7 @@ def test_intervals_merge():
 
 
 def test_intervals_contains():
-    assert 'a string' not in A
+    assert "a string" not in A
     assert 1 in A
     assert 0.5 in A
     assert 1.5 not in A
@@ -197,30 +200,32 @@ def test_intervals_len():
 
 def test_intervals_str():
     assert str(A) == str([[interval.left, interval.right] for interval in A])
-    assert A.__repr__() == ('Intervals(\n'
-                            '    intervals=[Interval(\n'
-                            '                  start=0,\n'
-                            '                  end=1),\n'
-                            '               Interval(\n'
-                            '                  start=2,\n'
-                            '                  end=3)])')
+    assert A.__repr__() == (
+        "Intervals(\n"
+        "    intervals=[Interval(\n"
+        "                  start=0,\n"
+        "                  end=1),\n"
+        "               Interval(\n"
+        "                  start=2,\n"
+        "                  end=3)])"
+    )
 
 
 def test_intervals_iter():
     intervals = iter([a, b])
     A_iter = iter(A)
-    for A_int, interval in zip(A_iter, intervals):
+    for A_int, interval in zip(A_iter, intervals, strict=False):
         assert A_int == interval
 
     intervals = iter([b, a])
     A_iter = reversed(A)
-    for A_int, interval in zip(A_iter, intervals):
+    for A_int, interval in zip(A_iter, intervals, strict=False):
         assert A_int == interval
 
 
 def test_intervals_eq():
     assert A != B
-    assert A != 'a string'
+    assert A != "a string"
     assert A == A
     assert A == Intervals([a, b])
     assert B == c
@@ -228,7 +233,7 @@ def test_intervals_eq():
 
 def test_intervals_and():
     with pytest.raises(ValueError, match="Can only intersect with Intervals types"):
-        A & 'a string'
+        A & "a string"
     assert A & A == A
     assert A & D == D & A == Intervals([])
     assert A & C == C & A == Intervals([])
@@ -237,7 +242,7 @@ def test_intervals_and():
 
 def test_intervals_or():
     with pytest.raises(ValueError, match="Can only union with Intervals types"):
-        A | 'a string'
+        A | "a string"
     assert A | A == A
     assert A | B == B | A == A | c == Intervals([Interval(0, 3)])
     assert A | D == D | A == Intervals(A.intervals + D.intervals)
@@ -245,27 +250,28 @@ def test_intervals_or():
 
 def test_intervals_sub():
     with pytest.raises(ValueError, match="Can only subtract Intervals from Intervals"):
-        A - 'a string'
+        A - "a string"
     assert A - None == A  # noqa: E711
     assert A - A == Intervals([])
     assert A - a == Intervals([b])
     assert A - C == A
-    assert A - Intervals([Interval(0.25, 0.75)]) == \
-           Intervals([Interval(0, 0.25), Interval(0.75, 1), b])
+    assert A - Intervals([Interval(0.25, 0.75)]) == Intervals(
+        [Interval(0, 0.25), Interval(0.75, 1), b]
+    )
     assert A - Intervals([Interval(-1, 4)]) == Intervals([])
 
 
 def test_intervals_xor():
     with pytest.raises(ValueError, match="Can only compare Intervals from Intervals"):
-        A ^ 'a string'
-    assert A ^ A == Intervals([])
+        A ^ "a string"
+    assert Intervals([]) == A ^ A
     assert A ^ B == B ^ A == A ^ c == Intervals([Interval(0, 0.5), Interval(1, 3)])
     assert A ^ D == D ^ A == Intervals(A.intervals + D.intervals)
 
 
 def test_intervals_ineq():
     with pytest.raises(ValueError, match="Can only compare Intervals to Intervals"):
-        A <= 'a string'
+        A <= "a string"
     assert A <= A
     assert not A <= B
     assert A <= Intervals(Interval(0, 3))
@@ -274,7 +280,7 @@ def test_intervals_ineq():
     assert A <= Interval(-1, 4)
 
     with pytest.raises(ValueError, match="Can only compare Intervals to Intervals"):
-        A < 'a string'
+        A < "a string"
     assert not A < A
     assert not A < B
     assert A < Intervals(Interval(-1, 4))
@@ -283,7 +289,7 @@ def test_intervals_ineq():
     assert A < Interval(-1, 4)
 
     with pytest.raises(ValueError, match="Can only compare Intervals to Intervals"):
-        A >= 'a string'
+        A >= "a string"
     assert A >= A
     assert not A >= B
     assert A >= Intervals([Interval(0.25, 0.75), Interval(2.25, 2.75)])
@@ -292,7 +298,7 @@ def test_intervals_ineq():
     assert A >= Interval(0.25, 0.75)
 
     with pytest.raises(ValueError, match="Can only compare Intervals to Intervals"):
-        A > 'a string'
+        A > "a string"
     assert not A > A
     assert not A > B
     assert A > Intervals([Interval(0.25, 0.75), Interval(2.25, 2.75)])
@@ -304,8 +310,8 @@ def test_intervals_ineq():
 def test_interval_copy():
     A_copy = A.copy()
     assert A_copy == A
-    A_copy.intervals = list()
-    assert A_copy.intervals == list()
+    A_copy.intervals = []
+    assert A_copy.intervals == []
     assert A_copy.length == 0
     assert A.intervals == [a, b]
     assert A.length == 2
@@ -324,7 +330,7 @@ def test_intervals__len__():
 def test_intervals_remove():
     temp_A = A.copy()
     with pytest.raises(ValueError, match="Intervals only contain Interval types"):
-        temp_A.remove('a string')
+        temp_A.remove("a string")
     with pytest.raises(ValueError, match="Interval not in list"):
         temp_A.remove(c)
     temp_A.remove(b)
@@ -333,7 +339,7 @@ def test_intervals_remove():
 
 def test_intervals_discard():
     temp_A = A.copy()
-    temp_A.discard('a string')
+    temp_A.discard("a string")
     assert temp_A == Intervals([a, b])
     temp_A.discard(b)
     assert temp_A == Intervals([a])

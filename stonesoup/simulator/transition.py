@@ -1,14 +1,17 @@
-from copy import deepcopy
 from collections.abc import Sequence
+from copy import deepcopy
 from datetime import timedelta
-from itertools import combinations
+from itertools import combinations, pairwise
 
 import numpy as np
 
 from ..base import Property
 from ..models.transition.base import TransitionModel
-from ..models.transition.linear import KnownTurnRate, ConstantVelocity, \
-    CombinedLinearGaussianTransitionModel
+from ..models.transition.linear import (
+    CombinedLinearGaussianTransitionModel,
+    ConstantVelocity,
+    KnownTurnRate,
+)
 from ..types.array import StateVector
 from ..types.state import State
 
@@ -54,12 +57,12 @@ def create_smooth_transition_models(initial_state, x_coords, y_coords, times, tu
     state = deepcopy(initial_state)  # don't alter platform state with calculations
 
     if not len(x_coords) == len(y_coords) == len(times):
-        raise ValueError('x_coords, y_coords and times must be same length')
+        raise ValueError("x_coords, y_coords and times must be same length")
 
     transition_models = []
     transition_times = []
 
-    for x_coord, y_coord, time in zip(x_coords[1:], y_coords[1:], times[1:]):
+    for x_coord, y_coord, time in zip(x_coords[1:], y_coords[1:], times[1:], strict=False):
 
         dx = x_coord - state.state_vector[0]  # distance to next x-coord
         dy = y_coord - state.state_vector[2]  # distance to next y-coord
@@ -75,8 +78,9 @@ def create_smooth_transition_models(initial_state, x_coords, y_coords, times, tu
 
         if dx == 0 and dy == 0 and vx == 0 and vy == 0:  # if at destination with 0 speed, stay
             transition_times.append(time - times[times.index(time) - 1])
-            transition_models.append(CombinedLinearGaussianTransitionModel((ConstantVelocity(0),
-                                                                            ConstantVelocity(0))))
+            transition_models.append(
+                CombinedLinearGaussianTransitionModel((ConstantVelocity(0), ConstantVelocity(0)))
+            )
             continue
 
         d = np.sqrt(dx**2 + dy**2)  # distance to next coord
@@ -88,9 +92,9 @@ def create_smooth_transition_models(initial_state, x_coords, y_coords, times, tu
         w = turn_rate  # turn rate (anti-clockwise from positive x-axis)
 
         if b > np.radians(180):
-            b -= 2*np.pi  # get bearing in (0, 180) instead
+            b -= 2 * np.pi  # get bearing in (0, 180) instead
         elif b <= np.radians(-180):
-            b += 2*np.pi  # get bearing in (-180, 0] instead
+            b += 2 * np.pi  # get bearing in (-180, 0] instead
 
         if b < 0:
             w = -w  # if bearing is in [-180, 0), turn right instead
@@ -99,26 +103,27 @@ def create_smooth_transition_models(initial_state, x_coords, y_coords, times, tu
 
         if b >= 0:
             p = d * np.cos(b)
-            q = r - d*np.sin(b)
+            q = r - d * np.sin(b)
         else:
-            p = -d*np.cos(b)
-            q = r + d*np.sin(b)
+            p = -d * np.cos(b)
+            q = r + d * np.sin(b)
 
         alpha = np.arctan2(p, q)
         beta = np.arccos(r / np.sqrt(p**2 + q**2))
 
-        angle = (alpha + beta + np.pi) % (2*np.pi) - np.pi  # actual angle turned
+        angle = (alpha + beta + np.pi) % (2 * np.pi) - np.pi  # actual angle turned
 
         if w > 0:
-            angle = (alpha - beta + np.pi) % (2*np.pi) - np.pi  # quadrant adjustment
+            angle = (alpha - beta + np.pi) % (2 * np.pi) - np.pi  # quadrant adjustment
 
         t1 = angle / w  # turn time
 
         if t1 > 0:
             # make turn model and add to list
             turn_model = KnownTurnRate(turn_noise_diff_coeffs=(0, 0), turn_rate=w)
-            state.state_vector = turn_model.function(state=state, time_interval=timedelta(
-                seconds=t1))  # move platform through turn
+            state.state_vector = turn_model.function(
+                state=state, time_interval=timedelta(seconds=t1)
+            )  # move platform through turn
             state.timestamp += timedelta(seconds=t1)
             transition_times.append(timedelta(seconds=t1))
             transition_models.append(turn_model)
@@ -134,15 +139,19 @@ def create_smooth_transition_models(initial_state, x_coords, y_coords, times, tu
         if d > 0:  # if platform is not already at target coord, add linear acceleration model
 
             try:
-                accel_model = Point2PointConstantAcceleration(state=deepcopy(state),
-                                                              destination=(x_coord, y_coord),
-                                                              duration=timedelta(seconds=t2))
+                accel_model = Point2PointConstantAcceleration(
+                    state=deepcopy(state),
+                    destination=(x_coord, y_coord),
+                    duration=timedelta(seconds=t2),
+                )
             except OvershootError:
                 # if linear accel leads to overshoot, apply model to stop at target coord instead
-                accel_model = Point2PointStop(state=deepcopy(state),
-                                              destination=(x_coord, y_coord))
-            state.state_vector = accel_model.function(state=state,
-                                                      time_interval=timedelta(seconds=t2))
+                accel_model = Point2PointStop(
+                    state=deepcopy(state), destination=(x_coord, y_coord)
+                )
+            state.state_vector = accel_model.function(
+                state=state, time_interval=timedelta(seconds=t2)
+            )
             state.timestamp += timedelta(seconds=t2)
             transition_times.append(timedelta(seconds=t2))
             transition_models.append(accel_model)
@@ -169,10 +178,12 @@ class Point2PointConstantAcceleration(TransitionModel):
     distance travelled respectively.
     """
 
-    state: State = Property(doc="The initial state, assumed to have x and y cartesian position and"
-                                "velocities")
-    destination: tuple[float, float] = Property(doc="Destination coordinates in 2D cartesian"
-                                                    "coordinates (x, y)")
+    state: State = Property(
+        doc="The initial state, assumed to have x and y cartesian position and" "velocities"
+    )
+    destination: tuple[float, float] = Property(
+        doc="Destination coordinates in 2D cartesian" "coordinates (x, y)"
+    )
     duration: timedelta = Property(doc="Duration of transition in seconds")
 
     def __init__(self, *args, **kwargs):
@@ -184,11 +195,11 @@ class Point2PointConstantAcceleration(TransitionModel):
 
         t = self.duration.total_seconds()  # duration of acceleration
 
-        self.ax = 2*(dx - ux*t) / t**2  # x-acceleration
-        self.ay = 2*(dy - uy*t) / t**2  # y-acceleration
+        self.ax = 2 * (dx - ux * t) / t**2  # x-acceleration
+        self.ay = 2 * (dy - uy * t) / t**2  # y-acceleration
 
-        vx = ux + self.ax*t  # final x-speed
-        vy = uy + self.ay*t  # final y-speed
+        vx = ux + self.ax * t  # final x-speed
+        vy = uy + self.ay * t  # final y-speed
 
         if np.sign(ux) != np.sign(vx) or np.sign(uy) != np.sign(vy):
             raise OvershootError()
@@ -198,13 +209,13 @@ class Point2PointConstantAcceleration(TransitionModel):
         return 4
 
     def covar(self, **kwargs):
-        raise NotImplementedError('Covariance not defined')
+        raise NotImplementedError("Covariance not defined")
 
     def pdf(self, state1, state2, **kwargs):
-        raise NotImplementedError('pdf not defined')
+        raise NotImplementedError("pdf not defined")
 
     def rvs(self, num_samples=1, **kwargs):
-        raise NotImplementedError('rvs not defined')
+        raise NotImplementedError("rvs not defined")
 
     def function(self, state, time_interval, **kwargs):
 
@@ -215,12 +226,12 @@ class Point2PointConstantAcceleration(TransitionModel):
         ux = state.state_vector[1]  # initial x-speed
         uy = state.state_vector[3]  # initial y-speed
 
-        dx = ux*t + 0.5*self.ax*(t**2)  # x-distance travelled
-        dy = uy*t + 0.5*self.ay*(t**2)  # y-distance travelled
-        vx = ux + self.ax*t  # resultant x-speed
-        vy = uy + self.ay*t  # resultant y-speed
+        dx = ux * t + 0.5 * self.ax * (t**2)  # x-distance travelled
+        dy = uy * t + 0.5 * self.ay * (t**2)  # y-distance travelled
+        vx = ux + self.ax * t  # resultant x-speed
+        vy = uy + self.ay * t  # resultant y-speed
 
-        return StateVector([x+dx, vx, y+dy, vy])
+        return StateVector([x + dx, vx, y + dy, vy])
 
 
 class Point2PointStop(TransitionModel):
@@ -240,10 +251,12 @@ class Point2PointStop(TransitionModel):
     duration.
     """
 
-    state: State = Property(doc="The initial state, assumed to have x and y cartesian position and"
-                                "velocities")
-    destination: tuple[float, float] = Property(doc="Destination coordinates in 2D cartesian"
-                                                    "coordinates (x, y)")
+    state: State = Property(
+        doc="The initial state, assumed to have x and y cartesian position and" "velocities"
+    )
+    destination: tuple[float, float] = Property(
+        doc="Destination coordinates in 2D cartesian" "coordinates (x, y)"
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -255,11 +268,11 @@ class Point2PointStop(TransitionModel):
         if dx == 0:
             self.ax = 0  # x-acceleration (0 if already at destination x-coord)
         else:
-            self.ax = -(ux**2) / (2*dx)
+            self.ax = -(ux**2) / (2 * dx)
         if dy == 0:
             self.ay = 0  # y-acceleration (0 if already at destination y-coord)
         else:
-            self.ay = -(uy**2) / (2*dy)
+            self.ay = -(uy**2) / (2 * dy)
 
         if self.ax != 0:
             self.t = -ux / self.ax  # deceleration time
@@ -275,13 +288,13 @@ class Point2PointStop(TransitionModel):
         return 4
 
     def covar(self, **kwargs):
-        raise NotImplementedError('Covariance not defined')
+        raise NotImplementedError("Covariance not defined")
 
     def pdf(self, state1, state2, **kwargs):
-        raise NotImplementedError('pdf not defined')
+        raise NotImplementedError("pdf not defined")
 
     def rvs(self, num_samples=1, **kwargs):
-        raise NotImplementedError('rvs not defined')
+        raise NotImplementedError("rvs not defined")
 
     def function(self, state, time_interval, **kwargs):
 
@@ -295,16 +308,16 @@ class Point2PointStop(TransitionModel):
         uy = state.state_vector[3]  # initial y-speed
 
         if t < decel_time_remaining:  # still some deceleration needed
-            dx = ux*t + (0.5*self.ax)*t**2
-            dy = uy*t + (0.5*self.ay)*t**2
-            vx = ux + self.ax*t
-            vy = uy + self.ay*t
+            dx = ux * t + (0.5 * self.ax) * t**2
+            dy = uy * t + (0.5 * self.ay) * t**2
+            vx = ux + self.ax * t
+            vy = uy + self.ay * t
             return StateVector([x + dx, vx, y + dy, vy])
         elif decel_time_remaining > 0:  # otherwise decelerate for rest of time needed, and stay
-            dx = ux*decel_time_remaining + (0.5*self.ax)*(decel_time_remaining**2)
-            dy = uy*decel_time_remaining + (0.5*self.ay)*(decel_time_remaining**2)
-            vx = ux + self.ax*decel_time_remaining
-            vy = uy + self.ay*decel_time_remaining
+            dx = ux * decel_time_remaining + (0.5 * self.ax) * (decel_time_remaining**2)
+            dy = uy * decel_time_remaining + (0.5 * self.ay) * (decel_time_remaining**2)
+            vx = ux + self.ax * decel_time_remaining
+            vy = uy + self.ay * decel_time_remaining
             return StateVector([x + dx, vx, y + dy, vy])
         else:
             return state.state_vector  # if already at destination, stay
@@ -328,16 +341,19 @@ class ConstantJerkSimulator(TransitionModel):
     -----
     Acceleration instantaneously changes at each target state
     """
+
     position_mapping: Sequence[int] = Property(
-        doc="Mapping between platform position and state vector.")
+        doc="Mapping between platform position and state vector."
+    )
     velocity_mapping: Sequence[int] = Property(
         default=None,
         doc="Mapping between platform velocity and state vector. Defaults to `[m+1 for m in "
-            "position_mapping]`")
+        "position_mapping]`",
+    )
     init_state: State = Property(
-        doc="Initial state to move from. Must be `ndim_state` dimensions.")
-    final_state: State = Property(
-        doc="Final state to move to. Must be `ndim_state` dimensions.")
+        doc="Initial state to move from. Must be `ndim_state` dimensions."
+    )
+    final_state: State = Property(doc="Final state to move to. Must be `ndim_state` dimensions.")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -346,7 +362,8 @@ class ConstantJerkSimulator(TransitionModel):
             raise ValueError(
                 f"Initial and final states must share the same number of dimensions. Initial "
                 f"state has ndim = {self.init_state.state_vector.shape[0]} but final state has "
-                f"ndim = {self.final_state.state_vector.shape[0]}")
+                f"ndim = {self.final_state.state_vector.shape[0]}"
+            )
 
         if self.velocity_mapping is None:
             self.velocity_mapping = [p + 1 for p in self.position_mapping]
@@ -364,12 +381,11 @@ class ConstantJerkSimulator(TransitionModel):
         # Final velocity
         self.final_V = self.final_state.state_vector[self.velocity_mapping, :]
 
-        self.init_A, self.final_A, self.jerk = list(), list(), list()
-        for init_x, init_v, final_x, final_v in zip(self.init_X, self.init_V,
-                                                    self.final_X, self.final_V):
-            init_a = self.calculate_init_accel(init_x, final_x,
-                                               init_v, final_v,
-                                               self.duration)
+        self.init_A, self.final_A, self.jerk = [], [], []
+        for init_x, init_v, final_x, final_v in zip(
+            self.init_X, self.init_V, self.final_X, self.final_V, strict=False
+        ):
+            init_a = self.calculate_init_accel(init_x, final_x, init_v, final_v, self.duration)
             self.init_A.append(init_a)
 
             final_a = self.calculate_final_accel(init_v, final_v, init_a, self.duration)
@@ -383,15 +399,15 @@ class ConstantJerkSimulator(TransitionModel):
 
     def covar(self, **kwargs):
         """Must be added due to inheritance."""
-        raise NotImplementedError('Covariance not defined')
+        raise NotImplementedError("Covariance not defined")
 
     def pdf(self, state1, state2, **kwargs):
         """Must be added due to inheritance."""
-        raise NotImplementedError('pdf not defined')
+        raise NotImplementedError("pdf not defined")
 
     def rvs(self, num_samples=1, **kwargs):
         """Must be added due to inheritance."""
-        raise NotImplementedError('rvs not defined')
+        raise NotImplementedError("rvs not defined")
 
     def function(self, state, time_interval, **kwargs):
         """Apply a constant jerk transition to `state`, for `time_interval` duration, keeping
@@ -404,9 +420,11 @@ class ConstantJerkSimulator(TransitionModel):
         # Assumed that `state` lies on the constant jerk path connecting `initial_state` with
         # `final_state`
 
-        new_position = list()
-        new_velocity = list()
-        for init_x, init_v, init_a, jerk in zip(self.init_X, self.init_V, self.init_A, self.jerk):
+        new_position = []
+        new_velocity = []
+        for init_x, init_v, init_a, jerk in zip(
+            self.init_X, self.init_V, self.init_A, self.jerk, strict=False
+        ):
             new_position.append(self.calculate_pos(init_x, init_v, init_a, jerk, delta_t))
             new_velocity.append(self.calculate_vel(init_v, init_a, jerk, delta_t))
 
@@ -440,15 +458,15 @@ class ConstantJerkSimulator(TransitionModel):
             New position along axis, given by:
             :math:`X' = \frac{J_0 T^3}{6} + \frac{A_0 T^2}{2} + V_0 T + X_0`
         """
-        return (jerk * T ** 3) / 6 + (init_a * T ** 2) / 2 + init_v * T + init_x
+        return (jerk * T**3) / 6 + (init_a * T**2) / 2 + init_v * T + init_x
 
     @staticmethod
     def calculate_vel(init_v, init_a, jerk, T):
-        return (jerk * T ** 2) / 2 + init_a * T + init_v
+        return (jerk * T**2) / 2 + init_a * T + init_v
 
     @staticmethod
     def calculate_init_accel(init_x, final_x, init_v, final_v, T):
-        return (6 / T ** 2) * (final_x - init_x - (2 * init_v * T / 3) - (final_v * T / 3))
+        return (6 / T**2) * (final_x - init_x - (2 * init_v * T / 3) - (final_v * T / 3))
 
     @staticmethod
     def calculate_final_accel(init_v, final_v, init_a, T):
@@ -468,17 +486,19 @@ class ConstantJerkSimulator(TransitionModel):
         if not all(state.ndim == state2.ndim for state, state2 in combinations(states, 2)):
             raise ValueError("All states must have the same ndim")
 
-        transition_models, transition_times = list(), list()
+        transition_models, transition_times = [], []
 
-        for current_state, next_state in zip(states[:-1], states[1:]):
+        for current_state, next_state in pairwise(states):
 
             transition_times.append(next_state.timestamp - current_state.timestamp)
 
             transition_models.append(
-                cls(position_mapping=position_mapping,
+                cls(
+                    position_mapping=position_mapping,
                     velocity_mapping=velocity_mapping,
                     init_state=current_state,
-                    final_state=next_state)
+                    final_state=next_state,
+                )
             )
 
         return transition_models, transition_times

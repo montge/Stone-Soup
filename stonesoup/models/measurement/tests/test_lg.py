@@ -1,48 +1,46 @@
+import numpy as np
 import pytest
 from pytest import approx
-import numpy as np
 from scipy.stats import multivariate_normal
 
+from ....types.array import CovarianceMatrix, StateVector, StateVectors
+from ....types.state import ParticleState, State
 from ..linear import LinearGaussian
-from ....types.state import State, ParticleState
-from ....types.array import StateVector, StateVectors, CovarianceMatrix
 
 
 @pytest.mark.parametrize(
     "H, R, ndim_state, mapping",
     [
-        (       # 1D meas, 2D state
-                np.array([[1, 0]]),
-                np.array([[0.1]]),
-                2,
-                [0],
+        (  # 1D meas, 2D state
+            np.array([[1, 0]]),
+            np.array([[0.1]]),
+            2,
+            [0],
         ),
-        (       # 2D meas, 4D state
-                np.array([[1, 0, 0, 0], [0, 0, 1, 0]]),
-                np.diag([0.1, 0.1]),
-                4,
-                [0, 2],
+        (  # 2D meas, 4D state
+            np.array([[1, 0, 0, 0], [0, 0, 1, 0]]),
+            np.diag([0.1, 0.1]),
+            4,
+            [0, 2],
         ),
-        (       # 4D meas, 2D state
-                np.array([[1, 0], [0, 0], [0, 1], [0, 0]]),
-                np.diag([0.1, 0.1, 0.1, 0.1]),
-                2,
-                [0, None, 1, None],
+        (  # 4D meas, 2D state
+            np.array([[1, 0], [0, 0], [0, 1], [0, 0]]),
+            np.diag([0.1, 0.1, 0.1, 0.1]),
+            2,
+            [0, None, 1, None],
         ),
     ],
-    ids=["1D_meas:2D_state", "2D_meas:4D_state", "4D_meas:2D_state"]
+    ids=["1D_meas:2D_state", "2D_meas:4D_state", "4D_meas:2D_state"],
 )
 def test_lgmodel(H, R, ndim_state, mapping):
-    """ LinearGaussian 1D Measurement Model test """
+    """LinearGaussian 1D Measurement Model test"""
 
     # State related variables
     state_vec = np.array([[n] for n in range(ndim_state)])
     state = State(state_vec)
 
     # Create and a Constant Velocity model object
-    lg = LinearGaussian(ndim_state=ndim_state,
-                        noise_covar=R,
-                        mapping=mapping)
+    lg = LinearGaussian(ndim_state=ndim_state, noise_covar=R, mapping=mapping)
 
     # Ensure ```lg.transfer_function()``` returns H
     assert np.array_equal(H, lg.matrix())
@@ -56,53 +54,43 @@ def test_lgmodel(H, R, ndim_state, mapping):
     # Project a state through the model
     # (without noise)
     meas_pred_wo_noise = lg.function(state)
-    assert np.array_equal(meas_pred_wo_noise, H@state_vec)
+    assert np.array_equal(meas_pred_wo_noise, H @ state_vec)
 
     # Evaluate the likelihood of the predicted measurement, given the state
     # (without noise)
     prob = lg.pdf(State(meas_pred_wo_noise), state)
     assert approx(prob) == multivariate_normal.pdf(
-        meas_pred_wo_noise.T,
-        mean=np.array(H@state_vec).ravel(),
-        cov=R)
+        meas_pred_wo_noise.T, mean=np.array(H @ state_vec).ravel(), cov=R
+    )
 
     # Propagate a state vector through the model
     # (with internal noise)
     meas_pred_w_inoise = lg.function(state, noise=lg.rvs())
-    assert not np.array_equal(meas_pred_w_inoise, H@state_vec)
+    assert not np.array_equal(meas_pred_w_inoise, H @ state_vec)
 
     # Evaluate the likelihood of the predicted state, given the prior
     # (with noise)
     prob = lg.pdf(State(meas_pred_w_inoise), state)
     assert approx(prob) == multivariate_normal.pdf(
-        meas_pred_w_inoise.T,
-        mean=np.array(H@state_vec).ravel(),
-        cov=R)
+        meas_pred_w_inoise.T, mean=np.array(H @ state_vec).ravel(), cov=R
+    )
 
     # Propagate a state vector through the model
     # (with external noise)
     noise = lg.rvs()
-    meas_pred_w_enoise = lg.function(state,
-                                     noise=noise)
-    assert np.array_equal(meas_pred_w_enoise, H@state_vec+noise)
+    meas_pred_w_enoise = lg.function(state, noise=noise)
+    assert np.array_equal(meas_pred_w_enoise, H @ state_vec + noise)
 
     # Evaluate the likelihood of the predicted state, given the prior
     # (with noise)
     prob = lg.pdf(State(meas_pred_w_enoise), state)
     assert approx(prob) == multivariate_normal.pdf(
-        meas_pred_w_enoise.T,
-        mean=np.array(H@state_vec).ravel(),
-        cov=R)
+        meas_pred_w_enoise.T, mean=np.array(H @ state_vec).ravel(), cov=R
+    )
 
     # Test random seed give consistent results
-    lg1 = LinearGaussian(ndim_state=ndim_state,
-                         noise_covar=R,
-                         mapping=mapping,
-                         seed=1)
-    lg2 = LinearGaussian(ndim_state=ndim_state,
-                         noise_covar=R,
-                         mapping=mapping,
-                         seed=1)
+    lg1 = LinearGaussian(ndim_state=ndim_state, noise_covar=R, mapping=mapping, seed=1)
+    lg2 = LinearGaussian(ndim_state=ndim_state, noise_covar=R, mapping=mapping, seed=1)
 
     # Check first values produced by seed match
     for _ in range(3):
@@ -110,6 +98,7 @@ def test_lgmodel(H, R, ndim_state, mapping):
 
 
 # Additional comprehensive tests for LinearGaussian
+
 
 def test_ndim_meas_derived_from_mapping():
     """Test that ndim_meas is derived from mapping length"""
@@ -147,8 +136,7 @@ def test_matrix_partial_observation():
     """Test matrix for partial state observation"""
     lg = LinearGaussian(ndim_state=4, mapping=[0, 2], noise_covar=np.eye(2))
     H = lg.matrix()
-    expected = np.array([[1, 0, 0, 0],
-                        [0, 0, 1, 0]])
+    expected = np.array([[1, 0, 0, 0], [0, 0, 1, 0]])
     assert np.array_equal(H, expected)
 
 
@@ -156,9 +144,7 @@ def test_matrix_with_none_mapping():
     """Test matrix with None values in mapping"""
     lg = LinearGaussian(ndim_state=2, mapping=[0, None, 1], noise_covar=np.eye(3))
     H = lg.matrix()
-    expected = np.array([[1, 0],
-                        [0, 0],
-                        [0, 1]])
+    expected = np.array([[1, 0], [0, 0], [0, 1]])
     assert np.array_equal(H, expected)
 
 
@@ -174,9 +160,7 @@ def test_matrix_non_sequential_mapping():
     """Test matrix with non-sequential mapping"""
     lg = LinearGaussian(ndim_state=5, mapping=[4, 1, 0], noise_covar=np.eye(3))
     H = lg.matrix()
-    expected = np.array([[0, 0, 0, 0, 1],
-                        [0, 1, 0, 0, 0],
-                        [1, 0, 0, 0, 0]])
+    expected = np.array([[0, 0, 0, 0, 1], [0, 1, 0, 0, 0], [1, 0, 0, 0, 0]])
     assert np.array_equal(H, expected)
 
 
@@ -332,7 +316,7 @@ def test_measurement_update_scenario():
         ndim_state=4,  # [x, vx, y, vy]
         mapping=[0, 2],  # Measure [x, y] only
         noise_covar=np.diag([0.5, 0.5]),
-        seed=42
+        seed=42,
     )
 
     true_state = State(StateVector([10, 1, 20, 2]))  # position and velocity
@@ -373,7 +357,7 @@ def test_function_with_particle_state():
     """Test function with multiple state vectors (particles)"""
     lg = LinearGaussian(ndim_state=3, mapping=[0, 1], noise_covar=np.eye(2), seed=42)
     state_vectors = StateVectors([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-    state = ParticleState(state_vectors, weight=[1/3, 1/3, 1/3])
+    state = ParticleState(state_vectors, weight=[1 / 3, 1 / 3, 1 / 3])
 
     result = lg.function(state, noise=False)
     assert result.shape == (2, 3)
@@ -386,7 +370,7 @@ def test_pdf_with_particle_state():
     """Test PDF with particle state"""
     lg = LinearGaussian(ndim_state=3, mapping=[0, 1], noise_covar=np.eye(2))
     state_vectors = StateVectors([[1, 2], [2, 3], [3, 4]])
-    state = ParticleState(state_vectors, weight=[1/2, 1/2])
+    state = ParticleState(state_vectors, weight=[1 / 2, 1 / 2])
     measurement = State(StateVector([1.5, 2.5]))
 
     prob = lg.pdf(measurement, state)

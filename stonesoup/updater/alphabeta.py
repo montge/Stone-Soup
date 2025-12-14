@@ -3,9 +3,9 @@ from functools import lru_cache
 import numpy as np
 
 from ..base import Property
-from ..updater import Updater
 from ..types.prediction import MeasurementPrediction
 from ..types.update import Update
+from ..updater import Updater
 
 
 class AlphaBetaUpdater(Updater):
@@ -55,19 +55,27 @@ class AlphaBetaUpdater(Updater):
 
     """
 
-    alpha: float = Property(doc="The alpha parameter. Controls the weight given to the "
-                                "measurements over the transition model.")
-    beta: float = Property(doc="The beta parameter. Controls the amount of variation allowed in "
-                               "the velocity component.")
+    alpha: float = Property(
+        doc="The alpha parameter. Controls the weight given to the "
+        "measurements over the transition model."
+    )
+    beta: float = Property(
+        doc="The beta parameter. Controls the amount of variation allowed in "
+        "the velocity component."
+    )
 
-    vmap: np.ndarray = Property(default=None, doc="Binary map of the velocity elements in the "
-                                                  "state vector. If left default, the class will "
-                                                  "assume that the velocity elements interleave "
-                                                  "the position elements in the state vector.")
+    vmap: np.ndarray = Property(
+        default=None,
+        doc="Binary map of the velocity elements in the "
+        "state vector. If left default, the class will "
+        "assume that the velocity elements interleave "
+        "the position elements in the state vector.",
+    )
 
-    @lru_cache()
-    def predict_measurement(self, prediction, measurement_model=None, measurement_noise=False,
-                            **kwargs):
+    @lru_cache
+    def predict_measurement(
+        self, prediction, measurement_model=None, measurement_noise=False, **kwargs
+    ):
         """Return the predicted measurement
 
         Parameters
@@ -117,21 +125,25 @@ class AlphaBetaUpdater(Updater):
 
         # Check for a measurement prediction in the hypothesis
         if hypothesis.measurement_prediction is None:
-            pred_meas = self.predict_measurement(hypothesis.prediction,
-                                                 measurement_model=measurement_model)
+            pred_meas = self.predict_measurement(
+                hypothesis.prediction, measurement_model=measurement_model
+            )
         else:
             pred_meas = hypothesis.measurement_prediction
 
         pmap = np.array(measurement_model.mapping)
-        if self.vmap is None:
-            vmap = pmap + 1
-        else:
-            vmap = self.vmap
+        vmap = pmap + 1 if self.vmap is None else self.vmap
 
         innovation = hypothesis.measurement.state_vector - pred_meas.state_vector
         out_statevector[pmap] = hypothesis.prediction.state_vector[pmap] + self.alpha * innovation
-        out_statevector[vmap] = hypothesis.prediction.state_vector[vmap] +\
-            (self.beta / time_interval.total_seconds()) * innovation
+        out_statevector[vmap] = (
+            hypothesis.prediction.state_vector[vmap]
+            + (self.beta / time_interval.total_seconds()) * innovation
+        )
 
-        return Update.from_state(hypothesis.prediction, out_statevector,
-                                 timestamp=hypothesis.measurement.timestamp, hypothesis=hypothesis)
+        return Update.from_state(
+            hypothesis.prediction,
+            out_statevector,
+            timestamp=hypothesis.measurement.timestamp,
+            hypothesis=hypothesis,
+        )

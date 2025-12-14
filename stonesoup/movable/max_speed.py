@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+
 import numpy as np
 
 from stonesoup.base import Property
@@ -13,30 +14,34 @@ class MaxSpeedActionableMovable(FixedMovable):
     :class:`~.MoveToActionGenerator`."""
 
     generator = MaxSpeedPositionActionGenerator
-    _generator_kwargs = {'action_space', 'action_mapping', 'resolution', 'angle_resolution',
-                         'max_speed'}
+    _generator_kwargs = {
+        "action_space",
+        "action_mapping",
+        "resolution",
+        "angle_resolution",
+        "max_speed",
+    }
 
     action_space: np.ndarray = Property(
         default=None,
         doc="The bounds of the action space that should not be exceeded. Of shape (ndim, 2) "
-            "where ndim is the length of the action_mapping. For example, "
-            ":code:`np.array([[xmin, xmax], [ymin, ymax]])`.")
+        "where ndim is the length of the action_mapping. For example, "
+        ":code:`np.array([[xmin, xmax], [ymin, ymax]])`.",
+    )
 
     action_mapping: Sequence[int] = Property(
-        default=(0, 1),
-        doc="The state dimensions that actions are applied to.")
+        default=(0, 1), doc="The state dimensions that actions are applied to."
+    )
 
     resolution: float = Property(
-        default=1,
-        doc="The interval in distance travelled for each action.")
+        default=1, doc="The interval in distance travelled for each action."
+    )
 
     angle_resolution: float = Property(
-        default=np.pi/2,
-        doc="The interval in angle for each action.")
+        default=np.pi / 2, doc="The interval in angle for each action."
+    )
 
-    max_speed: float = Property(
-        default=1,
-        doc="The maximum speed that the movable can travel at.")
+    max_speed: float = Property(default=1, doc="The maximum speed that the movable can travel at.")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -62,12 +67,15 @@ class MaxSpeedActionableMovable(FixedMovable):
         if start_timestamp is None:
             start_timestamp = self.states[-1].timestamp
         generators = set()
-        generators.add(self.generator(
-            owner=self,
-            attribute="position",
-            start_time=start_timestamp,
-            end_time=timestamp,
-            **{name: getattr(self, name) for name in type(self)._generator_kwargs}))
+        generators.add(
+            self.generator(
+                owner=self,
+                attribute="position",
+                start_time=start_timestamp,
+                end_time=timestamp,
+                **{name: getattr(self, name) for name in type(self)._generator_kwargs},
+            )
+        )
 
         return generators
 
