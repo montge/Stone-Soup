@@ -499,6 +499,12 @@ jobs:
           name: java-test-results
           path: bindings/java/target/surefire-reports/
 
+      - name: Upload compiled classes
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-classes
+          path: bindings/java/target/classes/
+
   # Node.js Bindings Tests
   nodejs-bindings:
     name: Node.js Bindings Tests
@@ -790,7 +796,7 @@ jobs:
   sonarcloud:
     name: SonarCloud Analysis
     runs-on: ubuntu-latest
-    needs: [test, libstonesoup, rust-bindings]
+    needs: [test, libstonesoup, rust-bindings, java-bindings]
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@v4
@@ -818,6 +824,13 @@ jobs:
           path: rust-coverage
         continue-on-error: true
 
+      - name: Download Java classes
+        uses: actions/download-artifact@v4
+        with:
+          name: java-classes
+          path: java-classes
+        continue-on-error: true
+
       - name: Prepare coverage reports
         run: |
           # Python coverage
@@ -837,6 +850,11 @@ jobs:
           if [ -f rust-coverage/lcov.info ]; then
             mkdir -p bindings/rust
             cp rust-coverage/lcov.info bindings/rust/lcov.info
+          fi
+          # Java compiled classes for SonarCloud analysis
+          if [ -d java-classes ]; then
+            mkdir -p bindings/java/target/classes
+            cp -r java-classes/* bindings/java/target/classes/ 2>/dev/null || true
           fi
 
       - name: SonarCloud Scan
