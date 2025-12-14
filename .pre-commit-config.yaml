@@ -77,6 +77,13 @@ repos:
         additional_dependencies: ['bandit[toml]']
         exclude: ^stonesoup/.*/tests/
 
+  # License compliance
+  - repo: https://github.com/fsfe/reuse-tool
+    rev: v5.0.2
+    hooks:
+      - id: reuse
+        name: Check REUSE compliance
+
 # Global settings
 default_language_version:
   python: python3

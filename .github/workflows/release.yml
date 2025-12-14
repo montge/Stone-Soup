@@ -47,6 +47,19 @@ jobs:
           cyclonedx-py environment -o sbom-python.json --format json
           cyclonedx-py environment -o sbom-python.xml --format xml
 
+      - name: Generate license inventory
+        run: |
+          pip install reuse
+          reuse spdx -o license-inventory.spdx
+        continue-on-error: true
+
+      - name: Upload license inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-inventory
+          path: license-inventory.spdx
+        continue-on-error: true
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -185,6 +198,19 @@ jobs:
         working-directory: bindings/nodejs
         run: npm run build
 
+      - name: Generate Node.js SBOM
+        working-directory: bindings/nodejs
+        run: |
+          npx @cyclonedx/cyclonedx-npm --output-file ../../sbom-nodejs.json --output-format JSON
+        continue-on-error: true
+
+      - name: Upload Node.js SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-nodejs
+          path: sbom-nodejs.json
+        continue-on-error: true
+
       - name: Publish to npm
         working-directory: bindings/nodejs
         run: npm publish --access public
@@ -221,6 +247,20 @@ jobs:
         working-directory: bindings/java
         run: mvn versions:set -DnewVersion=${{ steps.version.outputs.version }}
 
+      - name: Generate Java SBOM
+        working-directory: bindings/java
+        run: |
+          mvn org.cyclonedx:cyclonedx-maven-plugin:2.7.11:makeAggregateBom -DoutputFormat=json -DoutputName=sbom-java
+          cp target/sbom-java.json ../../sbom-java.json
+        continue-on-error: true
+
+      - name: Upload Java SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-java
+          path: sbom-java.json
+        continue-on-error: true
+
       - name: Deploy to Maven Central
         working-directory: bindings/java
         run: mvn clean deploy -P release -DskipTests
@@ -254,11 +294,46 @@ jobs:
           path: sbom/
         continue-on-error: true
 
+      - name: Download license inventory
+        uses: actions/download-artifact@v4
+        with:
+          name: license-inventory
+          path: sbom/
+        continue-on-error: true
+
       - name: Download Rust SBOM
         uses: actions/download-artifact@v4
         with:
           name: sbom-rust
           path: sbom/
+        continue-on-error: true
+
+      - name: Download Node.js SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom-nodejs
+          path: sbom/
+        continue-on-error: true
+
+      - name: Download Java SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom-java
+          path: sbom/
+        continue-on-error: true
+
+      - name: Create combined SBOM
+        run: |
+          # Install cyclonedx-cli
+          curl -sSfL https://github.com/CycloneDX/cyclonedx-cli/releases/download/v0.25.1/cyclonedx-linux-x64 -o /usr/local/bin/cyclonedx
+          chmod +x /usr/local/bin/cyclonedx
+
+          # Merge all SBOMs if they exist
+          cd sbom
+          SBOM_FILES=$(ls *.json 2>/dev/null | tr '\n' ' ')
+          if [ -n "$SBOM_FILES" ]; then
+            cyclonedx merge --input-files $SBOM_FILES --output-file combined-sbom.json --output-format json || true
+          fi
         continue-on-error: true
 
       - name: Generate checksums
@@ -339,3 +414,27 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Generate SLSA provenance for build artifacts
+  provenance:
+    name: Generate SLSA Provenance
+    needs: [build]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+      attestations: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Generate artifact attestations
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/*'

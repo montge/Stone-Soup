@@ -120,6 +120,26 @@ Each release includes SHA256 checksums:
 sha256sum -c SHA256SUMS.txt
 ```
 
+### Build Provenance (SLSA)
+
+Releases include SLSA build provenance attestations that cryptographically prove where and how artifacts were built. To verify provenance:
+
+```bash
+# Install GitHub CLI if not already installed
+# https://cli.github.com/
+
+# Verify provenance for a wheel file
+gh attestation verify stonesoup-*.whl --owner dstl
+
+# Verify provenance for source distribution
+gh attestation verify stonesoup-*.tar.gz --owner dstl
+```
+
+The attestations prove:
+- The artifact was built by our GitHub Actions workflow
+- The exact commit and workflow that produced the artifact
+- No tampering occurred after the build
+
 ## Security Updates
 
 Security updates are announced via:

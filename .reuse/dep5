@@ -1,0 +1,41 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Stone Soup
+Upstream-Contact: DSTL UK <stonesoup@dstl.gov.uk>
+Source: https://github.com/dstl/Stone-Soup
+
+# Main project files
+Files: *
+Copyright: 2017-2025 Crown Copyright Defence Science and Technology Laboratory UK
+           2018-2025 Crown Copyright Defence Research and Development Canada
+           2018-2025 University of Liverpool UK
+           2020-2025 Fraunhofer FKIE
+           2020-2025 John Hiles
+           2020-2025 Riskaware Ltd
+           2021-2025 Roke Manor Research Ltd UK
+           2023-2025 Loughborough University UK
+License: MIT
+
+# Documentation
+Files: docs/*
+Copyright: 2017-2025 Crown Copyright Defence Science and Technology Laboratory UK
+License: MIT
+
+# Test fixtures and sample data
+Files: stonesoup/*/tests/data/*
+Copyright: 2017-2025 Crown Copyright Defence Science and Technology Laboratory UK
+License: MIT
+
+# Configuration files
+Files: .github/* .pre-commit-config.yaml pyproject.toml setup.cfg *.toml *.yaml *.yml *.json
+Copyright: 2017-2025 Crown Copyright Defence Science and Technology Laboratory UK
+License: MIT
+
+# Generated files
+Files: *.egg-info/* dist/* build/*
+Copyright: 2017-2025 Crown Copyright Defence Science and Technology Laboratory UK
+License: MIT
+
+# Binary and data files
+Files: *.png *.jpg *.gif *.ico *.svg *.pdf
+Copyright: 2017-2025 Crown Copyright Defence Science and Technology Laboratory UK
+License: MIT
