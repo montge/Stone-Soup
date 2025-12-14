@@ -1,5 +1,5 @@
 ## 1. Fix Ruff Lint Error
-- [x] 1.1 Update `stonesoup/serialise.py:156` to use `next(iter(...))` instead of `[0]` slice
+- [x] 1.1 Revert serialise.py to use `list(...)[0]` with `# noqa: RUF015` (generator side effects require full consumption)
 
 ## 2. Fix Rust Type Annotations
 - [x] 2.1 Add `::<f64>` type hints to `.sum()` calls in `bindings/python/src/lib.rs`

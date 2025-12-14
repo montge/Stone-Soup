@@ -160,7 +160,9 @@ def declarative_from_yaml(constructor, tag_suffix, node):
         )
     # Must have deep construct here to ensure mutable sub-objects are fully created.
     constructor.deep_construct = True
-    properties = next(iter(constructor.construct_yaml_omap(node)))
+    # Note: Must consume entire generator - it yields an empty dict initially that gets
+    # populated as iteration continues. Using next(iter(...)) would return empty dict.
+    properties = list(constructor.construct_yaml_omap(node))[0]  # noqa: RUF015
     try:
         return class_(**properties)
     except Exception as e:
