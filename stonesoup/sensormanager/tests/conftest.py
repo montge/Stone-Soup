@@ -86,7 +86,7 @@ def params():
 
     prior = GaussianState(
         [[-10], [1], [0], [1]],
-        np.diag([0.5, 0.5, 0.5, 0.5, *np.random.normal(0, 0.0005, 4)]),
+        np.diag([0.5, 0.5, 0.5, 0.5]),
         timestamp=start_time,
     )
     tracks = {Track([prior])}
