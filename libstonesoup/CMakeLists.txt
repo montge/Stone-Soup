@@ -15,6 +15,7 @@ set(CMAKE_C_EXTENSIONS OFF)
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 option(BUILD_TESTS "Build tests" ON)
 option(BUILD_DOCS "Build documentation" OFF)
+option(ENABLE_FUZZING "Enable fuzzing targets with libFuzzer" OFF)
 
 # Position independent code
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -90,6 +91,11 @@ endif()
 if(BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+# Fuzzing with libFuzzer
+if(ENABLE_FUZZING)
+    add_subdirectory(fuzz)
 endif()
 
 # Static Analysis with cppcheck (MISRA C:2012 compliance)

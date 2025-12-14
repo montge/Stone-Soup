@@ -518,7 +518,7 @@ fn kalman_predict(
     let mut fp = Array2::zeros((dim, dim));
     for i in 0..dim {
         for j in 0..dim {
-            fp[[i, j]] = (0..dim).map(|k| f[[i, k]] * p[[k, j]]).sum();
+            fp[[i, j]] = (0..dim).map(|k| f[[i, k]] * p[[k, j]]).sum::<f64>();
         }
     }
 
@@ -594,7 +594,7 @@ fn kalman_update(
     let mut hp = Array2::zeros((meas_dim, state_dim));
     for i in 0..meas_dim {
         for j in 0..state_dim {
-            hp[[i, j]] = (0..state_dim).map(|k| h[[i, k]] * p[[k, j]]).sum();
+            hp[[i, j]] = (0..state_dim).map(|k| h[[i, k]] * p[[k, j]]).sum::<f64>();
         }
     }
 
@@ -654,7 +654,7 @@ fn kalman_update(
     let mut kh = Array2::zeros((state_dim, state_dim));
     for i in 0..state_dim {
         for j in 0..state_dim {
-            kh[[i, j]] = (0..meas_dim).map(|l| k[[i, l]] * h[[l, j]]).sum();
+            kh[[i, j]] = (0..meas_dim).map(|l| k[[i, l]] * h[[l, j]]).sum::<f64>();
         }
     }
 
@@ -665,7 +665,7 @@ fn kalman_update(
             p_post[[i, j]] = (0..state_dim).map(|l| {
                 let imkh_il = if i == l { 1.0 } else { 0.0 } - kh[[i, l]];
                 imkh_il * p[[l, j]]
-            }).sum();
+            }).sum::<f64>();
         }
     }
 

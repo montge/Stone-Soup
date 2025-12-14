@@ -31,6 +31,7 @@ For example:
 .. _YAML: http://yaml.org/
 .. _ruamel.yaml: https://yaml.readthedocs.io/
 """
+
 import datetime
 import warnings
 from io import StringIO
@@ -50,8 +51,8 @@ from .types.array import Matrix, StateVector
 from .types.numeric import Probability
 from .sensor.sensor import Sensor
 
-__all__ = ['YAML']
-typ = 'stonesoup'
+__all__ = ["YAML"]
+typ = "stonesoup"
 
 
 def init_typ(yaml):
@@ -60,7 +61,7 @@ def init_typ(yaml):
         try:
             entry_point.load()(yaml)
         except (ImportError, ModuleNotFoundError) as e:
-            warnings.warn(f'Failed to load module. {e}')
+            warnings.warn(f"Failed to load module. {e}")
 
     # NumPy
     yaml.representer.add_multi_representer(np.ndarray, ndarray_to_yaml)
@@ -85,28 +86,28 @@ def init_typ(yaml):
 
     # Angle
     yaml.representer.add_multi_representer(Angle, angle_to_yaml)
-    yaml.constructor.add_multi_constructor('!stonesoup.types.angle.', angle_from_yaml)
+    yaml.constructor.add_multi_constructor("!stonesoup.types.angle.", angle_from_yaml)
 
     # Array
     yaml.representer.add_multi_representer(Matrix, ndarray_to_yaml)
-    yaml.constructor.add_multi_constructor('!stonesoup.types.array.', array_from_yaml)
+    yaml.constructor.add_multi_constructor("!stonesoup.types.array.", array_from_yaml)
 
     # Declarative classes
     yaml.representer.add_multi_representer(Base, declarative_to_yaml)
-    yaml.constructor.add_multi_constructor('!stonesoup.', declarative_from_yaml)
+    yaml.constructor.add_multi_constructor("!stonesoup.", declarative_from_yaml)
 
 
 class YAML(ruamel.yaml.YAML):
     """Class for YAML serialisation in Stone Soup."""
 
     def __init__(self, **kwargs):
-        typ = kwargs.pop('typ', ['rt'])
+        typ = kwargs.pop("typ", ["rt"])
         if isinstance(typ, str):
             typ = [typ]
-        typ.append('stonesoup')
-        if kwargs.get('plug_ins') is None:
-            kwargs['plug_ins'] = []
-        kwargs['plug_ins'].append('stonesoup.serialise')
+        typ.append("stonesoup")
+        if kwargs.get("plug_ins") is None:
+            kwargs["plug_ins"] = []
+        kwargs["plug_ins"].append("stonesoup.serialise")
 
         super().__init__(typ=typ, **kwargs)
         self.representer.default_flow_style = False
@@ -134,46 +135,47 @@ def declarative_to_yaml(representer, node):
     node_properties = OrderedDict(type(node).properties)
     # Special case of a sensor with a default platform
     if isinstance(node, Sensor) and node._has_internal_controller:
-        node_properties['position'] = Property(StateVector)
-        node_properties['orientation'] = Property(StateVector)
+        node_properties["position"] = Property(StateVector)
+        node_properties["orientation"] = Property(StateVector)
     return representer.represent_omap(
         yaml_tag(type(node)),
-        OrderedDict((name, getattr(node, name))
-                    for name, property_ in node_properties.items()
-                    if getattr(node, name) is not property_.default))
+        OrderedDict(
+            (name, getattr(node, name))
+            for name, property_ in node_properties.items()
+            if getattr(node, name) is not property_.default
+        ),
+    )
 
 
 def declarative_from_yaml(constructor, tag_suffix, node):
     """Convert YAML to declarative class instances."""
     try:
-        class_ = get_class(f'!stonesoup.{tag_suffix}')
+        class_ = get_class(f"!stonesoup.{tag_suffix}")
     except ImportError:
         raise ConstructorError(
-            "while constructing a Stone Soup component", node.start_mark,
-            f"unable to import component 'stonesoup.{tag_suffix}'", node.start_mark)
+            "while constructing a Stone Soup component",
+            node.start_mark,
+            f"unable to import component 'stonesoup.{tag_suffix}'",
+            node.start_mark,
+        )
     # Must have deep construct here to ensure mutable sub-objects are fully created.
     constructor.deep_construct = True
-    properties = [
-        data
-        for data in constructor.construct_yaml_omap(node)][0]
+    properties = next(iter(constructor.construct_yaml_omap(node)))
     try:
         return class_(**properties)
     except Exception as e:
-        raise ConstructorError("while constructing Stone Soup component",
-                               node.start_mark, str(e), node.start_mark)
+        raise ConstructorError(
+            "while constructing Stone Soup component", node.start_mark, str(e), node.start_mark
+        )
 
 
 @lru_cache(None)
 def get_class(tag):
-    classes = [
-        subclass
-        for subclass in Base.subclasses
-        if yaml_tag(subclass) == tag]
+    classes = [subclass for subclass in Base.subclasses if yaml_tag(subclass) == tag]
     if len(classes) > 1:
-        warnings.warn(
-            f"Multiple possible classes found for YAML tag {tag!r}", UserWarning)
+        warnings.warn(f"Multiple possible classes found for YAML tag {tag!r}", UserWarning)
     elif not classes:
-        module_name, class_name = tag.lstrip('!').rsplit(".", 1)
+        module_name, class_name = tag.lstrip("!").rsplit(".", 1)
         module = import_module(module_name)
         classes = [getattr(module, class_name, None)]
     if classes[0] is None:
@@ -187,7 +189,7 @@ def probability_to_yaml(representer, node):
 
 def probability_from_yaml(constructor, node):
     string = constructor.construct_scalar(node)
-    if string.startswith('exp('):
+    if string.startswith("exp("):
         return Probability(float(string[4:-1]), log_value=True)
     else:
         return Probability(float(string))
@@ -198,7 +200,7 @@ def angle_to_yaml(representer, node):
 
 
 def angle_from_yaml(constructor, tag_suffix, node):
-    class_ = get_class(f'!stonesoup.types.angle.{tag_suffix}')
+    class_ = get_class(f"!stonesoup.types.angle.{tag_suffix}")
     return class_(float(constructor.construct_scalar(node)))
 
 
@@ -211,7 +213,7 @@ def ndarray_to_yaml(representer, node):
     """Convert numpy.ndarray to YAML."""
 
     # If using "round trip" type, change flow style to make more readable
-    if node.ndim > 1 and 'rt' in representer.dumper.typ:
+    if node.ndim > 1 and "rt" in representer.dumper.typ:
         array = [representer.dumper.seq(row) for row in node.tolist()]
         [seq.fa.set_flow_style() for seq in array]
     else:
@@ -226,7 +228,7 @@ def ndarray_from_yaml(constructor, node):
 
 def array_from_yaml(constructor, tag_suffix, node):
     """Convert YAML to numpy.ndarray."""
-    class_ = get_class(f'!stonesoup.types.array.{tag_suffix}')
+    class_ = get_class(f"!stonesoup.types.array.{tag_suffix}")
     return class_(constructor.construct_sequence(node, deep=True))
 
 

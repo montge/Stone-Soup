@@ -31,7 +31,7 @@ if(ENABLE_FUZZING)
     # Fuzz targets
     add_executable(fuzz_kalman fuzz_kalman.c)
     target_include_directories(fuzz_kalman PRIVATE ${CMAKE_SOURCE_DIR}/include)
-    target_link_libraries(fuzz_kalman stonesoup m)
+    target_link_libraries(fuzz_kalman stonesoup_static m)
 
     # Add fuzzer and sanitizer flags
     if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
