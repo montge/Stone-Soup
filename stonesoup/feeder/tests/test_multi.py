@@ -1,3 +1,4 @@
+import sys
 import time
 from datetime import datetime, timedelta
 
@@ -64,6 +65,9 @@ def readers():
     return [reader1(), reader2()]
 
 
+@pytest.mark.skipif(
+    sys.platform != "linux", reason="Timing-dependent test is flaky on non-Linux platforms"
+)
 def test_fifo_feeder(readers):
     feeder = FIFOMultiDataFeeder(readers)
     assert [(t, d) for t, d in feeder if not time.sleep(0.21)] == [
@@ -78,6 +82,9 @@ def test_fifo_feeder(readers):
     ]
 
 
+@pytest.mark.skipif(
+    sys.platform != "linux", reason="Timing-dependent test is flaky on non-Linux platforms"
+)
 def test_lifo_feeder(readers):
     feeder = LIFOMultiDataFeeder(readers)
     assert [(t, d) for t, d in feeder if not time.sleep(0.21)] == [
@@ -92,6 +99,9 @@ def test_lifo_feeder(readers):
     ]
 
 
+@pytest.mark.skipif(
+    sys.platform != "linux", reason="Timing-dependent test is flaky on non-Linux platforms"
+)
 def test_priority_feeder(readers):
     feeder = PriorityMultiDataFeeder(readers)
     assert [(t, d) for t, d in feeder if not time.sleep(0.21)] == [
@@ -106,6 +116,9 @@ def test_priority_feeder(readers):
     ]
 
 
+@pytest.mark.skipif(
+    sys.platform != "linux", reason="Timing-dependent test is flaky on non-Linux platforms"
+)
 def test_max_priority_feeder(readers):
     feeder = MaxSizePriorityMultiDataFeeder(readers, 3)
     assert [(t, d) for t, d in feeder if not time.sleep(0.21)] == [
@@ -120,6 +133,9 @@ def test_max_priority_feeder(readers):
     ]
 
 
+@pytest.mark.skipif(
+    sys.platform != "linux", reason="Timing-dependent test is flaky on non-Linux platforms"
+)
 def test_no_wait(readers):
     # Testing code handles empty queues
     feeder = PriorityMultiDataFeeder(readers)

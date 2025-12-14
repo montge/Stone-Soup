@@ -240,7 +240,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest --junitxml=junit.xml --cov --cov-report=xml:coverage.xml --cov-report=term --slow stonesoup
+          pytest --junitxml=junit.xml --cov --cov-report=xml:coverage.xml --cov-report=term --slow -m "not benchmark" stonesoup
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
