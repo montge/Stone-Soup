@@ -119,7 +119,7 @@ public final class KalmanFilter {
      *
      * @param predicted the predicted Gaussian state
      * @param measurement the measurement vector
-     * @param measurementMatrix the measurement matrix H
+     * @param measurementMatrix the measurement matrix H (can be non-square)
      * @param measurementNoise the measurement noise covariance R
      * @return the posterior Gaussian state
      * @throws IllegalArgumentException if dimensions don't match
@@ -128,7 +128,7 @@ public final class KalmanFilter {
     public static GaussianState update(
             GaussianState predicted,
             StateVector measurement,
-            CovarianceMatrix measurementMatrix,
+            Matrix measurementMatrix,
             CovarianceMatrix measurementNoise) throws StoneSoupException {
 
         Objects.requireNonNull(predicted, "Predicted state cannot be null");
@@ -145,31 +145,37 @@ public final class KalmanFilter {
                     "Measurement noise dimension mismatch: " + measurementNoise.getDim() +
                     " vs measurement " + measDim);
         }
+        if (measurementMatrix.getRows() != measDim || measurementMatrix.getCols() != stateDim) {
+            throw new IllegalArgumentException(
+                    "Measurement matrix dimension mismatch: expected " + measDim + "x" + stateDim +
+                    " but got " + measurementMatrix.getRows() + "x" + measurementMatrix.getCols());
+        }
 
         // Innovation: y = z - H * x_pred
-        StateVector hx = matrixVectorMultiply(measurementMatrix, predicted.getStateVector());
+        StateVector hx = measurementMatrix.multiply(predicted.getStateVector());
         StateVector innovation = measurement.subtract(hx);
 
         // Innovation covariance: S = H * P * H^T + R
-        CovarianceMatrix HP = matrixMultiply(measurementMatrix, predicted.getCovariance());
-        CovarianceMatrix HPHt = matrixMultiplyTranspose(HP, measurementMatrix);
-        CovarianceMatrix S = HPHt.add(measurementNoise);
+        Matrix HP = measurementMatrix.multiply(new Matrix(predicted.getCovariance().toArray()));
+        Matrix HPHt = HP.multiply(measurementMatrix.transpose());
+        CovarianceMatrix S = new CovarianceMatrix(HPHt.toArray()).add(measurementNoise);
 
         // Kalman gain: K = P * H^T * S^-1
         CovarianceMatrix SInv = invert(S);
-        CovarianceMatrix Ht = measurementMatrix.transpose();
-        CovarianceMatrix PHt = matrixMultiplyRect(predicted.getCovariance(), Ht);
-        CovarianceMatrix K = matrixMultiplyRect(PHt, SInv);
+        Matrix Ht = measurementMatrix.transpose();
+        Matrix PHt = new Matrix(predicted.getCovariance().toArray()).multiply(Ht);
+        Matrix K = PHt.multiply(new Matrix(SInv.toArray()));
 
         // Posterior state: x_post = x_pred + K * y
-        StateVector Ky = matrixVectorMultiplyRect(K, innovation);
+        StateVector Ky = K.multiply(innovation);
         StateVector xPost = predicted.getStateVector().add(Ky);
 
         // Posterior covariance: P_post = (I - K * H) * P_pred
-        CovarianceMatrix KH = matrixMultiplyRect(K, measurementMatrix);
-        CovarianceMatrix I = CovarianceMatrix.identity(stateDim);
-        CovarianceMatrix IminusKH = I.subtract(KH);
-        CovarianceMatrix pPost = IminusKH.multiply(predicted.getCovariance());
+        Matrix KH = K.multiply(measurementMatrix);
+        Matrix I = Matrix.identity(stateDim);
+        Matrix IminusKH = I.add(KH.scale(-1.0));
+        Matrix pPostMatrix = IminusKH.multiply(new Matrix(predicted.getCovariance().toArray()));
+        CovarianceMatrix pPost = new CovarianceMatrix(pPostMatrix.toArray());
 
         return new GaussianState(xPost, pPost, predicted.getTimestamp().orElse(null));
     }
@@ -221,7 +227,7 @@ public final class KalmanFilter {
      * @param ndim number of spatial dimensions
      * @return the measurement matrix (ndim x ndim*2)
      */
-    public static CovarianceMatrix positionMeasurement(int ndim) {
+    public static Matrix positionMeasurement(int ndim) {
         if (ndim < 1) {
             throw new IllegalArgumentException("ndim must be at least 1");
         }
@@ -232,7 +238,7 @@ public final class KalmanFilter {
             H[i][i * 2] = 1.0;  // Observe position in each dimension
         }
 
-        return new CovarianceMatrix(H);
+        return new Matrix(H);
     }
 
     /**
@@ -240,15 +246,15 @@ public final class KalmanFilter {
      *
      * @param predicted the predicted state
      * @param measurement the measurement
-     * @param measurementMatrix the measurement matrix H
+     * @param measurementMatrix the measurement matrix H (can be non-square)
      * @return the innovation vector y = z - H * x
      */
     public static StateVector innovation(
             GaussianState predicted,
             StateVector measurement,
-            CovarianceMatrix measurementMatrix) {
+            Matrix measurementMatrix) {
 
-        StateVector hx = matrixVectorMultiply(measurementMatrix, predicted.getStateVector());
+        StateVector hx = measurementMatrix.multiply(predicted.getStateVector());
         return measurement.subtract(hx);
     }
 

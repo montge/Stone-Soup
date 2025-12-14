@@ -602,7 +602,7 @@ jobs:
       - name: Install GNAT and AUnit
         run: |
           sudo apt-get update
-          sudo apt-get install -y gnat gprbuild libaunit23-dev
+          sudo apt-get install -y gnat gprbuild libaunit-dev
 
       - name: Build libstonesoup
         run: |

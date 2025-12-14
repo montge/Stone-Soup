@@ -12,18 +12,18 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys
 import os
 
 # import shlex
 import re
-
+import sys
+from pathlib import Path
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.insert(0, os.path.abspath("."))
-sys.path.insert(0, os.path.abspath("../../"))
+# documentation root, use Path.resolve() to make it absolute.
+sys.path.insert(0, str(Path().resolve()))
+sys.path.insert(0, str(Path("../../").resolve()))
 
 import plotly.io as pio
 
@@ -132,14 +132,15 @@ needs_table_style = "table"
 
 # Enable JSON/ReqIF export for requirements interchange
 needs_build_json = True
-needs_build_needumls = True
+# Disable needumls - causing compatibility issues with sphinx-needs version
+# needs_build_needumls = True
 
 # ReqIF export configuration
 needs_services = {}
 needs_extra_options = ["verification_method", "priority", "risk"]
 
-# Generate needumls diagrams
-needuml_graph_style = "lefttoright"
+# Needumls diagram style (only used if needumls are enabled)
+# needuml_graph_style = "lefttoright"
 
 # Custom status values for requirements
 needs_statuses = [
@@ -191,7 +192,7 @@ sphinx_gallery_conf = {
 }
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/{.major}".format(sys.version_info), None),
+    "python": (f"https://docs.python.org/{sys.version_info.major}", None),
     "matplotlib": ("https://matplotlib.org/stable", None),
     "numpy": ("https://numpy.org/doc/stable", None),
     "scipy": ("https://docs.scipy.org/doc/scipy", None),

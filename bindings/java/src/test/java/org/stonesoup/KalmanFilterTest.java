@@ -87,7 +87,7 @@ class KalmanFilterTest {
 
             // Measurement at (1.1, 0.9)
             StateVector measurement = new StateVector(new double[]{1.1, 0.9});
-            CovarianceMatrix H = KalmanFilter.positionMeasurement(2);
+            Matrix H = KalmanFilter.positionMeasurement(2);
             CovarianceMatrix R = CovarianceMatrix.identity(2).scale(0.5);
 
             GaussianState posterior = KalmanFilter.update(predicted, measurement, H, R);
@@ -108,7 +108,7 @@ class KalmanFilterTest {
             );
 
             StateVector measurement = new StateVector(new double[]{0.1});
-            CovarianceMatrix H = new CovarianceMatrix(new double[][]{{1.0, 0.0}});
+            Matrix H = new Matrix(new double[][]{{1.0, 0.0}});
             CovarianceMatrix R = CovarianceMatrix.identity(1).scale(0.5);
 
             GaussianState posterior = KalmanFilter.update(predicted, measurement, H, R);
@@ -127,7 +127,7 @@ class KalmanFilterTest {
 
             // Measurement exactly matches prediction
             StateVector measurement = new StateVector(new double[]{10.0});
-            CovarianceMatrix H = new CovarianceMatrix(new double[][]{{1.0, 0.0}});
+            Matrix H = new Matrix(new double[][]{{1.0, 0.0}});
             CovarianceMatrix R = CovarianceMatrix.identity(1);
 
             GaussianState posterior = KalmanFilter.update(predicted, measurement, H, R);
@@ -164,9 +164,10 @@ class KalmanFilterTest {
         @Test
         @DisplayName("positionMeasurement creates correct matrix")
         void positionMeasurementCreatesCorrectMatrix() {
-            CovarianceMatrix H = KalmanFilter.positionMeasurement(2);
+            Matrix H = KalmanFilter.positionMeasurement(2);
 
-            assertEquals(2, H.getDim()); // It's a 2x4 in theory but our impl is square
+            assertEquals(2, H.getRows()); // 2 measurement dimensions
+            assertEquals(4, H.getCols()); // 4 state dimensions (x, vx, y, vy)
 
             // Check that it extracts positions
             // For a [x, vx, y, vy] state, should have:
@@ -186,7 +187,7 @@ class KalmanFilterTest {
                     CovarianceMatrix.identity(2).toArray()
             );
             StateVector measurement = new StateVector(new double[]{12.0});
-            CovarianceMatrix H = new CovarianceMatrix(new double[][]{{1.0, 0.0}});
+            Matrix H = new Matrix(new double[][]{{1.0, 0.0}});
 
             StateVector innov = KalmanFilter.innovation(predicted, measurement, H);
 
@@ -212,7 +213,7 @@ class KalmanFilterTest {
             double dt = 1.0;
             CovarianceMatrix F = KalmanFilter.constantVelocityTransition(2, dt);
             CovarianceMatrix Q = CovarianceMatrix.identity(4).scale(0.01);
-            CovarianceMatrix H = KalmanFilter.positionMeasurement(2);
+            Matrix H = KalmanFilter.positionMeasurement(2);
             CovarianceMatrix R = CovarianceMatrix.identity(2).scale(0.1);
 
             // Simulate several time steps

@@ -180,7 +180,7 @@ class StoneSoupTest {
             // Kalman filter parameters
             CovarianceMatrix F = KalmanFilter.constantVelocityTransition(2, 1.0);
             CovarianceMatrix Q = CovarianceMatrix.identity(4).scale(0.01);
-            CovarianceMatrix H = KalmanFilter.positionMeasurement(2);
+            Matrix H = KalmanFilter.positionMeasurement(2);
             CovarianceMatrix R = CovarianceMatrix.identity(2).scale(0.1);
 
             // Process detections
