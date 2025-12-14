@@ -72,9 +72,6 @@
                     <source>22</source>
                     <target>22</target>
                     <release>22</release>
-                    <compilerArgs>
-                        <arg>--enable-native-access=ALL-UNNAMED</arg>
-                    </compilerArgs>
                 </configuration>
             </plugin>
 
@@ -164,7 +161,6 @@
                         <configuration>
                             <compilerArgs>
                                 <arg>--enable-preview</arg>
-                                <arg>--enable-native-access=ALL-UNNAMED</arg>
                             </compilerArgs>
                         </configuration>
                     </plugin>

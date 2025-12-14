@@ -1,8 +1,10 @@
 import datetime
+import sys
 
 import matplotlib.figure
 import matplotlib.pyplot as plt
 import numpy as np
+import pytest
 
 from ...models.measurement.linear import LinearGaussian
 from ...types.array import StateVectors
@@ -13,6 +15,7 @@ from ...types.track import Track
 from ..plotter import TwoDPlotter
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Tkinter not reliably available on Windows CI")
 def test_twodplotter():
     measurement_model = LinearGaussian(ndim_state=2, mapping=[0, 1], noise_covar=np.diag([1, 1]))
 
