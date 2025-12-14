@@ -481,7 +481,7 @@ def test_rotating_radar(
         target_state,
         measurement_mapping,
         radar.position,
-        [*radar.orientation, [0], [0], [radar.dwell_centre[0, 0]]],
+        radar.orientation + StateVector([[0], [0], [radar.dwell_centre[0, 0]]]),
     )
 
     # Assert correction of generated measurement
@@ -625,7 +625,7 @@ def test_rotating_radar_3d(
         target_state,
         measurement_mapping,
         radar.position,
-        [*radar.orientation, [0], [0], [radar.dwell_centre[0, 0]]],
+        radar.orientation + StateVector([[0], [0], [radar.dwell_centre[0, 0]]]),
     )
 
     # Assert correction of generated measurement
@@ -742,7 +742,7 @@ def test_raster_scan_radar():
         target_state,
         [0, 1],
         radar.position,
-        [*radar.orientation, [0], [0], [radar.dwell_centre[0, 0]]],
+        radar.orientation + StateVector([[0], [0], [radar.dwell_centre[0, 0]]]),
     )
 
     # Assert correction of generated measurement
