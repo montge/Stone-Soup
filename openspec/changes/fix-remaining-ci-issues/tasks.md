@@ -17,8 +17,23 @@
 - [x] 4.1 Add datetime import and fix timestamp handling in benchmark_pyo3.py
 - [x] 4.2 Remove broken heredoc output from benchmark workflow
 
-## 5. Verification
-- [x] 5.1 Run ruff lint locally to verify fix
-- [x] 5.2 Fuzzing workflow passes
-- [x] 5.3 Performance Benchmarks workflow passes
-- [ ] 5.4 Main CI workflow passes (queued)
+## 5. Fix Ada Bindings
+- [x] 5.1 Change `libaunit23-dev` to `libaunit-dev` (correct Ubuntu 24.04 package)
+
+## 6. Fix Java Bindings
+- [x] 6.1 Create Matrix class for non-square matrices
+- [x] 6.2 Update KalmanFilter.update() to accept Matrix for measurement matrix H
+- [x] 6.3 Update KalmanFilter.positionMeasurement() to return Matrix
+- [x] 6.4 Update KalmanFilter.innovation() to accept Matrix
+- [x] 6.5 Update all tests to use Matrix instead of CovarianceMatrix for H
+
+## 7. Fix Documentation
+- [x] 7.1 Disable needs_build_needumls (sphinx-needs compatibility issue)
+- [x] 7.2 Fix PTH100 lint: use Path.resolve() instead of os.path.abspath()
+
+## 8. Verification
+- [x] 8.1 Fuzzing workflow passes
+- [x] 8.2 Performance Benchmarks workflow passes
+- [ ] 8.3 Ada bindings tests pass
+- [ ] 8.4 Java bindings tests pass
+- [ ] 8.5 Documentation build passes
