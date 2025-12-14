@@ -48,11 +48,21 @@ if(ENABLE_FUZZING)
     # Create corpus directory
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/corpus)
 
-    # Create seed corpus with basic inputs
-    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/corpus/seed_small
-        "\x02\x00\x00\x00\x00\x00\x00\x00")
-    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/corpus/seed_medium
-        "\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xf0\x3f")
+    # Create seed corpus with basic inputs using execute_process
+    # Note: Seeds are simple binary data for initializing the fuzzer
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} -E echo "Creating fuzz seed corpus..."
+        OUTPUT_QUIET
+    )
+    # Use printf to create binary seed files (works on Unix systems)
+    execute_process(
+        COMMAND sh -c "printf '\\x02\\x00\\x00\\x00\\x00\\x00\\x00\\x00' > ${CMAKE_CURRENT_BINARY_DIR}/corpus/seed_small"
+        OUTPUT_QUIET ERROR_QUIET
+    )
+    execute_process(
+        COMMAND sh -c "printf '\\x04\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\xf0\\x3f' > ${CMAKE_CURRENT_BINARY_DIR}/corpus/seed_medium"
+        OUTPUT_QUIET ERROR_QUIET
+    )
 
     # Custom target to run fuzzing
     add_custom_target(run_fuzz

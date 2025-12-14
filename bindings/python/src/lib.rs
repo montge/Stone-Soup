@@ -93,7 +93,7 @@ impl StateVector {
 
     /// Convert to numpy array
     fn to_numpy<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
-        self.data.clone().into_pyarray(py)
+        self.data.clone().into_pyarray_bound(py)
     }
 
     /// Get the dimension of the state vector
@@ -230,7 +230,7 @@ impl CovarianceMatrix {
 
     /// Convert to numpy array
     fn to_numpy<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray2<f64>> {
-        self.data.clone().into_pyarray(py)
+        self.data.clone().into_pyarray_bound(py)
     }
 
     /// Convert to 2D list
@@ -632,14 +632,14 @@ fn kalman_update(
     let mut pht = Array2::zeros((state_dim, meas_dim));
     for i in 0..state_dim {
         for j in 0..meas_dim {
-            pht[[i, j]] = (0..state_dim).map(|k| p[[i, k]] * h[[j, k]]).sum();
+            pht[[i, j]] = (0..state_dim).map(|k| p[[i, k]] * h[[j, k]]).sum::<f64>();
         }
     }
 
     let mut k = Array2::zeros((state_dim, meas_dim));
     for i in 0..state_dim {
         for j in 0..meas_dim {
-            k[[i, j]] = (0..meas_dim).map(|l| pht[[i, l]] * s_inv[[l, j]]).sum();
+            k[[i, j]] = (0..meas_dim).map(|l| pht[[i, l]] * s_inv[[l, j]]).sum::<f64>();
         }
     }
 
