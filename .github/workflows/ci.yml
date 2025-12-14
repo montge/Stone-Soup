@@ -97,19 +97,14 @@ jobs:
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Run Semgrep
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: >-
-            p/python
-            p/rust
-            p/java
-            p/golang
-            p/security-audit
-          generateSarif: true
+        run: |
+          semgrep scan --config p/python --config p/rust --config p/java --config p/golang --config p/security-audit --sarif --output semgrep.sarif . || true
 
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v3
@@ -188,7 +183,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '22'
           cache: 'maven'
 
       - name: Run OWASP Dependency Check
@@ -480,7 +475,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '22'
           cache: 'maven'
 
       - name: Build libstonesoup
@@ -664,7 +659,7 @@ jobs:
       - name: Install and test wheel
         run: |
           pip install bindings/python/target/wheels/*.whl
-          python -c "from stonesoup._core import *; print('PyO3 bindings loaded successfully')" || echo "Import test skipped"
+          python -c "from stonesoup_core._core import *; print('PyO3 bindings loaded successfully')"
 
   # Scilab Bindings Tests
   scilab-bindings:

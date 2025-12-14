@@ -28,6 +28,25 @@ package body Test_Numeric_Types is
    Epsilon : constant Long_Float := 1.0e-10;
 
    ---------------------------------------------------------------------------
+   -- Required AUnit Overrides
+   ---------------------------------------------------------------------------
+
+   overriding
+   function Name (T : Numeric_Test_Case) return AUnit.Message_String is
+      pragma Unreferenced (T);
+   begin
+      return AUnit.Format ("Stone Soup Numeric Types Tests");
+   end Name;
+
+   overriding
+   procedure Register_Tests (T : in Out Numeric_Test_Case) is
+      pragma Unreferenced (T);
+   begin
+      -- Tests are registered in Suite function using Test_Caller
+      null;
+   end Register_Tests;
+
+   ---------------------------------------------------------------------------
    -- Undersea Type Tests
    ---------------------------------------------------------------------------
 

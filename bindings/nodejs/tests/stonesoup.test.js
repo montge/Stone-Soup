@@ -117,7 +117,9 @@ describe('Stone Soup Node.js Bindings', () => {
             // Innovation: y = z - H*x
             const y = z[0] - H[0][0] * x_pred[0];
 
-            assert.strictEqual(y, 0.1);
+            // Use tolerance-based comparison due to IEEE 754 floating-point precision
+            const tolerance = 1e-10;
+            assert.ok(Math.abs(y - 0.1) < tolerance, `Expected ~0.1 but got ${y}`);
         });
 
         it('should have helper functions for common models', () => {

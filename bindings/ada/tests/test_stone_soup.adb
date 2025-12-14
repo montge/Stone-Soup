@@ -21,6 +21,25 @@ package body Test_Stone_Soup is
    Epsilon : constant Long_Float := 1.0e-10;
 
    ---------------------------------------------------------------------------
+   -- Required AUnit Overrides
+   ---------------------------------------------------------------------------
+
+   overriding
+   function Name (T : Test_Case) return AUnit.Message_String is
+      pragma Unreferenced (T);
+   begin
+      return AUnit.Format ("Stone Soup Ada Tests");
+   end Name;
+
+   overriding
+   procedure Register_Tests (T : in Out Test_Case) is
+      pragma Unreferenced (T);
+   begin
+      -- Tests are registered in Suite function using Test_Caller
+      null;
+   end Register_Tests;
+
+   ---------------------------------------------------------------------------
    -- State Vector Tests
    ---------------------------------------------------------------------------
 
