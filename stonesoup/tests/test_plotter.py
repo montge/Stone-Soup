@@ -1,3 +1,4 @@
+import sys
 import warnings
 from datetime import datetime, timedelta
 
@@ -141,7 +142,6 @@ def close_figs():
 
 @pytest.fixture(scope="module")
 def plotter_class(request):
-
     plotter_class = request.param
     assert plotter_class in {
         Plotter,
@@ -282,10 +282,10 @@ def test_plot_complex_uncertainty():
         match="Can not plot uncertainty for all states due to complex "
         "eigenvalues or eigenvectors",
     ):
-
         plotter.plot_tracks(track, mapping=[0, 1], uncertainty=True)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Tkinter not reliably available on Windows CI")
 def test_animation_plotter():
     animation_plotter = AnimationPlotter()
     animation_plotter.plot_ground_truths(truth, [0, 2])
