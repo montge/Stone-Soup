@@ -98,7 +98,8 @@ class ConstantTurn(GaussianTransitionModel, TimeVariantModel):
         # Avoid divide by zero in the function evaluation
         if turn_rate.dtype != float:
             turn_rate = turn_rate.astype(float)
-        turn_rate[turn_rate == 0.0] = np.finfo(float).eps
+        # Use isclose for safe floating-point comparison to zero
+        turn_rate[np.isclose(turn_rate, 0.0)] = np.finfo(float).eps
         dAngle = turn_rate * time_interval_sec
         cos_dAngle = np.cos(dAngle)
         sin_dAngle = np.sin(dAngle)

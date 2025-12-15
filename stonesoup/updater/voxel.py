@@ -182,10 +182,7 @@ class VoxelUpdater(Updater):
         )
 
         # Initialize new occupancy (will be updated)
-        if predicted_state.is_sparse:
-            new_occupancy = predicted_state.occupancy.copy()
-        else:
-            new_occupancy = predicted_state.occupancy.copy()
+        new_occupancy = predicted_state.occupancy.copy()
 
         # Handle missed detection case
         if isinstance(measurement, MissedDetection):

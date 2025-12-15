@@ -51,7 +51,6 @@ class Dimension(IntEnum):
 
 
 class _Plotter(ABC):
-
     @abstractmethod
     def plot_ground_truths(self, truths, mapping, label="Ground Truth", **kwargs):
         raise NotImplementedError
@@ -1636,7 +1635,6 @@ class Plotterly(_Plotter):
                 track_colors[track] = self.get_next_color()
 
             if self.dimension == 1:  # plot 1D tracks
-
                 if uncertainty or particle:
                     raise NotImplementedError
 
@@ -1651,7 +1649,6 @@ class Plotterly(_Plotter):
                 )
 
             elif self.dimension == 2:  # plot 2D tracks
-
                 self.fig.add_scatter(
                     x=[
                         float(getattr(state, "mean", state.state_vector)[mapping[0]])
@@ -1666,7 +1663,6 @@ class Plotterly(_Plotter):
                 )
 
             elif self.dimension == 3:  # plot 3D tracks
-
                 if particle:
                     raise NotImplementedError
 
@@ -1676,9 +1672,7 @@ class Plotterly(_Plotter):
                 err_z = np.array([np.nan for _ in range(len(track))], dtype=float)
 
                 if uncertainty:  # find x,y,z error bars for relevant states
-
                     for count, state in enumerate(track):
-
                         if not count % err_freq:  # ie count % err_freq = 0
                             HH = np.eye(track.ndim)[mapping, :]  # Get position mapping matrix
                             cov = HH @ state.covar @ HH.T
@@ -1834,10 +1828,8 @@ class Plotterly(_Plotter):
         sensor_kwargs = merge_dicts(sensor_kwargs, kwargs)
 
         sensor_kwargs["name"] = label
-        if sensor_kwargs["legendgroup"] not in {trace.legendgroup for trace in self.fig.data}:
-            sensor_kwargs["showlegend"] = True
-        else:
-            sensor_kwargs["showlegend"] = True
+        # Always show legend for sensors
+        sensor_kwargs["showlegend"] = True
 
         sensor_xy = np.array([sensor.position[mapping, 0] for sensor in sensors])
         self.fig.add_scatter(x=sensor_xy[:, 0], y=sensor_xy[:, 1], **sensor_kwargs)
@@ -1927,7 +1919,6 @@ class Plotterly(_Plotter):
 
 
 class PolarPlotterly(_Plotter):
-
     def __init__(self, dimension=Dimension.TWO, **kwargs):
         if go is None:
             raise RuntimeError("Usage of Plotterly plotter requires installation of `plotly`")
@@ -2228,7 +2219,6 @@ class _AnimationPlotterDataClass(Base):
 
 
 class AnimationPlotter(_Plotter):
-
     def __init__(
         self,
         dimension=Dimension.TWO,
@@ -2238,7 +2228,6 @@ class AnimationPlotter(_Plotter):
         legend_kwargs: dict | None = None,
         **kwargs,
     ):
-
         self.figure_kwargs = {"figsize": (10, 6)}
         self.figure_kwargs.update(kwargs)
         if dimension != Dimension.TWO:
@@ -2707,7 +2696,6 @@ class AnimationPlotter(_Plotter):
             title = ""
         plt.title(title + str(max_time))
         for i, data_source in enumerate(data_list):
-
             if data_source is not None:
                 the_data = np.array(
                     [
@@ -2943,13 +2931,11 @@ class AnimatedPlotterly(_Plotter):
 
         # fill in data
         if type == "measurements":
-
             for key, _item in data.items():
                 all_x.extend(data[key]["x"])
                 all_y.extend(data[key]["y"])
 
         elif type in ("ground_truth", "tracks"):
-
             for n, _ in enumerate(data):
                 all_x.extend(data[n]["x"])
                 all_y.extend(data[n]["y"])
@@ -2987,13 +2973,11 @@ class AnimatedPlotterly(_Plotter):
         # and not the default values. Issues arise if the initial plotted data is much
         # smaller than the default 0 to 10 values.
         if not self.plotting_function_called:
-
             self.fig.update_xaxes(range=[xmin, xmax])
             self.fig.update_yaxes(range=[ymin, ymax])
 
         # need to check if it's actually necessary to resize or not
         if xmax >= self.fig.layout.xaxis.range[1] or xmin <= self.fig.layout.xaxis.range[0]:
-
             xmax = max(xmax, self.fig.layout.xaxis.range[1])
             xmin = min(xmin, self.fig.layout.xaxis.range[0])
             xrange = xmax - xmin
@@ -3002,7 +2986,6 @@ class AnimatedPlotterly(_Plotter):
             self.fig.update_xaxes(range=[xmin - xrange / 20, xmax + xrange / 20])
 
         if ymax >= self.fig.layout.yaxis.range[1] or ymin <= self.fig.layout.yaxis.range[0]:
-
             ymax = max(ymax, self.fig.layout.yaxis.range[1])
             ymin = min(ymin, self.fig.layout.yaxis.range[0])
             yrange = ymax - ymin
@@ -3046,7 +3029,6 @@ class AnimatedPlotterly(_Plotter):
 
         data = [{} for _ in truths]  # put all data into one place for later plotting
         for n, truth in enumerate(truths):
-
             # initialise arrays that go inside the dictionary
             data[n].update(
                 x=np.zeros(len(truth)),
@@ -3096,7 +3078,6 @@ class AnimatedPlotterly(_Plotter):
             self.fig.add_trace(go.Scatter(truth_kwargs))  # add to traces
 
         for frame in self.fig.frames:
-
             # get current fig data and traces
             data_ = list(frame.data)
             traces_ = list(frame.traces)
@@ -3293,7 +3274,6 @@ class AnimatedPlotterly(_Plotter):
 
         # add data to frames
         for frame in self.fig.frames:
-
             data_ = list(frame.data)
             traces_ = list(frame.traces)
 
@@ -3404,7 +3384,6 @@ class AnimatedPlotterly(_Plotter):
         data = [{} for _ in tracks]
 
         for n, track in enumerate(tracks):  # sum up means - accounts for particle filter
-
             xydata = np.concatenate(
                 [(getattr(state, "mean", state.state_vector)[mapping, :]) for state in track],
                 axis=1,
@@ -3466,7 +3445,6 @@ class AnimatedPlotterly(_Plotter):
             traces_.append(trace_base)  # ensure data is added to correct trace
 
             for n, track in enumerate(tracks):
-
                 # all track points that come at or before the frame time
                 t_upper = [data[n]["time"] <= frame_time]
                 # only select detections that come after the time cut-off
@@ -3543,7 +3521,6 @@ class AnimatedPlotterly(_Plotter):
             self._plot_particles_and_ellipses(tracks, mapping, resize, method="uncertainty")
 
         if particle:  # plot particles
-
             # initialise traces. One for legend and one per track
             name = f"{label}<br>Particles"
             particle_kwargs = {
@@ -3563,7 +3540,6 @@ class AnimatedPlotterly(_Plotter):
             particle_kwargs.update({"showlegend": False})
 
             for k, track in enumerate(tracks):  # trace for each track
-
                 particle_kwargs.update(
                     {"marker": {"size": 2, "color": self.colorway[(k + 2) % len(self.colorway)]}}
                 )
@@ -3594,7 +3570,6 @@ class AnimatedPlotterly(_Plotter):
         data = [{} for _ in tracks]
         trace_base = len(self.fig.data)
         for n, track in enumerate(tracks):
-
             # initialise arrays that store particle/ellipse for later plotting
             data[n].update(
                 x=np.array([0 for _ in range(len(track))], dtype=object),
@@ -3602,10 +3577,8 @@ class AnimatedPlotterly(_Plotter):
             )
 
             for k, state in enumerate(track):
-
                 # find data points
                 if method == "uncertainty":
-
                     data_x, data_y = Plotterly._generate_ellipse_points(state, mapping)
                     data_x = list(data_x)
                     data_y = list(data_y)
@@ -3615,7 +3588,6 @@ class AnimatedPlotterly(_Plotter):
                     data[n]["y"][k] = data_y
 
                 elif method == "particles":
-
                     data_xy = state.state_vector[mapping[:2], :]
                     data[n]["x"][k] = data_xy[0]
                     data[n]["y"][k] = data_xy[1]
@@ -3624,7 +3596,6 @@ class AnimatedPlotterly(_Plotter):
                     raise ValueError("Should be 'uncertainty' or 'particles'")
 
         for frame in self.fig.frames:
-
             frame_time = datetime.fromisoformat(frame.name)
 
             data_ = list(frame.data)  # current data in frame

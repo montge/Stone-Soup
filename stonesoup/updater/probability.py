@@ -179,10 +179,8 @@ class PDAUpdater(ExtendedKalmanUpdater):
                 hypothesis.measurement_prediction = self.predict_measurement(
                     hypothesis.prediction, **kwargs
                 )
-                innovation = (
-                    hypothesis.measurement_prediction.state_vector
-                    - hypothesis.measurement_prediction.state_vector
-                )  # is zero in this case
+                # Innovation is zero for missed detection (no measurement to compare)
+                innovation = np.zeros_like(hypothesis.measurement_prediction.state_vector)
                 posterior_covariance, kalman_gain = self._posterior_covariance(hypothesis)
                 # Add the weighted prediction to the weighted posterior
                 posterior_covariance = (

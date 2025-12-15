@@ -67,6 +67,7 @@ bindings/go/bin/
 # Ada
 bindings/ada/obj/
 bindings/ada/lib/
+*.ali
 
 # Security scan reports
 bandit-report.json
