@@ -95,18 +95,19 @@ public final class NativeBindings {
                     ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
                     ValueLayout.ADDRESS, ValueLayout.ADDRESS);
 
-    // Method handles (lazy initialized)
-    private static volatile MethodHandle stateVectorCreate;
-    private static volatile MethodHandle stateVectorFree;
-    private static volatile MethodHandle stateVectorCopy;
-    private static volatile MethodHandle stateVectorFill;
-    private static volatile MethodHandle covarianceMatrixCreate;
-    private static volatile MethodHandle covarianceMatrixFree;
-    private static volatile MethodHandle covarianceMatrixEye;
-    private static volatile MethodHandle gaussianStateCreate;
-    private static volatile MethodHandle gaussianStateFree;
-    private static volatile MethodHandle kalmanPredict;
-    private static volatile MethodHandle kalmanUpdate;
+    // Method handles (lazy initialized with synchronization for thread safety)
+    private static MethodHandle stateVectorCreate;
+    private static MethodHandle stateVectorFree;
+    private static MethodHandle stateVectorCopy;
+    private static MethodHandle stateVectorFill;
+    private static MethodHandle covarianceMatrixCreate;
+    private static MethodHandle covarianceMatrixFree;
+    private static MethodHandle covarianceMatrixEye;
+    private static MethodHandle gaussianStateCreate;
+    private static MethodHandle gaussianStateFree;
+    private static MethodHandle kalmanPredict;
+    private static MethodHandle kalmanUpdate;
+    private static final Object LOCK = new Object();
 
     private NativeBindings() {
         throw new AssertionError("Cannot instantiate utility class");
@@ -253,49 +254,61 @@ public final class NativeBindings {
     }
 
     private static MethodHandle getStateVectorCreate() throws StoneSoupException {
-        if (stateVectorCreate == null) {
-            stateVectorCreate = lookupFunction("stonesoup_state_vector_create",
-                    STATE_VECTOR_CREATE_DESC);
+        synchronized (LOCK) {
+            if (stateVectorCreate == null) {
+                stateVectorCreate = lookupFunction("stonesoup_state_vector_create",
+                        STATE_VECTOR_CREATE_DESC);
+            }
+            return stateVectorCreate;
         }
-        return stateVectorCreate;
     }
 
     private static MethodHandle getStateVectorFree() throws StoneSoupException {
-        if (stateVectorFree == null) {
-            stateVectorFree = lookupFunction("stonesoup_state_vector_free",
-                    STATE_VECTOR_FREE_DESC);
+        synchronized (LOCK) {
+            if (stateVectorFree == null) {
+                stateVectorFree = lookupFunction("stonesoup_state_vector_free",
+                        STATE_VECTOR_FREE_DESC);
+            }
+            return stateVectorFree;
         }
-        return stateVectorFree;
     }
 
     private static MethodHandle getCovarianceMatrixCreate() throws StoneSoupException {
-        if (covarianceMatrixCreate == null) {
-            covarianceMatrixCreate = lookupFunction("stonesoup_covariance_matrix_create",
-                    FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG));
+        synchronized (LOCK) {
+            if (covarianceMatrixCreate == null) {
+                covarianceMatrixCreate = lookupFunction("stonesoup_covariance_matrix_create",
+                        FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG));
+            }
+            return covarianceMatrixCreate;
         }
-        return covarianceMatrixCreate;
     }
 
     private static MethodHandle getGaussianStateCreate() throws StoneSoupException {
-        if (gaussianStateCreate == null) {
-            gaussianStateCreate = lookupFunction("stonesoup_gaussian_state_create",
-                    FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+        synchronized (LOCK) {
+            if (gaussianStateCreate == null) {
+                gaussianStateCreate = lookupFunction("stonesoup_gaussian_state_create",
+                        FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+            }
+            return gaussianStateCreate;
         }
-        return gaussianStateCreate;
     }
 
     private static MethodHandle getKalmanPredict() throws StoneSoupException {
-        if (kalmanPredict == null) {
-            kalmanPredict = lookupFunction("stonesoup_kalman_predict", KALMAN_PREDICT_DESC);
+        synchronized (LOCK) {
+            if (kalmanPredict == null) {
+                kalmanPredict = lookupFunction("stonesoup_kalman_predict", KALMAN_PREDICT_DESC);
+            }
+            return kalmanPredict;
         }
-        return kalmanPredict;
     }
 
     private static MethodHandle getKalmanUpdate() throws StoneSoupException {
-        if (kalmanUpdate == null) {
-            kalmanUpdate = lookupFunction("stonesoup_kalman_update", KALMAN_UPDATE_DESC);
+        synchronized (LOCK) {
+            if (kalmanUpdate == null) {
+                kalmanUpdate = lookupFunction("stonesoup_kalman_update", KALMAN_UPDATE_DESC);
+            }
+            return kalmanUpdate;
         }
-        return kalmanUpdate;
     }
 
     private static MethodHandle lookupFunction(String name, FunctionDescriptor descriptor)

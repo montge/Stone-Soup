@@ -344,7 +344,8 @@ jobs:
           cd libstonesoup
           mkdir -p build && cd build
           cmake .. -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_C_FLAGS="--coverage -fprofile-arcs -ftest-coverage"
+            -DCMAKE_C_FLAGS="--coverage -fprofile-arcs -ftest-coverage" \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
           make -j$(nproc)
 
       - name: Run tests
@@ -371,13 +372,14 @@ jobs:
           # Move all .gcov files to gcov_reports
           find . -name '*.gcov' -exec mv {} gcov_reports/ \; 2>/dev/null || true
 
-      - name: Upload C coverage
+      - name: Upload C coverage and compilation database
         uses: actions/upload-artifact@v4
         with:
           name: c-coverage
           path: |
             libstonesoup/build/coverage.info
             libstonesoup/build/gcov_reports/
+            libstonesoup/build/compile_commands.json
 
   # MISRA C:2012 Compliance Check
   misra:
@@ -845,6 +847,10 @@ jobs:
           # Copy gcov reports for SonarCloud
           if [ -d c-coverage/gcov_reports ]; then
             cp -r c-coverage/gcov_reports/* libstonesoup/build/gcov_reports/ 2>/dev/null || true
+          fi
+          # Copy compile_commands.json for C analysis
+          if [ -f c-coverage/compile_commands.json ]; then
+            cp c-coverage/compile_commands.json libstonesoup/build/compile_commands.json
           fi
           # Rust coverage
           if [ -f rust-coverage/lcov.info ]; then
