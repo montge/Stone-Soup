@@ -25,9 +25,7 @@ class AssociationPair(Association):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if len(self.objects) != 2:
-            raise ValueError(
-                "Only two objects can be associated in one " "AssociationPair object."
-            )
+            raise ValueError("Only two objects can be associated in one AssociationPair object.")
 
 
 class SingleTimeAssociation(Association):

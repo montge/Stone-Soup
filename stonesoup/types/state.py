@@ -343,7 +343,7 @@ class StateMutableSequence(Type, MutableSequence):
                         continue
                 except TypeError as exc:
                     raise TypeError(
-                        "both indices must be `datetime.datetime` objects for" "time slice"
+                        "both indices must be `datetime.datetime` objects for time slice"
                     ) from exc
                 items.append(state)
             return StateMutableSequence(items[:: index.step])
@@ -454,7 +454,7 @@ class SqrtGaussianState(State):
     """
 
     sqrt_covar: CovarianceMatrix = Property(
-        doc="A square root form of the Gaussian covariance " "matrix."
+        doc="A square root form of the Gaussian covariance matrix."
     )
 
     def __init__(self, state_vector, sqrt_covar, *args, **kwargs):
@@ -740,7 +740,7 @@ class ParticleState(State):
                 self.parent = ParticleState(None, particle_list=parent_list)
             elif 0 < parent_list.count(None) < len(parent_list):
                 raise ValueError(
-                    "Either all particles should have" " parents or none of them should."
+                    "Either all particles should have parents or none of them should."
                 )
 
         if self.parent and self.parent.parent:  # Create weakref to avoid using significant memory
@@ -789,7 +789,6 @@ class ParticleState(State):
     def from_state(
         cls, state: "State", *args: Any, target_type: Type | None = None, **kwargs: Any
     ) -> "State":
-
         # Handle default presence of both particle_list and weight once class has been created by
         # ignoring particle_list and weight (setting to None) if not provided.
         particle_list, particle_list_idx = next(
@@ -927,7 +926,6 @@ class MultiModelParticleState(ParticleState):
 
 
 class RaoBlackwellisedParticleState(ParticleState):
-
     model_probabilities: np.ndarray = Property(
         default=None,
         doc="2d NumPy array containing probability of particle belong to particular model. "
@@ -1039,7 +1037,7 @@ class KernelParticleState(State):
     weight: np.ndarray = Property(default=None, doc="Weights of particles. Defaults to [1/N]*N.")
     kernel_covar: CovarianceMatrix = Property(
         default=None,
-        doc="Kernel covariance value. Default `None`." "If None, the identity matrix is used.",
+        doc="Kernel covariance value. Default `None`. If None, the identity matrix is used.",
     )
 
     def __init__(self, *args, **kwargs):
@@ -1086,7 +1084,7 @@ class EnsembleState(State):
     """
 
     state_vector: StateVectors = Property(
-        doc="An ensemble of state vectors which represent the " "state"
+        doc="An ensemble of state vectors which represent the state"
     )
     timestamp: datetime.datetime = Property(
         default=None, doc="Timestamp of the state. Default None."
@@ -1231,7 +1229,6 @@ class CompositeState(Type):
     )
 
     def __init__(self, *args, **kwargs):
-
         super().__init__(*args, **kwargs)
 
         if len(self.sub_states) == 0:
@@ -1262,7 +1259,7 @@ class CompositeState(Type):
             and not sub_timestamps == {self.default_timestamp}
         ):
             raise ValueError(
-                "Sub-state timestamps and default timestamp must be the same if " "defined"
+                "Sub-state timestamps and default timestamp must be the same if defined"
             )
 
         if sub_timestamps:
@@ -1281,7 +1278,6 @@ class CompositeState(Type):
         return StateVector(np.concatenate(self.state_vectors))
 
     def __contains__(self, item):
-
         return self.sub_states.__contains__(item)
 
     def __getitem__(self, index):

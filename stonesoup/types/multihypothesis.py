@@ -22,7 +22,7 @@ class MultipleHypothesis(Type, Sequence):
     )
     normalise: bool = Property(
         default=False,
-        doc="Normalise probabilities of :class:`~.SingleHypothesis`. Default " "is `False`.",
+        doc="Normalise probabilities of :class:`~.SingleHypothesis`. Default is `False`.",
     )
     total_weight: float = Property(
         default=1, doc="When normalising, weights will sum to this. Default is 1."
@@ -34,9 +34,7 @@ class MultipleHypothesis(Type, Sequence):
         if any(
             not isinstance(hypothesis, SingleHypothesis) for hypothesis in self.single_hypotheses
         ):
-            raise ValueError(
-                "Cannot form MultipleHypothesis out of " "non-SingleHypothesis inputs!"
-            )
+            raise ValueError("Cannot form MultipleHypothesis out of non-SingleHypothesis inputs!")
 
         # normalise the weights of 'single_hypotheses', if indicated
         if self.normalise:
@@ -65,7 +63,6 @@ class MultipleHypothesis(Type, Sequence):
         yield from self.single_hypotheses
 
     def __getitem__(self, index):
-
         # retrieve SingleHypothesis by array index
         if isinstance(index, int):
             return self.single_hypotheses[index]
@@ -91,7 +88,7 @@ class MultipleHypothesis(Type, Sequence):
         # verify that SingleHypotheses composing this MultipleHypothesis
         # all have Probabilities
         if any(not hasattr(hypothesis, "probability") for hypothesis in self.single_hypotheses):
-            raise ValueError("MultipleHypothesis not composed of Probability" " hypotheses!")
+            raise ValueError("MultipleHypothesis not composed of Probability hypotheses!")
 
         sum_weights = Probability.sum(
             hypothesis.probability for hypothesis in self.single_hypotheses
@@ -137,7 +134,7 @@ class MultipleCompositeHypothesis(Type, Sequence):
             isinstance(hypothesis, CompositeHypothesis) for hypothesis in self.single_hypotheses
         ):
             raise ValueError(
-                "Cannot form MultipleHypothesis out of " "non-CompositeHypothesis inputs!"
+                "Cannot form MultipleHypothesis out of non-CompositeHypothesis inputs!"
             )
 
         # normalise the weights of 'single_hypotheses', if indicated
@@ -155,7 +152,6 @@ class MultipleCompositeHypothesis(Type, Sequence):
             return any(index is single_hypothesis for single_hypothesis in self.single_hypotheses)
 
     def __getitem__(self, index):
-
         return self.single_hypotheses.__getitem__(index)
 
     def __iter__(self):

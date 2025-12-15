@@ -137,9 +137,9 @@ class SinglePointMeasurementInitiator(SinglePointInitiator):
                 elif self.skip_non_reversible:
                     continue
                 else:
-                    raise Exception(
-                        "Invalid measurement model used.\
-                                    Must be instance of linear or reversible."
+                    raise ValueError(
+                        "Invalid measurement model used. "
+                        "Must be instance of linear or reversible."
                     )
 
             prior = copy.copy(self.prior_state)
@@ -223,9 +223,9 @@ class SimpleMeasurementInitiator(GaussianInitiator):
                 elif self.skip_non_reversible:
                     continue
                 else:
-                    raise Exception(
-                        "Invalid measurement model used.\
-                                    Must be instance of linear or reversible."
+                    raise ValueError(
+                        "Invalid measurement model used. "
+                        "Must be instance of linear or reversible."
                     )
 
             model_covar = measurement_model.covar()
@@ -387,7 +387,6 @@ class GaussianParticleInitiator(ParticleInitiator):
     )
 
     def __init__(self, *args, **kwargs):
-
         super().__init__(*args, **kwargs)
 
         # Create prior particle state
@@ -456,7 +455,6 @@ class GaussianMixtureInitiator(GaussianInitiator):
     )
 
     def __init__(self, *args, **kwargs):
-
         super().__init__(*args, **kwargs)
 
         # Create prior particle state
@@ -527,7 +525,6 @@ class ASDGaussianInitiator(GaussianInitiator):
     )
 
     def __init__(self, *args, **kwargs):
-
         super().__init__(*args, **kwargs)
 
         # Create prior particle state
@@ -591,7 +588,6 @@ class EnsembleInitiator(GaussianInitiator):
     )
 
     def __init__(self, *args, **kwargs):
-
         super().__init__(*args, **kwargs)
 
         # Create prior particle state

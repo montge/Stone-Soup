@@ -30,7 +30,7 @@ class GroundTruthPath(StateMutableSequence):
     )
     id: str = Property(
         default_factory=lambda: str(uuid.uuid4()),
-        doc="The unique path ID. Default `None` where random UUID is " "generated.",
+        doc="The unique path ID. Default `None` where random UUID is generated.",
     )
 
 

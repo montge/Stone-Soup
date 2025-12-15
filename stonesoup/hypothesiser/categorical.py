@@ -24,7 +24,7 @@ class HMMHypothesiser(Hypothesiser):
     )
     prob_gate: Probability = Property(
         default=Probability(0.95),
-        doc="Gate Probability - prob. gate contains true " "measurement if detected",
+        doc="Gate Probability - prob. gate contains true measurement if detected",
     )
 
     def hypothesise(self, track, detections, timestamp, **kwargs):

@@ -34,7 +34,7 @@ class GaussianMixture(Type, MutableSequence):
             for component in self.components
         ):
             raise ValueError(
-                "Cannot form GaussianMixtureState out of " "non-WeightedGaussianState inputs!"
+                "Cannot form GaussianMixtureState out of non-WeightedGaussianState inputs!"
             )
         if len({component.timestamp for component in self.components}) > 1:
             warnings.warn("All components should have the same timestamp", stacklevel=2)
@@ -54,7 +54,7 @@ class GaussianMixture(Type, MutableSequence):
     def __setitem__(self, index, value):
         if not isinstance(value, (WeightedGaussianState, TaggedWeightedGaussianState)):
             raise ValueError(
-                "Cannot form GaussianMixtureState out of " "non-WeightedGaussianState inputs!"
+                "Cannot form GaussianMixtureState out of non-WeightedGaussianState inputs!"
             )
         return self.components.__setitem__(index, value)
 
@@ -74,7 +74,7 @@ class GaussianMixture(Type, MutableSequence):
     def insert(self, index, value):
         if not isinstance(value, (WeightedGaussianState, TaggedWeightedGaussianState)):
             raise ValueError(
-                "Cannot form GaussianMixtureState out of " "non-WeightedGaussianState inputs!"
+                "Cannot form GaussianMixtureState out of non-WeightedGaussianState inputs!"
             )
         return self.components.insert(index, value)
 
@@ -125,7 +125,7 @@ class GaussianMixture(Type, MutableSequence):
             for component in self.components:
                 component_tags.add(component.tag)
         else:
-            raise ValueError("All components must be " "TaggedWeightedGaussianState!")
+            raise ValueError("All components must be TaggedWeightedGaussianState!")
         return component_tags
 
 

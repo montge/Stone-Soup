@@ -238,7 +238,6 @@ class Intervals(Type):
         return sorted(new_intervals, key=operator.attrgetter("left"))
 
     def __contains__(self, item):
-
         if not isinstance(item, (Real, Interval, Intervals)):
             return False
 
@@ -354,7 +353,7 @@ class Intervals(Type):
         return all(any(interval <= other_int for other_int in other) for interval in self)
 
     def __lt__(self, other):
-        """ "Proper subset check"""
+        """Proper subset check"""
 
         if not isinstance(other, (Interval, Intervals)):
             raise ValueError("Can only compare Intervals to Intervals")
