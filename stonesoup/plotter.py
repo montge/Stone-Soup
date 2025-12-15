@@ -380,6 +380,10 @@ class Plotter(_Plotter):
             name = label + "\n(Clutter)"
             self.legend_dict[name] = clutter_handle
 
+        # Warn if nothing was plotted (emit consistent warning regardless of matplotlib version)
+        if not plot_detections and not plot_clutter:
+            warnings.warn("No artists with labels found to put in legend", UserWarning)
+
         # Generate legend
         artists.append(
             self.ax.legend(handles=self.legend_dict.values(), labels=self.legend_dict.keys())
