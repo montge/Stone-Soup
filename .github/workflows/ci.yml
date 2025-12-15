@@ -866,7 +866,6 @@ jobs:
           args: >
             -Dsonar.projectKey=montge_Stone-Soup
             -Dsonar.organization=montge
-            -Dsonar.verbose=true
 
   # All checks passed
   all-checks:
