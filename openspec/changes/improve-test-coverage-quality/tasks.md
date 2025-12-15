@@ -3,7 +3,7 @@
 ## 1. Security Fixes
 - [x] 1.1 Add `# nosec B311` comments to Python PRNG usage (generator.py)
 - [x] 1.2 Add `// NOSONAR` comments to C PRNG usage (particle.c)
-- [ ] 1.3 Review and address any remaining security hotspots in SonarCloud
+- [x] 1.3 Review and address any remaining security hotspots (pickle.loads in tests)
 
 ## 2. Test Coverage - High Priority Modules (test:source ratio < 40%)
 - [x] 2.1 Add tests for `functions/coordinates.py` (2536 lines, NEW: 444 lines tests)

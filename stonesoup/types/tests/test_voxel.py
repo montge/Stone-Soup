@@ -595,7 +595,7 @@ def test_voxelgrid_pickle():
     """Test VoxelGrid can be pickled."""
     grid = VoxelGrid(bounds=np.array([0, 10, 0, 10, 0, 10]), resolution=1.0, max_depth=3)
     pickled = pickle.dumps(grid)
-    unpickled = pickle.loads(pickled)
+    unpickled = pickle.loads(pickled)  # nosec B301 - testing our own serialization
 
     assert np.array_equal(unpickled.bounds, grid.bounds)
     assert unpickled.resolution == grid.resolution
@@ -606,7 +606,7 @@ def test_octreenode_pickle():
     """Test OctreeNode can be pickled."""
     node = OctreeNode(bounds=np.array([0, 10, 0, 10, 0, 10]), depth=0, data=0.5)
     pickled = pickle.dumps(node)
-    unpickled = pickle.loads(pickled)
+    unpickled = pickle.loads(pickled)  # nosec B301 - testing our own serialization
 
     assert np.array_equal(unpickled.bounds, node.bounds)
     assert unpickled.depth == node.depth
@@ -621,7 +621,7 @@ def test_voxelstate_pickle():
 
     state = VoxelState(grid=grid, occupancy=occupancy, timestamp=timestamp)
     pickled = pickle.dumps(state)
-    unpickled = pickle.loads(pickled)
+    unpickled = pickle.loads(pickled)  # nosec B301 - testing our own serialization
 
     assert unpickled.occupancy == occupancy
     assert unpickled.timestamp == timestamp

@@ -34,7 +34,6 @@ def test_measure_raise_error():
 
 
 def test_euclidean():
-
     measure = measures.Euclidean()
     assert measure(state_u, state_v) == distance.euclidean(u[:, 0], v[:, 0])
 
@@ -257,7 +256,7 @@ def test_mahalanobis_pickle(measure, result):
     if measure.state_covar_inv_cache_size > 0:
         assert measure._inv_cov.cache_info().currsize == 1
 
-    measure = pickle.loads(pickle.dumps(measure))
+    measure = pickle.loads(pickle.dumps(measure))  # nosec B301 - testing our own serialization
     assert measure(state_u, state_v) == pytest.approx(result)
     if measure.state_covar_inv_cache_size > 0:
         assert measure._inv_cov.cache_info().hits == 0  # Cache not pickled currently
@@ -265,7 +264,6 @@ def test_mahalanobis_pickle(measure, result):
 
 
 def test_kld():
-
     measure = measures.KLDivergence()
 
     part_state_a = ParticleState(
@@ -324,7 +322,6 @@ def test_kld():
 
 
 def test_gaussian_kld_no_mapping():
-
     x1 = StateVector([[10.0], [1.0], [10.0], [1.0]])
     cov1 = CovarianceMatrix(np.diag([100.0, 10.0, 100.0, 10.0]))
 
@@ -370,7 +367,6 @@ def test_gaussian_kld_no_mapping():
 
 
 def test_gaussian_kld_partial_mapping():
-
     x1 = StateVector([[10.0], [1.0], [10.0], [1.0]])
     cov1 = CovarianceMatrix(np.diag([100.0, 10.0, 100.0, 10.0]))
 
@@ -423,7 +419,6 @@ def test_gaussian_kld_partial_mapping():
 
 
 def test_gaussian_kld_different_mappings():
-
     x1 = StateVector([[10.0], [1.0], [10.0], [1.0]])
     cov1 = CovarianceMatrix(np.diag([100.0, 10.0, 100.0, 10.0]))
 
@@ -479,7 +474,6 @@ def test_gaussian_kld_different_mappings():
 
 
 def test_gaussian_kld_raise_errors():
-
     x1 = StateVector([[10.0], [1.0], [10.0], [1.0], [10.0], [1.0]])
     cov1 = CovarianceMatrix(np.diag([100.0, 10.0, 100.0, 10.0, 20.0, 40.0]))
 
