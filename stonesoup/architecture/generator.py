@@ -119,13 +119,11 @@ class InformationArchitectureGenerator(Base):
         return arch
 
     def _assign_nodes(self, node_labels):
-
         nodes = {}
         for architecture in range(self.n_archs):
             nodes[architecture] = {}
 
         for label in node_labels:
-
             if label.startswith("f"):
                 for architecture in range(self.n_archs):
                     t = copy.deepcopy(self.base_tracker)
@@ -137,10 +135,10 @@ class InformationArchitectureGenerator(Base):
                     nodes[architecture][label] = node
 
             elif label.startswith("sf"):
-
+                # nosec B311 - PRNG used for sensor position simulation, not cryptography
                 pos = np.array(
                     [
-                        [p + random.uniform(-d, d)]
+                        [p + random.uniform(-d, d)]  # nosec B311
                         for p, d in zip(
                             self.base_sensor.position, self.sensor_max_distance, strict=False
                         )
@@ -162,9 +160,10 @@ class InformationArchitectureGenerator(Base):
                     nodes[architecture][label] = node
 
             elif label.startswith("s"):
+                # nosec B311 - PRNG used for sensor position simulation, not cryptography
                 pos = np.array(
                     [
-                        [p + random.uniform(-d, d)]
+                        [p + random.uniform(-d, d)]  # nosec B311
                         for p, d in zip(
                             self.base_sensor.position, self.sensor_max_distance, strict=False
                         )
@@ -185,7 +184,6 @@ class InformationArchitectureGenerator(Base):
         return nodes
 
     def _generate_edgelist(self):
-
         edges = []
 
         nodes = (
@@ -210,10 +208,10 @@ class InformationArchitectureGenerator(Base):
                     else:
                         if node.startswith("s") and not node.startswith("sf"):
                             source = node
-                            target = nodes[random.randint(0, n - 1)]
+                            target = nodes[random.randint(0, n - 1)]  # nosec B311
                         else:
                             source = node
-                            target = nodes[random.randint(0, i - 1)]
+                            target = nodes[random.randint(0, i - 1)]  # nosec B311
 
                     # Create edge
                     edge = (source, target)
@@ -228,15 +226,16 @@ class InformationArchitectureGenerator(Base):
                     valid = True
 
         else:
-
             while not valid:
-
                 for i in range(1, self.n_edges + 1):
                     source = target = -1
                     if i < self.n_nodes:
                         source = nodes[i]
+                        # nosec B311 - PRNG used for graph topology simulation, not cryptography
                         target = nodes[
-                            random.randint(0, min(i - 1, len(nodes) - self.n_sensor_nodes - 1))
+                            random.randint(  # nosec B311
+                                0, min(i - 1, len(nodes) - self.n_sensor_nodes - 1)
+                            )
                         ]
 
                     else:
@@ -245,8 +244,13 @@ class InformationArchitectureGenerator(Base):
                             or (source, target) in edges
                             or (target, source) in edges
                         ):
-                            source = nodes[random.randint(0, len(nodes) - 1)]
-                            target = nodes[random.randint(0, len(nodes) - self.n_sensor_nodes - 1)]
+                            # nosec B311 - PRNG used for graph topology simulation, not cryptography
+                            source = nodes[random.randint(0, len(nodes) - 1)]  # nosec B311
+                            target = nodes[
+                                random.randint(
+                                    0, len(nodes) - self.n_sensor_nodes - 1
+                                )  # nosec B311
+                            ]
 
                     edges.append((source, target))
 
@@ -301,10 +305,11 @@ class NetworkArchitectureGenerator(InformationArchitectureGenerator):
         i = 0
         for e in edgelist:
             # Choose number of routes between two information architecture nodes
+            # nosec B311 - PRNG used for network simulation, not cryptography
             n = (
                 self.n_routes[0]
                 if len(self.n_routes) == 1
-                else random.randint(self.n_routes[0], self.n_routes[1])
+                else random.randint(self.n_routes[0], self.n_routes[1])  # nosec B311
             )
 
             for _route in range(n):

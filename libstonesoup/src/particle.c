@@ -266,6 +266,7 @@ stonesoup_error_t stonesoup_particle_systematic_resample(
     }
 
     // Generate single random starting point u ~ U(0, 1/N)
+    // NOSONAR: PRNG used for particle filter resampling simulation, not cryptography
     double u = ((double)rand() / RAND_MAX) / N;
 
     // Select particle indices using systematic resampling
@@ -367,6 +368,7 @@ stonesoup_error_t stonesoup_particle_stratified_resample(
     size_t j = 0;
     for (size_t i = 0; i < N; i++) {
         // Generate random point in stratum [i/N, (i+1)/N]
+        // NOSONAR: PRNG used for particle filter resampling simulation, not cryptography
         double u_i = ((double)i + (double)rand() / RAND_MAX) / N;
 
         // Find particle index for this position
@@ -462,6 +464,7 @@ stonesoup_error_t stonesoup_particle_multinomial_resample(
     // Generate N random numbers and select particle indices
     for (size_t i = 0; i < N; i++) {
         // Generate random number u ~ U(0, 1)
+        // NOSONAR: PRNG used for particle filter resampling simulation, not cryptography
         double u = (double)rand() / RAND_MAX;
 
         // Find particle index using cumulative distribution
