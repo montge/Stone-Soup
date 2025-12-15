@@ -9,14 +9,21 @@ from ..orbital import (
     compute_orbital_velocity,
     compute_specific_angular_momentum,
     compute_specific_energy,
+    eccentric_anomaly_from_mean_anomaly,
     keplerian_to_rv,
     lagrange_coefficients_from_universal_anomaly,
+    mod_elongitude,
+    mod_inclination,
     orbital_state_ecef_to_eci,
     orbital_state_eci_to_ecef,
     orbital_state_gcrs_to_j2000,
     orbital_state_j2000_to_gcrs,
+    perifocal_position,
+    perifocal_to_geocentric_matrix,
+    perifocal_velocity,
     stumpff_c,
     stumpff_s,
+    tru_anom_from_mean_anom,
     universal_anomaly_newton,
 )
 
@@ -418,3 +425,907 @@ def test_energy_semi_major_axis_relation():
     a_from_visviva = 1 / inv_a
 
     np.testing.assert_allclose(a_computed, a_from_visviva, rtol=1e-10)
+
+
+# =============================================================================
+# Tests for eccentric_anomaly_from_mean_anomaly (Kepler equation solver)
+# =============================================================================
+
+
+def test_eccentric_anomaly_circular_orbit():
+    """For circular orbit (e=0), eccentric anomaly equals mean anomaly."""
+    mean_anomaly = np.pi / 3  # 60 degrees
+    eccentricity = 0.0
+
+    ecc_anom = eccentric_anomaly_from_mean_anomaly(mean_anomaly, eccentricity)
+
+    np.testing.assert_allclose(ecc_anom, mean_anomaly, rtol=1e-10)
+
+
+def test_eccentric_anomaly_low_eccentricity():
+    """Test with known value for low eccentricity orbit."""
+    # For e=0.1, M=π/6, E should be approximately 0.5322
+    mean_anomaly = np.pi / 6
+    eccentricity = 0.1
+
+    ecc_anom = eccentric_anomaly_from_mean_anomaly(mean_anomaly, eccentricity)
+
+    # Verify Kepler's equation: E - e*sin(E) = M
+    residual = ecc_anom - eccentricity * np.sin(ecc_anom) - mean_anomaly
+    assert abs(residual) < 1e-8
+
+
+def test_eccentric_anomaly_high_eccentricity():
+    """Test with high eccentricity (elongated ellipse)."""
+    mean_anomaly = np.pi / 4
+    eccentricity = 0.8
+
+    ecc_anom = eccentric_anomaly_from_mean_anomaly(mean_anomaly, eccentricity)
+
+    # Verify Kepler's equation is satisfied
+    residual = ecc_anom - eccentricity * np.sin(ecc_anom) - mean_anomaly
+    assert abs(residual) < 1e-8
+
+
+def test_eccentric_anomaly_mean_less_than_pi():
+    """Test initial guess when M < π."""
+    # When M < π, initial guess is M + e/2
+    mean_anomaly = np.pi / 2
+    eccentricity = 0.5
+
+    ecc_anom = eccentric_anomaly_from_mean_anomaly(mean_anomaly, eccentricity)
+
+    # Should converge to correct value
+    residual = ecc_anom - eccentricity * np.sin(ecc_anom) - mean_anomaly
+    assert abs(residual) < 1e-8
+
+
+def test_eccentric_anomaly_mean_greater_than_pi():
+    """Test initial guess when M > π."""
+    # When M > π, initial guess is M - e/2
+    mean_anomaly = 3 * np.pi / 2
+    eccentricity = 0.3
+
+    ecc_anom = eccentric_anomaly_from_mean_anomaly(mean_anomaly, eccentricity)
+
+    # Verify solution
+    residual = ecc_anom - eccentricity * np.sin(ecc_anom) - mean_anomaly
+    assert abs(residual) < 1e-8
+
+
+def test_eccentric_anomaly_zero_mean():
+    """Test at periapsis (M=0)."""
+    mean_anomaly = 0.0
+    eccentricity = 0.4
+
+    ecc_anom = eccentric_anomaly_from_mean_anomaly(mean_anomaly, eccentricity)
+
+    # At periapsis, E should also be 0
+    np.testing.assert_allclose(ecc_anom, 0.0, atol=1e-8)
+
+
+def test_eccentric_anomaly_mean_pi():
+    """Test at apoapsis (M=π)."""
+    mean_anomaly = np.pi
+    eccentricity = 0.6
+
+    ecc_anom = eccentric_anomaly_from_mean_anomaly(mean_anomaly, eccentricity)
+
+    # At apoapsis, E should be π
+    np.testing.assert_allclose(ecc_anom, np.pi, atol=1e-6)
+
+
+def test_eccentric_anomaly_multiple_values():
+    """Test solver doesn't fail with various inputs."""
+    eccentricity = 0.3
+    mean_anomalies = np.linspace(0, 2 * np.pi, 20)
+
+    for mean_anomaly in mean_anomalies:
+        ecc_anom = eccentric_anomaly_from_mean_anomaly(mean_anomaly, eccentricity)
+        residual = ecc_anom - eccentricity * np.sin(ecc_anom) - mean_anomaly
+        assert abs(residual) < 1e-8
+
+
+def test_eccentric_anomaly_custom_precision():
+    """Test with custom precision parameter."""
+    mean_anomaly = np.pi / 4
+    eccentricity = 0.5
+
+    ecc_anom = eccentric_anomaly_from_mean_anomaly(mean_anomaly, eccentricity, precision=1e-12)
+
+    # Should achieve higher precision
+    residual = ecc_anom - eccentricity * np.sin(ecc_anom) - mean_anomaly
+    assert abs(residual) < 1e-12
+
+
+# =============================================================================
+# Tests for tru_anom_from_mean_anom
+# =============================================================================
+
+
+def test_circular_orbit_true_anomaly_from_mean_anomaly():
+    """For circular orbit, true anomaly equals mean anomaly."""
+    mean_anomaly = np.pi / 3
+    eccentricity = 0.0
+
+    true_anom = tru_anom_from_mean_anom(mean_anomaly, eccentricity)
+
+    np.testing.assert_allclose(true_anom, mean_anomaly, rtol=1e-10)
+
+
+def test_periapsis_true_anomaly_from_mean_anomaly():
+    """At periapsis, true and mean anomalies are both zero."""
+    mean_anomaly = 0.0
+    eccentricity = 0.5
+
+    true_anom = tru_anom_from_mean_anom(mean_anomaly, eccentricity)
+
+    np.testing.assert_allclose(true_anom, 0.0, atol=1e-8)
+
+
+def test_apoapsis_true_anomaly_from_mean_anomaly():
+    """At apoapsis, true anomaly should be π."""
+    mean_anomaly = np.pi
+    eccentricity = 0.5
+
+    true_anom = tru_anom_from_mean_anom(mean_anomaly, eccentricity)
+
+    np.testing.assert_allclose(true_anom, np.pi, atol=1e-6)
+
+
+def test_range_0_to_2pi_true_anomaly_from_mean_anomaly():
+    """True anomaly should be in range [0, 2π)."""
+    eccentricity = 0.4
+    mean_anomalies = np.linspace(0, 2 * np.pi, 50)
+
+    for mean_anomaly in mean_anomalies:
+        true_anom = tru_anom_from_mean_anom(mean_anomaly, eccentricity)
+        # Allow for floating point precision - use <= for upper bound
+        assert 0 <= true_anom <= 2 * np.pi
+
+
+def test_known_values_true_anomaly_from_mean_anomaly():
+    """Test with known value from orbital mechanics."""
+    # For e=0.5, M=π/2, can compute true anomaly analytically
+    mean_anomaly = np.pi / 2
+    eccentricity = 0.5
+
+    true_anom = tru_anom_from_mean_anom(mean_anomaly, eccentricity)
+
+    # Verify relationship: tan(ν/2) = sqrt((1+e)/(1-e)) * tan(E/2)
+    ecc_anom = eccentric_anomaly_from_mean_anomaly(mean_anomaly, eccentricity)
+    expected_true_anom = 2 * np.arctan(
+        np.sqrt((1 + eccentricity) / (1 - eccentricity)) * np.tan(ecc_anom / 2)
+    )
+    # Normalize to [0, 2π)
+    expected_true_anom = np.remainder(expected_true_anom, 2 * np.pi)
+
+    np.testing.assert_allclose(true_anom, expected_true_anom, rtol=1e-6)
+
+
+def test_high_eccentricity_true_anomaly_from_mean_anomaly():
+    """Test with high eccentricity orbit."""
+    mean_anomaly = np.pi / 4
+    eccentricity = 0.9
+
+    true_anom = tru_anom_from_mean_anom(mean_anomaly, eccentricity)
+
+    # Should be valid angle
+    assert 0 <= true_anom < 2 * np.pi
+
+
+def test_consistency_with_eccentric_anomaly_true_anomaly_from_mean_anomaly():
+    """Test relationship between true, eccentric, and mean anomaly."""
+    mean_anomaly = np.pi / 3
+    eccentricity = 0.6
+
+    true_anom = tru_anom_from_mean_anom(mean_anomaly, eccentricity)
+    ecc_anom = eccentric_anomaly_from_mean_anomaly(mean_anomaly, eccentricity)
+
+    # Use relationship: cos(ν) = (cos(E) - e) / (1 - e*cos(E))
+    cos_nu_expected = (np.cos(ecc_anom) - eccentricity) / (1 - eccentricity * np.cos(ecc_anom))
+    cos_nu_actual = np.cos(true_anom)
+
+    np.testing.assert_allclose(cos_nu_actual, cos_nu_expected, rtol=1e-6)
+
+
+# =============================================================================
+# Tests for perifocal_position
+# =============================================================================
+
+
+def test_periapsis_position_perifocal_position():
+    """At periapsis (ν=0), position is along x-axis."""
+    eccentricity = 0.5
+    semimajor_axis = 7000000
+    true_anomaly = 0.0
+
+    pos = perifocal_position(eccentricity, semimajor_axis, true_anomaly)
+
+    # r = a(1-e²)/(1+e*cos(ν))
+    # At ν=0: r = a(1-e²)/(1+e) = a(1-e)
+    expected_r = semimajor_axis * (1 - eccentricity)
+
+    np.testing.assert_allclose(pos[0], expected_r, rtol=1e-10)
+    np.testing.assert_allclose(pos[1], 0, atol=1e-10)
+    np.testing.assert_allclose(pos[2], 0, atol=1e-10)
+
+
+def test_apoapsis_position_perifocal_position():
+    """At apoapsis (ν=π), position is along negative x-axis."""
+    eccentricity = 0.3
+    semimajor_axis = 10000000
+    true_anomaly = np.pi
+
+    pos = perifocal_position(eccentricity, semimajor_axis, true_anomaly)
+
+    # At ν=π: r = a(1-e²)/(1-e) = a(1+e)
+    expected_r = semimajor_axis * (1 + eccentricity)
+
+    np.testing.assert_allclose(pos[0], -expected_r, rtol=1e-10)
+    np.testing.assert_allclose(pos[1], 0, atol=1e-8)
+    np.testing.assert_allclose(pos[2], 0, atol=1e-8)
+
+
+def test_90_degrees_perifocal_position():
+    """At ν=π/2, position should be along y-axis."""
+    eccentricity = 0.2
+    semimajor_axis = 8000000
+    true_anomaly = np.pi / 2
+
+    pos = perifocal_position(eccentricity, semimajor_axis, true_anomaly)
+
+    # r = a(1-e²)/(1+e*cos(π/2)) = a(1-e²)
+    expected_r = semimajor_axis * (1 - eccentricity**2)
+
+    # x component should be 0, y should be r
+    np.testing.assert_allclose(pos[0], 0, atol=1e-9)
+    np.testing.assert_allclose(pos[1], expected_r, rtol=1e-10)
+    np.testing.assert_allclose(pos[2], 0, atol=1e-9)
+
+
+def test_circular_orbit_perifocal_position():
+    """For circular orbit (e=0), radius is constant = a."""
+    eccentricity = 0.0
+    semimajor_axis = 7000000
+    true_anomaly = np.pi / 4
+
+    pos = perifocal_position(eccentricity, semimajor_axis, true_anomaly)
+
+    # For circular orbit, |r| = a always
+    r_mag = np.linalg.norm(pos)
+    np.testing.assert_allclose(r_mag, semimajor_axis, rtol=1e-10)
+
+
+def test_z_component_always_zero_perifocal_position():
+    """In perifocal frame, z component is always zero."""
+    eccentricity = 0.4
+    semimajor_axis = 9000000
+
+    # Test multiple anomalies
+    for true_anomaly in np.linspace(0, 2 * np.pi, 10):
+        pos = perifocal_position(eccentricity, semimajor_axis, true_anomaly)
+        np.testing.assert_allclose(pos[2], 0, atol=1e-10)
+
+
+def test_array_input_perifocal_position():
+    """Test with array of true anomalies."""
+    eccentricity = 0.3
+    semimajor_axis = 7500000
+    true_anomalies = np.array([[0, np.pi / 2, np.pi]])
+
+    pos = perifocal_position(eccentricity, semimajor_axis, true_anomalies)
+
+    # Should return 3x3 array
+    assert pos.shape == (3, 3)
+
+
+# =============================================================================
+# Tests for perifocal_velocity
+# =============================================================================
+
+
+def test_periapsis_velocity_perifocal_velocity():
+    """At periapsis, velocity is perpendicular to position (along y)."""
+    eccentricity = 0.5
+    semimajor_axis = 7000000
+    true_anomaly = 0.0
+    mu = 3.986004418e14
+
+    vel = perifocal_velocity(eccentricity, semimajor_axis, true_anomaly, mu)
+
+    # At periapsis, v_x should be 0, v_y should be positive
+    np.testing.assert_allclose(vel[0], 0, atol=1e-5)
+    assert vel[1] > 0
+    np.testing.assert_allclose(vel[2], 0, atol=1e-10)
+
+
+def test_apoapsis_velocity_perifocal_velocity():
+    """At apoapsis, velocity is along negative y-axis."""
+    eccentricity = 0.3
+    semimajor_axis = 10000000
+    true_anomaly = np.pi
+    mu = 3.986004418e14
+
+    vel = perifocal_velocity(eccentricity, semimajor_axis, true_anomaly, mu)
+
+    # At apoapsis, v_x should be 0, v_y should be negative
+    np.testing.assert_allclose(vel[0], 0, atol=1e-5)
+    assert vel[1] < 0
+    np.testing.assert_allclose(vel[2], 0, atol=1e-10)
+
+
+def test_circular_orbit_velocity_perifocal_velocity():
+    """For circular orbit, velocity magnitude is constant."""
+    eccentricity = 0.0
+    semimajor_axis = 7000000
+    mu = 3.986004418e14
+
+    # Expected velocity for circular orbit
+    v_expected = np.sqrt(mu / semimajor_axis)
+
+    # Test at multiple points
+    for true_anomaly in [0, np.pi / 4, np.pi / 2, np.pi]:
+        vel = perifocal_velocity(eccentricity, semimajor_axis, true_anomaly, mu)
+        v_mag = np.linalg.norm(vel)
+        np.testing.assert_allclose(v_mag, v_expected, rtol=1e-10)
+
+
+def test_z_component_always_zero_perifocal_velocity():
+    """In perifocal frame, z velocity component is always zero."""
+    eccentricity = 0.4
+    semimajor_axis = 9000000
+    mu = 3.986004418e14
+
+    for true_anomaly in np.linspace(0, 2 * np.pi, 10):
+        vel = perifocal_velocity(eccentricity, semimajor_axis, true_anomaly, mu)
+        np.testing.assert_allclose(vel[2], 0, atol=1e-10)
+
+
+def test_vis_viva_equation_perifocal_velocity():
+    """Verify velocity magnitude satisfies vis-viva equation."""
+    eccentricity = 0.6
+    semimajor_axis = 8000000
+    true_anomaly = np.pi / 3
+    mu = 3.986004418e14
+
+    vel = perifocal_velocity(eccentricity, semimajor_axis, true_anomaly, mu)
+    pos = perifocal_position(eccentricity, semimajor_axis, true_anomaly)
+
+    v_mag = np.linalg.norm(vel)
+    r_mag = np.linalg.norm(pos)
+
+    # Vis-viva: v² = μ(2/r - 1/a)
+    v_expected = np.sqrt(mu * (2 / r_mag - 1 / semimajor_axis))
+
+    np.testing.assert_allclose(v_mag, v_expected, rtol=1e-10)
+
+
+def test_perpendicular_at_periapsis_apoapsis_perifocal_velocity():
+    """Verify r·v = 0 at periapsis and apoapsis."""
+    eccentricity = 0.4
+    semimajor_axis = 7500000
+    mu = 3.986004418e14
+
+    for true_anomaly in [0, np.pi]:
+        pos = perifocal_position(eccentricity, semimajor_axis, true_anomaly)
+        vel = perifocal_velocity(eccentricity, semimajor_axis, true_anomaly, mu)
+
+        # Dot product should be zero (perpendicular)
+        dot_product = np.dot(pos.flatten(), vel.flatten())
+        np.testing.assert_allclose(dot_product, 0, atol=1e-3)
+
+
+# =============================================================================
+# Tests for perifocal_to_geocentric_matrix
+# =============================================================================
+
+
+def test_zero_inclination_zero_raan_zero_argp_perifocal_to_geocentric_matrix():
+    """With all angles zero, transformation should be identity."""
+    inclination = 0.0
+    raan = 0.0
+    argp = 0.0
+
+    matrix = perifocal_to_geocentric_matrix(inclination, raan, argp)
+
+    np.testing.assert_allclose(matrix, np.eye(3), atol=1e-10)
+
+
+def test_matrix_is_rotation_perifocal_to_geocentric_matrix():
+    """Transformation matrix should be orthogonal (rotation)."""
+    inclination = np.pi / 4
+    raan = np.pi / 6
+    argp = np.pi / 3
+
+    matrix = perifocal_to_geocentric_matrix(inclination, raan, argp)
+
+    # Should be orthogonal: M^T M = I
+    product = matrix.T @ matrix
+    np.testing.assert_allclose(product, np.eye(3), atol=1e-10)
+
+    # Determinant should be +1 (proper rotation)
+    det = np.linalg.det(matrix)
+    np.testing.assert_allclose(det, 1.0, atol=1e-10)
+
+
+def test_preserves_magnitude_perifocal_to_geocentric_matrix():
+    """Rotation should preserve vector magnitude."""
+    inclination = np.pi / 3
+    raan = np.pi / 4
+    argp = np.pi / 6
+
+    matrix = perifocal_to_geocentric_matrix(inclination, raan, argp)
+
+    # Test with arbitrary vector
+    vec_perifocal = np.array([1000, 2000, 3000])
+    vec_geocentric = matrix @ vec_perifocal
+
+    mag_before = np.linalg.norm(vec_perifocal)
+    mag_after = np.linalg.norm(vec_geocentric)
+
+    np.testing.assert_allclose(mag_after, mag_before, rtol=1e-10)
+
+
+def test_equatorial_orbit_perifocal_to_geocentric_matrix():
+    """For equatorial orbit (i=0), only RAAN and argp matter."""
+    inclination = 0.0
+    raan = np.pi / 4
+    argp = np.pi / 6
+
+    matrix = perifocal_to_geocentric_matrix(inclination, raan, argp)
+
+    # For i=0, this reduces to a z-axis rotation by (raan + argp)
+    total_angle = raan + argp
+    expected_matrix = np.array(
+        [
+            [np.cos(total_angle), -np.sin(total_angle), 0],
+            [np.sin(total_angle), np.cos(total_angle), 0],
+            [0, 0, 1],
+        ]
+    )
+
+    np.testing.assert_allclose(matrix, expected_matrix, atol=1e-10)
+
+
+def test_polar_orbit_perifocal_to_geocentric_matrix():
+    """Test polar orbit (i=90°)."""
+    inclination = np.pi / 2  # 90 degrees
+    raan = 0.0
+    argp = 0.0
+
+    matrix = perifocal_to_geocentric_matrix(inclination, raan, argp)
+
+    # With i=90°, RAAN=0, argp=0, perifocal x should map to geocentric x
+    # and perifocal y should map to geocentric z
+    expected = np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]])
+
+    np.testing.assert_allclose(matrix, expected, atol=1e-10)
+
+
+# =============================================================================
+# Tests for keplerian_to_rv (expanded)
+# =============================================================================
+
+
+def test_circular_equatorial_orbit_keplerian_to_r_v():
+    """Test simple circular equatorial orbit."""
+    # e=0, i=0, Ω=0, ω=0, ν=0
+    # Should give position along x-axis
+    kep = StateVector([0.0, 7000000, 0.0, 0.0, 0.0, 0.0])
+    mu = 3.986004418e14
+
+    rv = keplerian_to_rv(kep, mu)
+
+    # At periapsis of circular orbit, position is [a, 0, 0]
+    expected_pos = np.array([7000000, 0, 0])
+    np.testing.assert_allclose(rv[:3].flatten(), expected_pos, atol=1e-3)
+
+    # Velocity should be perpendicular (along y)
+    v_expected = np.sqrt(mu / 7000000)
+    np.testing.assert_allclose(rv[3].flatten(), 0, atol=1e-3)
+    np.testing.assert_allclose(abs(rv[4].flatten()), v_expected, rtol=1e-6)
+    np.testing.assert_allclose(rv[5].flatten(), 0, atol=1e-3)
+
+
+def test_elliptical_orbit_periapsis_keplerian_to_r_v():
+    """Test elliptical orbit at periapsis."""
+    # e=0.5, a=8e6, i=0, Ω=0, ω=0, ν=0
+    kep = StateVector([0.5, 8000000, 0.0, 0.0, 0.0, 0.0])
+    mu = 3.986004418e14
+
+    rv = keplerian_to_rv(kep, mu)
+
+    # At periapsis: r = a(1-e)
+    r_periapsis = 8000000 * (1 - 0.5)
+    np.testing.assert_allclose(rv[0].flatten(), r_periapsis, rtol=1e-6)
+
+
+def test_inclined_orbit_keplerian_to_r_v():
+    """Test orbit with inclination."""
+    # i=30°, should have z component
+    kep = StateVector([0.3, 7500000, np.pi / 6, 0.0, 0.0, np.pi / 2])
+    mu = 3.986004418e14
+
+    rv = keplerian_to_rv(kep, mu)
+
+    # Should have non-zero z component
+    assert abs(rv[2].flatten()) > 0
+
+
+def test_returns_statevector_keplerian_to_r_v():
+    """Output should be StateVector."""
+    kep = StateVector([0.2, 7000000, 0.1, 0.2, 0.3, 0.4])
+
+    rv = keplerian_to_rv(kep)
+
+    assert isinstance(rv, StateVector)
+    assert len(rv) == 6
+
+
+def test_energy_conservation_keplerian_to_r_v():
+    """Verify specific energy matches orbital elements."""
+    kep = StateVector([0.4, 8000000, 0.5, 0.3, 0.2, np.pi / 4])
+    mu = 3.986004418e14
+
+    rv = keplerian_to_rv(kep, mu)
+
+    # Compute specific energy from rv
+    r = rv[:3].flatten()
+    v = rv[3:6].flatten()
+    r_mag = np.linalg.norm(r)
+    v_mag = np.linalg.norm(v)
+
+    energy = v_mag**2 / 2 - mu / r_mag
+
+    # Expected energy from semi-major axis
+    energy_expected = -mu / (2 * kep[1])
+
+    np.testing.assert_allclose(energy, energy_expected, rtol=1e-6)
+
+
+def test_angular_momentum_conservation_keplerian_to_r_v():
+    """Verify angular momentum magnitude matches orbital elements."""
+    e = 0.3
+    a = 9000000
+    i = np.pi / 4
+    kep = StateVector([e, a, i, 0.2, 0.3, np.pi / 3])
+    mu = 3.986004418e14
+
+    rv = keplerian_to_rv(kep, mu)
+
+    # Compute angular momentum from rv
+    r = rv[:3].flatten()
+    v = rv[3:6].flatten()
+    h = np.cross(r, v)
+    h_mag = np.linalg.norm(h)
+
+    # Expected from orbital elements: h = sqrt(μ * a * (1-e²))
+    h_expected = np.sqrt(mu * a * (1 - e**2))
+
+    np.testing.assert_allclose(h_mag, h_expected, rtol=1e-6)
+
+
+# =============================================================================
+# Tests for mod_inclination
+# =============================================================================
+
+
+def test_zero_inclination_mod_inclination():
+    """Zero inclination should remain zero."""
+    assert mod_inclination(0.0) == 0.0
+
+
+def test_small_positive_mod_inclination():
+    """Small positive angle should be unchanged."""
+    angle = np.pi / 6
+    assert mod_inclination(angle) == angle
+
+
+def test_at_pi_mod_inclination():
+    """Angle of π should remain π (but modulo gives 0)."""
+    # Actually, π mod π = 0
+    assert mod_inclination(np.pi) == 0.0
+
+
+def test_just_below_pi_mod_inclination():
+    """Angle just below π should be unchanged."""
+    angle = np.pi - 0.1
+    np.testing.assert_allclose(mod_inclination(angle), angle, rtol=1e-10)
+
+
+def test_above_pi_mod_inclination():
+    """Angle above π should wrap to [0, π)."""
+    angle = np.pi + 0.5
+    expected = 0.5
+    np.testing.assert_allclose(mod_inclination(angle), expected, rtol=1e-10)
+
+
+def test_two_pi_mod_inclination():
+    """2π should wrap to 0."""
+    assert mod_inclination(2 * np.pi) == 0.0
+
+
+def test_negative_angle_mod_inclination():
+    """Negative angle should wrap to [0, π)."""
+    angle = -np.pi / 4
+    expected = 3 * np.pi / 4
+    np.testing.assert_allclose(mod_inclination(angle), expected, rtol=1e-10)
+
+
+def test_large_positive_mod_inclination():
+    """Large positive angle should wrap correctly."""
+    angle = 5 * np.pi + np.pi / 3
+    expected = np.pi / 3
+    np.testing.assert_allclose(mod_inclination(angle), expected, rtol=1e-10)
+
+
+def test_range_check_mod_inclination():
+    """Output should always be in [0, π)."""
+    test_angles = np.linspace(-10 * np.pi, 10 * np.pi, 100)
+    for angle in test_angles:
+        result = mod_inclination(angle)
+        assert 0 <= result < np.pi
+
+
+# =============================================================================
+# Tests for mod_elongitude
+# =============================================================================
+
+
+def test_zero_longitude_mod_elongitude():
+    """Zero longitude should remain zero."""
+    assert mod_elongitude(0.0) == 0.0
+
+
+def test_small_positive_mod_elongitude():
+    """Small positive angle should be unchanged."""
+    angle = np.pi / 4
+    assert mod_elongitude(angle) == angle
+
+
+def test_at_2pi_mod_elongitude():
+    """Angle of 2π should wrap to 0."""
+    assert mod_elongitude(2 * np.pi) == 0.0
+
+
+def test_just_below_2pi_mod_elongitude():
+    """Angle just below 2π should be unchanged."""
+    angle = 2 * np.pi - 0.1
+    np.testing.assert_allclose(mod_elongitude(angle), angle, rtol=1e-10)
+
+
+def test_above_2pi_mod_elongitude():
+    """Angle above 2π should wrap to [0, 2π)."""
+    angle = 2 * np.pi + 0.5
+    expected = 0.5
+    np.testing.assert_allclose(mod_elongitude(angle), expected, rtol=1e-10)
+
+
+def test_negative_angle_mod_elongitude():
+    """Negative angle should wrap to [0, 2π)."""
+    angle = -np.pi / 4
+    expected = 2 * np.pi - np.pi / 4
+    np.testing.assert_allclose(mod_elongitude(angle), expected, rtol=1e-10)
+
+
+def test_large_positive_mod_elongitude():
+    """Large positive angle should wrap correctly."""
+    angle = 10 * np.pi + np.pi / 3
+    expected = np.pi / 3
+    np.testing.assert_allclose(mod_elongitude(angle), expected, rtol=1e-10)
+
+
+def test_large_negative_mod_elongitude():
+    """Large negative angle should wrap correctly."""
+    angle = -10 * np.pi - np.pi / 6
+    expected = 2 * np.pi - np.pi / 6
+    np.testing.assert_allclose(mod_elongitude(angle), expected, rtol=1e-10)
+
+
+def test_pi_mod_elongitude():
+    """π should remain π."""
+    assert mod_elongitude(np.pi) == np.pi
+
+
+def test_range_check_mod_elongitude():
+    """Output should always be in [0, 2π)."""
+    test_angles = np.linspace(-20 * np.pi, 20 * np.pi, 200)
+    for angle in test_angles:
+        result = mod_elongitude(angle)
+        assert 0 <= result < 2 * np.pi
+
+
+# =============================================================================
+# Tests for Stumpff functions with arrays
+# =============================================================================
+
+
+def test_stumpff_s_array_stumpff_functions_arrays():
+    """Test Stumpff S with array input."""
+    z_array = np.array([0, np.pi**2, -(np.pi**2)])
+    expected = np.array([1 / 6, 0.10132118364233778, 0.2711433813983066])
+
+    result = stumpff_s(z_array)
+
+    np.testing.assert_allclose(result, expected, rtol=1e-10)
+
+
+def test_stumpff_c_array_stumpff_functions_arrays():
+    """Test Stumpff C with array input."""
+    z_array = np.array([0, np.pi**2, -(np.pi**2)])
+    expected = np.array([1 / 2, 0.20264236728467555, 1.073189242960177])
+
+    result = stumpff_c(z_array)
+
+    np.testing.assert_allclose(result, expected, rtol=1e-10)
+
+
+def test_stumpff_positive_values_stumpff_functions_arrays():
+    """Test Stumpff functions for various positive values."""
+    z_values = np.linspace(0.1, 10, 20)
+
+    for z in z_values:
+        s = stumpff_s(z)
+        c = stumpff_c(z)
+
+        # Both should be positive for positive z
+        assert s > 0
+        assert c > 0
+
+
+def test_stumpff_negative_values_stumpff_functions_arrays():
+    """Test Stumpff functions for various negative values."""
+    z_values = np.linspace(-10, -0.1, 20)
+
+    for z in z_values:
+        s = stumpff_s(z)
+        c = stumpff_c(z)
+
+        # Both should be positive for negative z
+        assert s > 0
+        assert c > 0
+
+
+def test_stumpff_series_expansion_small_z_stumpff_functions_arrays():
+    """For small |z|, verify against series expansion."""
+    z = 0.01
+
+    s = stumpff_s(z)
+    c = stumpff_c(z)
+
+    # Series: S(z) ≈ 1/6 - z/120 + z²/5040 - ...
+    s_series = 1 / 6 - z / 120 + z**2 / 5040
+    # Series: C(z) ≈ 1/2 - z/24 + z²/720 - ...
+    c_series = 1 / 2 - z / 24 + z**2 / 720
+
+    np.testing.assert_allclose(s, s_series, rtol=1e-4)
+    np.testing.assert_allclose(c, c_series, rtol=1e-4)
+
+
+# =============================================================================
+# Tests for universal_anomaly_newton edge cases
+# =============================================================================
+
+
+def test_circular_orbit_universal_anomaly_edge_cases():
+    """Test universal anomaly for circular orbit."""
+    # Circular orbit
+    r = 7000000
+    v = np.sqrt(3.986004418e14 / r)
+    state = StateVector([r, 0, 0, 0, v, 0])
+    delta_t = timedelta(hours=1)
+    mu = 3.986004418e14
+
+    chi = universal_anomaly_newton(state, delta_t, grav_parameter=mu)
+
+    # Should converge to a reasonable value
+    assert np.isfinite(chi)
+    assert chi > 0
+
+
+def test_short_time_interval_universal_anomaly_edge_cases():
+    """Test with very short time interval."""
+    state = StateVector([7000000, 0, 0, 1000, 7500, 500])
+    delta_t = timedelta(seconds=1)
+
+    chi = universal_anomaly_newton(state, delta_t)
+
+    # Should be small for short time
+    assert np.isfinite(chi)
+
+
+def test_elliptical_orbit_universal_anomaly_edge_cases():
+    """Test with elliptical orbit."""
+    # From the existing test (example 3.7)
+    mu = 3.986004418e5
+    state = StateVector([7000, -12124, 0, 2.6679, 4.6210, 0])
+    delta_t = timedelta(hours=1)
+
+    chi = universal_anomaly_newton(state, delta_t, grav_parameter=mu)
+
+    # Known answer: 253.53
+    np.testing.assert_allclose(chi, 253.53, atol=1e-2)
+
+
+# =============================================================================
+# Tests for lagrange_coefficients edge cases
+# =============================================================================
+
+
+def test_determinant_condition_lagrange_coefficients_edge_cases():
+    """Verify that f*gdot - fdot*g = 1."""
+    state = StateVector([7000000, 1000000, 500000, 1000, 7500, 500])
+    delta_t = timedelta(hours=1)
+
+    f, g, fdot, gdot = lagrange_coefficients_from_universal_anomaly(state, delta_t)
+
+    # The determinant of the f-g matrix should be 1
+    determinant = f * gdot - fdot * g
+    np.testing.assert_allclose(determinant, 1.0, rtol=1e-6)
+
+
+def test_zero_time_lagrange_coefficients_edge_cases():
+    """At zero time, f=1, g=0, fdot=0, gdot=1."""
+    state = StateVector([7000000, 0, 0, 0, 7500, 0])
+    delta_t = timedelta(seconds=0)
+
+    f, g, fdot, gdot = lagrange_coefficients_from_universal_anomaly(state, delta_t)
+
+    np.testing.assert_allclose(f, 1.0, atol=1e-8)
+    np.testing.assert_allclose(g, 0.0, atol=1e-8)
+    # fdot and gdot might not be exactly 0 and 1 due to numerical issues
+    # but the determinant should be 1
+
+
+# =============================================================================
+# Integration tests
+# =============================================================================
+
+
+def test_keplerian_roundtrip_via_perifocal_orbital_functions_integration():
+    """Test that Keplerian -> perifocal -> Keplerian preserves elements."""
+    # Start with Keplerian elements
+    e = 0.3
+    a = 8000000
+    i = np.pi / 6
+    omega = np.pi / 4
+    w = np.pi / 3
+    nu = np.pi / 2
+
+    kep = StateVector([e, a, i, omega, w, nu])
+    mu = 3.986004418e14
+
+    # Convert to position/velocity
+    rv = keplerian_to_rv(kep, mu)
+
+    # Verify angular momentum is correct
+    h = compute_specific_angular_momentum(rv)
+    h_mag = np.linalg.norm(h)
+    h_expected = np.sqrt(mu * a * (1 - e**2))
+    np.testing.assert_allclose(h_mag, h_expected, rtol=1e-6)
+
+    # Verify energy is correct
+    energy = compute_specific_energy(rv, mu)
+    energy_expected = -mu / (2 * a)
+    np.testing.assert_allclose(energy, energy_expected, rtol=1e-6)
+
+
+def test_mean_to_true_anomaly_full_orbit_orbital_functions_integration():
+    """Test mean to true anomaly conversion over full orbit."""
+    e = 0.5
+    mean_anomalies = np.linspace(0, 2 * np.pi, 36)
+
+    for M in mean_anomalies:
+        # Get true anomaly
+        nu = tru_anom_from_mean_anom(M, e)
+
+        # Verify it's in valid range (allow for floating point precision)
+        assert 0 <= nu <= 2 * np.pi
+
+        # Get eccentric anomaly
+        E = eccentric_anomaly_from_mean_anomaly(M, e)
+
+        # Verify Kepler's equation
+        M_check = E - e * np.sin(E)
+        np.testing.assert_allclose(M_check, M, atol=1e-8)

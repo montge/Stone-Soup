@@ -1159,6 +1159,476 @@ def test_ebr_detections(sensor, targets):
             )
 
 
+def test_rotating_radar_empty_ground_truths():
+    """Test that rotating radars return empty set when given empty ground truths."""
+    # Test RadarRotatingBearingRange with empty ground truths
+    radar = RadarRotatingBearingRange(
+        position=StateVector([[0], [0]]),
+        orientation=StateVector([[0], [0], [0]]),
+        ndim_state=2,
+        position_mapping=[0, 1],
+        noise_covar=CovarianceMatrix(np.array([[0.015, 0], [0, 0.1]])),
+        dwell_centre=StateVector([[0]]),
+        rpm=20,
+        max_range=100,
+        fov_angle=np.pi / 3,
+    )
+
+    # Call measure with empty set - should return empty set and not crash
+    measurements = radar.measure(set())
+    assert measurements == set()
+    assert radar.timestamp is None
+
+    # Test RadarRotatingBearing with empty ground truths
+    radar2 = RadarRotatingBearing(
+        position=StateVector([[0], [0]]),
+        orientation=StateVector([[0], [0], [0]]),
+        ndim_state=2,
+        position_mapping=[0, 1],
+        noise_covar=CovarianceMatrix(np.array([[0.015]])),
+        dwell_centre=StateVector([[0]]),
+        rpm=20,
+        max_range=100,
+        fov_angle=np.pi / 3,
+    )
+
+    measurements2 = radar2.measure(set())
+    assert measurements2 == set()
+    assert radar2.timestamp is None
+
+    # Test RadarRotatingElevationBearingRange with empty ground truths
+    radar3 = RadarRotatingElevationBearingRange(
+        position=StateVector([[0], [0], [0]]),
+        orientation=StateVector([[0], [0], [0]]),
+        ndim_state=3,
+        position_mapping=[0, 1, 2],
+        noise_covar=CovarianceMatrix(np.diag([0.01, 0.01, 0.1])),
+        dwell_centre=StateVector([[0]]),
+        tilt_centre=StateVector([[0]]),
+        rpm=20,
+        max_range=100,
+        fov_angle=np.pi / 3,
+        vertical_extent=np.pi / 2,
+    )
+
+    measurements3 = radar3.measure(set())
+    assert measurements3 == set()
+    assert radar3.timestamp is None
+
+
+def test_raster_scan_radar_act_first_call():
+    """Test raster scan radar act method on first call (timestamp is None)."""
+    timestamp = datetime.datetime.now()
+    radar = RadarRasterScanBearingRange(
+        position=StateVector([[0], [0]]),
+        orientation=StateVector([[0], [0], [0]]),
+        ndim_state=2,
+        position_mapping=[0, 1],
+        noise_covar=CovarianceMatrix(np.array([[0.015, 0], [0, 0.1]])),
+        dwell_centre=StateVector([[0]]),
+        rpm=20,
+        max_range=100,
+        fov_angle=np.pi / 12,
+        for_angle=np.pi,
+    )
+
+    # First call to act when timestamp is None - should just set timestamp and return
+    assert radar.timestamp is None
+    radar.act(timestamp)
+    assert radar.timestamp == timestamp
+    # Dwell centre should not change
+    assert radar.dwell_centre[0, 0] == 0
+
+
+def test_raster_scan_radar_act_reversals():
+    """Test raster scan radar reverses direction when hitting FoR boundaries."""
+    timestamp = datetime.datetime.now()
+    # Start at near max boundary to ensure we hit it quickly
+    radar = RadarRasterScanBearingRange(
+        position=StateVector([[0], [0]]),
+        orientation=StateVector([[0], [0], [0]]),
+        ndim_state=2,
+        position_mapping=[0, 1],
+        noise_covar=CovarianceMatrix(np.array([[0.015, 0], [0, 0.1]])),
+        dwell_centre=StateVector([[0.03]]),  # Start close to max bound
+        rpm=60,  # High RPM for quick rotation
+        max_range=100,
+        fov_angle=np.pi / 12,  # 15 degrees
+        for_angle=np.pi / 6,  # 30 degrees FoR
+    )
+    radar.timestamp = timestamp
+
+    # Calculate the bounds
+    dwell_centre_max = radar.for_angle / 2.0 - radar.fov_angle / 2.0  # ~0.1308
+    dwell_centre_min = -radar.for_angle / 2.0 + radar.fov_angle / 2.0  # ~-0.1308
+
+    initial_rpm = radar.rpm
+
+    # Act for a time that will push dwell_centre beyond the max boundary
+    # At 60 rpm = 1 rps, in 0.02s we rotate 0.02*2*pi = 0.125 radians
+    # Starting at 0.03, we'll be at 0.155, which exceeds max of 0.1308
+    next_timestamp = timestamp + datetime.timedelta(seconds=0.02)
+    radar.act(next_timestamp)
+
+    # RPM should have reversed after hitting max boundary
+    assert radar.rpm == -initial_rpm
+    # Dwell centre should be corrected to within bounds
+    assert dwell_centre_min <= radar.dwell_centre[0, 0] <= dwell_centre_max
+
+    # Now test hitting the minimum boundary
+    # Reset to near min boundary
+    radar.dwell_centre = StateVector([[-0.03]])
+    radar.rpm = -60  # Rotating towards negative
+    radar.timestamp = next_timestamp
+    next_timestamp = next_timestamp + datetime.timedelta(seconds=0.02)
+    radar.act(next_timestamp)
+
+    # RPM should have reversed back
+    assert radar.rpm == 60  # Should be positive again
+    # Dwell centre should be corrected to within bounds
+    assert dwell_centre_min <= radar.dwell_centre[0, 0] <= dwell_centre_max
+
+
+def test_radar_with_orientation():
+    """Test radars with non-zero orientation."""
+    timestamp = datetime.datetime.now()
+
+    # RadarBearingRange with orientation
+    radar = RadarBearingRange(
+        ndim_state=2,
+        position_mapping=[0, 1],
+        noise_covar=CovarianceMatrix(np.array([[0.015, 0], [0, 0.1]])),
+        position=StateVector([[10], [10]]),
+        orientation=StateVector([[0], [0], [np.pi / 4]]),  # 45 degree rotation
+        max_range=100,
+    )
+
+    target_state = GroundTruthState(StateVector([[20], [20]]), timestamp=timestamp)
+    measurement = radar.measure({target_state}, noise=False)
+    measurement = next(iter(measurement))
+
+    assert measurement is not None
+    assert isinstance(measurement, TrueDetection)
+
+
+def test_radar_elevation_with_orientation():
+    """Test RadarElevationBearingRange with non-zero orientation."""
+    timestamp = datetime.datetime.now()
+
+    radar = RadarElevationBearingRange(
+        ndim_state=3,
+        position_mapping=[0, 1, 2],
+        noise_covar=CovarianceMatrix(np.diag([0.015, 0.015, 0.1])),
+        position=StateVector([[0], [0], [0]]),
+        orientation=StateVector([[np.pi / 6], [np.pi / 6], [np.pi / 4]]),
+        max_range=100,
+    )
+
+    target_state = GroundTruthState(StateVector([[20], [20], [10]]), timestamp=timestamp)
+    assert radar.is_detectable(target_state)
+
+    measurement = radar.measure({target_state}, noise=False)
+    measurement = next(iter(measurement))
+
+    assert isinstance(measurement, TrueDetection)
+    assert measurement.groundtruth_path is target_state
+
+
+def test_range_rate_radar_with_velocity():
+    """Test range rate radars with stationary sensor (velocity from movement controller)."""
+    timestamp = datetime.datetime.now()
+
+    # RadarBearingRangeRate - velocity comes from movement controller, not as a parameter
+    radar = RadarBearingRangeRate(
+        ndim_state=6,
+        position_mapping=[0, 2, 4],
+        velocity_mapping=[1, 3, 5],
+        noise_covar=CovarianceMatrix(np.array([[0.05, 0, 0], [0, 0.015, 0], [0, 0, 10]])),
+        position=StateVector([[0], [0], [0]]),
+        max_range=200,
+    )
+
+    # Target moving with velocity
+    target_state = GroundTruthState(
+        StateVector([[100], [10], [0], [0], [50], [5]]), timestamp=timestamp
+    )
+
+    measurement = radar.measure({target_state}, noise=False)
+    measurement = next(iter(measurement))
+
+    # Should have 3 components: bearing, range, range-rate
+    assert measurement.state_vector.shape == (3, 1)
+    assert isinstance(measurement, TrueDetection)
+
+
+def test_range_rate_2d_radar():
+    """Test RadarBearingRangeRate2D specific functionality."""
+    timestamp = datetime.datetime.now()
+
+    # RadarBearingRangeRate2D - velocity comes from movement controller
+    radar = RadarBearingRangeRate2D(
+        ndim_state=4,
+        position_mapping=[0, 2],
+        velocity_mapping=[1, 3],
+        noise_covar=CovarianceMatrix(np.array([[0.05, 0, 0], [0, 0.015, 0], [0, 0, 10]])),
+        position=StateVector([[0], [0]]),
+        max_range=150,
+    )
+
+    target_state = GroundTruthState(StateVector([[100], [5], [50], [10]]), timestamp=timestamp)
+
+    assert radar.is_detectable(target_state)
+
+    measurement = radar.measure({target_state}, noise=False)
+    measurement = next(iter(measurement))
+
+    assert measurement.state_vector.shape == (3, 1)  # bearing, range, range-rate
+    assert isinstance(measurement, TrueDetection)
+
+
+def test_aesa_radar_rotation_matrix():
+    """Test AESA radar rotation matrix property."""
+    radar = AESARadar(
+        antenna_gain=30,
+        position_mapping=[0, 1, 2],
+        position=StateVector([0.0] * 3),
+        orientation=StateVector([np.pi / 6, np.pi / 4, np.pi / 3]),  # Non-zero rotation
+        frequency=100e6,
+        number_pulses=5,
+        duty_cycle=0.1,
+        band_width=30e6,
+        beam_width=np.deg2rad(10),
+        probability_false_alarm=1e-6,
+        rcs=10,
+        receiver_noise=3,
+        beam_shape=Beam2DGaussian(peak_power=50e3),
+        beam_transition_model=StationaryBeam(centre=[0, 0]),
+        measurement_model=None,
+    )
+
+    rotation_matrix = radar._rotation_matrix
+    assert rotation_matrix.shape == (3, 3)
+    # Check it's a valid rotation matrix (det = +/-1)
+    assert abs(abs(np.linalg.det(rotation_matrix)) - 1.0) < 1e-10
+
+
+def test_aesa_radar_snr_constant():
+    """Test AESA radar SNR constant calculation."""
+    radar = AESARadar(
+        antenna_gain=30,
+        position_mapping=[0, 1, 2],
+        position=StateVector([0.0] * 3),
+        orientation=StateVector([0.0] * 3),
+        frequency=100e6,
+        number_pulses=5,
+        duty_cycle=0.1,
+        band_width=30e6,
+        beam_width=np.deg2rad(10),
+        probability_false_alarm=1e-6,
+        rcs=10,
+        receiver_noise=3,
+        beam_shape=Beam2DGaussian(peak_power=50e3),
+        beam_transition_model=StationaryBeam(centre=[0, 0]),
+        measurement_model=None,
+    )
+
+    snr_constant = radar._snr_constant
+    assert snr_constant > 0
+    assert isinstance(snr_constant, float)
+
+
+def test_aesa_radar_measurement_model_getter():
+    """Test AESA radar measurement model getter creates a deep copy."""
+    meas_model = LinearGaussian(noise_covar=np.diag([1, 1, 1]), mapping=[0, 1, 2], ndim_state=3)
+
+    radar = AESARadar(
+        antenna_gain=30,
+        position_mapping=[0, 1, 2],
+        position=StateVector([5.0, 10.0, 15.0]),
+        orientation=StateVector([0.1, 0.2, 0.3]),
+        frequency=100e6,
+        number_pulses=5,
+        duty_cycle=0.1,
+        band_width=30e6,
+        beam_width=np.deg2rad(10),
+        probability_false_alarm=1e-6,
+        rcs=10,
+        receiver_noise=3,
+        beam_shape=Beam2DGaussian(peak_power=50e3),
+        beam_transition_model=StationaryBeam(centre=[0, 0]),
+        measurement_model=meas_model,
+    )
+
+    retrieved_model = radar.measurement_model
+    # Check that translation and rotation offsets were set
+    assert np.allclose(retrieved_model.translation_offset, radar.position)
+    assert np.allclose(retrieved_model.rotation_offset, radar.rotation_offset)
+    # Check it's a copy, not the same object
+    assert retrieved_model is not meas_model
+
+
+def test_radar_with_noise():
+    """Test radars generate different measurements with noise enabled."""
+    timestamp = datetime.datetime.now()
+
+    radar = RadarBearingRange(
+        ndim_state=2,
+        position_mapping=[0, 1],
+        noise_covar=CovarianceMatrix(np.array([[0.1, 0], [0, 1.0]])),  # Significant noise
+        position=StateVector([[0], [0]]),
+        max_range=200,
+    )
+
+    target_state = GroundTruthState(StateVector([[50], [50]]), timestamp=timestamp)
+
+    # Generate two measurements with noise - they should be different
+    np.random.seed(42)
+    measurement1 = next(iter(radar.measure({target_state}, noise=True)))
+
+    np.random.seed(43)
+    measurement2 = next(iter(radar.measure({target_state}, noise=True)))
+
+    # Measurements should differ due to noise
+    assert not np.allclose(measurement1.state_vector, measurement2.state_vector)
+
+
+def test_rotating_radar_clutter_detectable():
+    """Test is_clutter_detectable for rotating radars."""
+    from ....types.detection import Detection
+
+    radar = RadarRotatingBearingRange(
+        ndim_state=2,
+        position_mapping=[0, 1],
+        noise_covar=CovarianceMatrix(np.array([[0.015, 0], [0, 0.1]])),
+        position=StateVector([[0], [0]]),
+        orientation=StateVector([[0], [0], [0]]),
+        dwell_centre=StateVector([[0]]),
+        rpm=20,
+        max_range=100,
+        fov_angle=np.pi / 3,
+    )
+
+    # Clutter within FOV and range
+    clutter_in = Detection(StateVector([[0], [50]]), timestamp=datetime.datetime.now())
+    assert radar.is_clutter_detectable(clutter_in)
+
+    # Clutter outside FOV
+    clutter_out_fov = Detection(StateVector([[np.pi], [50]]), timestamp=datetime.datetime.now())
+    assert not radar.is_clutter_detectable(clutter_out_fov)
+
+    # Clutter beyond range
+    clutter_out_range = Detection(StateVector([[0], [150]]), timestamp=datetime.datetime.now())
+    assert not radar.is_clutter_detectable(clutter_out_range)
+
+
+def test_rotating_elevation_radar_clutter_detectable():
+    """Test is_clutter_detectable for rotating elevation bearing range radar."""
+    from ....types.detection import Detection
+
+    radar = RadarRotatingElevationBearingRange(
+        ndim_state=3,
+        position_mapping=[0, 1, 2],
+        noise_covar=CovarianceMatrix(np.diag([0.01, 0.01, 0.1])),
+        position=StateVector([[0], [0], [0]]),
+        orientation=StateVector([[0], [0], [0]]),
+        dwell_centre=StateVector([[0]]),
+        tilt_centre=StateVector([[0]]),
+        rpm=20,
+        max_range=100,
+        fov_angle=np.pi / 3,
+        vertical_extent=np.pi / 2,
+    )
+
+    # Clutter within FOV and vertical extent
+    clutter_in = Detection(
+        StateVector([[0], [0], [50]]),  # elevation, bearing, range
+        timestamp=datetime.datetime.now(),
+    )
+    assert radar.is_clutter_detectable(clutter_in)
+
+    # Clutter outside horizontal FOV
+    clutter_out_h = Detection(StateVector([[0], [np.pi], [50]]), timestamp=datetime.datetime.now())
+    assert not radar.is_clutter_detectable(clutter_out_h)
+
+    # Clutter outside vertical extent
+    clutter_out_v = Detection(StateVector([[np.pi], [0], [50]]), timestamp=datetime.datetime.now())
+    assert not radar.is_clutter_detectable(clutter_out_v)
+
+    # Clutter beyond range
+    clutter_out_range = Detection(
+        StateVector([[0], [0], [150]]), timestamp=datetime.datetime.now()
+    )
+    assert not radar.is_clutter_detectable(clutter_out_range)
+
+
+def test_radar_bearing_is_clutter_detectable():
+    """Test RadarBearing is_clutter_detectable always returns True."""
+    from ....types.detection import Detection
+
+    radar = RadarBearing(
+        ndim_state=2,
+        position_mapping=[0, 1],
+        noise_covar=CovarianceMatrix(np.array([[0.015]])),
+        position=StateVector([[0], [0]]),
+        max_range=100,
+    )
+
+    # Any clutter should be detectable for bearing-only radar
+    clutter = Detection(StateVector([[np.pi / 2]]), timestamp=datetime.datetime.now())
+    assert radar.is_clutter_detectable(clutter)
+
+
+def test_radar_properties():
+    """Test that radar properties are correctly set and accessible."""
+    position = StateVector([[1], [2]])
+    orientation = StateVector([[0], [0], [np.pi / 4]])
+    noise_covar = CovarianceMatrix(np.array([[0.015, 0], [0, 0.1]]))
+
+    radar = RadarBearingRange(
+        ndim_state=2,
+        position_mapping=[0, 1],
+        noise_covar=noise_covar,
+        position=position,
+        orientation=orientation,
+        max_range=100,
+    )
+
+    assert np.allclose(radar.position, position)
+    assert np.allclose(radar.orientation, orientation)
+    assert radar.ndim_state == 2
+    assert radar.max_range == 100
+    assert np.allclose(radar.noise_covar, noise_covar)
+
+
+def test_multiple_targets_different_ranges():
+    """Test detection of multiple targets at different ranges."""
+    timestamp = datetime.datetime.now()
+
+    radar = RadarBearingRange(
+        ndim_state=2,
+        position_mapping=[0, 1],
+        noise_covar=CovarianceMatrix(np.array([[0.001, 0], [0, 0.01]])),
+        position=StateVector([[0], [0]]),
+        max_range=100,
+    )
+
+    # Three targets: one close, one mid-range, one beyond max range
+    target1 = GroundTruthState(StateVector([[10], [10]]), timestamp=timestamp)
+    target2 = GroundTruthState(StateVector([[50], [50]]), timestamp=timestamp)
+    target3 = GroundTruthState(StateVector([[200], [200]]), timestamp=timestamp)
+
+    measurements = radar.measure({target1, target2, target3}, noise=False)
+
+    # Should only detect first two targets
+    assert len(measurements) == 2
+
+    # Check that detected measurements are for the in-range targets
+    detected_paths = {m.groundtruth_path for m in measurements}
+    assert target1 in detected_paths
+    assert target2 in detected_paths
+    assert target3 not in detected_paths
+
+
 @pytest.mark.parametrize(
     "sensor, params",
     [
@@ -1218,7 +1688,6 @@ def test_ebr_detections(sensor, targets):
     ],
 )
 def test_is_visible_sensors(sensor, params):
-
     obs_state = State(StateVector([[0], [75]]))
     shape = Shape(shape_data=np.array([[-5, -5, 5, 5], [-5, 5, 5, -5]]))
     obs_configs = [{Obstacle(states=obs_state, shape=shape, position_mapping=(0, 1))}]
@@ -1277,7 +1746,6 @@ def test_is_visible_sensors(sensor, params):
     test_part_state = ParticleState(StateVectors([state.state_vector[:, 0] for state in states]).T)
     vis_sensor_no_obs = sensor(**params)
     for obs_config in obs_configs:
-
         params["obstacles"] = obs_config
         vis_informed_sensor = sensor(**params)
 

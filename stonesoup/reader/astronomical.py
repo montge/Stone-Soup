@@ -264,9 +264,9 @@ class TLEFileReader(TextFileReader):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        f = open(self.path)
-        self.line1 = f.readline()
-        self.line2 = f.readline()
+        with open(self.path) as f:
+            self.line1 = f.readline()
+            self.line2 = f.readline()
         self.tle = TLEDictReader({"line_1": self.line1, "line_2": self.line2})
 
         # The following provides this class with the functionality from TLEDictReader to access

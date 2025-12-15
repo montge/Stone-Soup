@@ -116,7 +116,8 @@ class RandomSensorManager(SensorManager):
                 action_generators = actionable.actions(timestamp)
                 chosen_actions = []
                 for action_gen in action_generators:
-                    chosen_actions.append(random.choice(list(action_gen)))
+                    # nosec B311 - PRNG used for action selection simulation, not cryptography
+                    chosen_actions.append(random.choice(list(action_gen)))  # nosec B311
                 config[actionable] = chosen_actions
 
         return configs
