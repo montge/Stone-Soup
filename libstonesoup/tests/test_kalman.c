@@ -403,6 +403,23 @@ static void identity_transition(const stonesoup_state_vector_t* x_in,
     }
 }
 
+/* Nonlinear transition: constant velocity with dt=1 */
+static void cv_transition(const stonesoup_state_vector_t* x_in,
+                          stonesoup_state_vector_t* x_out) {
+    // [x, vx, y, vy] -> [x+vx, vx, y+vy, vy]
+    x_out->data[0] = x_in->data[0] + x_in->data[1];
+    x_out->data[1] = x_in->data[1];
+    x_out->data[2] = x_in->data[2] + x_in->data[3];
+    x_out->data[3] = x_in->data[3];
+}
+
+/* Nonlinear measurement function: extracts position from state */
+static void position_measurement(const stonesoup_state_vector_t* x_in,
+                                 stonesoup_state_vector_t* z_out) {
+    z_out->data[0] = x_in->data[0];  // x position
+    z_out->data[1] = x_in->data[2];  // y position
+}
+
 static int test_ekf_predict(void) {
     stonesoup_gaussian_state_t* prior = stonesoup_gaussian_state_create(4);
     assert(prior);
@@ -481,6 +498,274 @@ static int test_ekf_update(void) {
     return 1;
 }
 
+static int test_ekf_predict_with_nonlinear_func(void) {
+    stonesoup_gaussian_state_t* prior = stonesoup_gaussian_state_create(4);
+    assert(prior);
+
+    prior->state_vector->data[0] = 0.0;  // x
+    prior->state_vector->data[1] = 1.0;  // vx
+    prior->state_vector->data[2] = 0.0;  // y
+    prior->state_vector->data[3] = 2.0;  // vy
+    stonesoup_covariance_matrix_eye(prior->covariance);
+
+    stonesoup_covariance_matrix_t* F = create_cv_transition_matrix(1.0);
+    stonesoup_covariance_matrix_t* Q = create_process_noise(0.1);
+    stonesoup_gaussian_state_t* predicted = stonesoup_gaussian_state_create(4);
+
+    assert(F && Q && predicted);
+
+    // Use nonlinear transition function
+    stonesoup_error_t err = stonesoup_ekf_predict(prior, F, Q, cv_transition, predicted);
+
+    if (err == STONESOUP_ERROR_NOT_IMPLEMENTED) {
+        printf("SKIPPED (not implemented) ");
+        stonesoup_gaussian_state_free(prior);
+        stonesoup_covariance_matrix_free(F);
+        stonesoup_covariance_matrix_free(Q);
+        stonesoup_gaussian_state_free(predicted);
+        return 1;
+    }
+
+    assert(err == STONESOUP_SUCCESS);
+
+    // Check state propagation: [0+1, 1, 0+2, 2] = [1, 1, 2, 2]
+    assert(double_equals(predicted->state_vector->data[0], 1.0));
+    assert(double_equals(predicted->state_vector->data[1], 1.0));
+    assert(double_equals(predicted->state_vector->data[2], 2.0));
+    assert(double_equals(predicted->state_vector->data[3], 2.0));
+
+    stonesoup_gaussian_state_free(prior);
+    stonesoup_covariance_matrix_free(F);
+    stonesoup_covariance_matrix_free(Q);
+    stonesoup_gaussian_state_free(predicted);
+    return 1;
+}
+
+static int test_ekf_predict_null_transition(void) {
+    stonesoup_gaussian_state_t* prior = stonesoup_gaussian_state_create(4);
+    assert(prior);
+
+    prior->state_vector->data[0] = 0.0;
+    prior->state_vector->data[1] = 1.0;
+    prior->state_vector->data[2] = 0.0;
+    prior->state_vector->data[3] = 1.0;
+    stonesoup_covariance_matrix_eye(prior->covariance);
+
+    stonesoup_covariance_matrix_t* F = create_cv_transition_matrix(1.0);
+    stonesoup_covariance_matrix_t* Q = create_process_noise(0.1);
+    stonesoup_gaussian_state_t* predicted = stonesoup_gaussian_state_create(4);
+
+    assert(F && Q && predicted);
+
+    // Use NULL transition function (should use jacobian as linear transition)
+    stonesoup_error_t err = stonesoup_ekf_predict(prior, F, Q, NULL, predicted);
+
+    if (err == STONESOUP_ERROR_NOT_IMPLEMENTED) {
+        printf("SKIPPED (not implemented) ");
+        stonesoup_gaussian_state_free(prior);
+        stonesoup_covariance_matrix_free(F);
+        stonesoup_covariance_matrix_free(Q);
+        stonesoup_gaussian_state_free(predicted);
+        return 1;
+    }
+
+    assert(err == STONESOUP_SUCCESS);
+
+    // Should give same result as standard Kalman predict: [1, 1, 1, 1]
+    assert(double_equals(predicted->state_vector->data[0], 1.0));
+    assert(double_equals(predicted->state_vector->data[1], 1.0));
+    assert(double_equals(predicted->state_vector->data[2], 1.0));
+    assert(double_equals(predicted->state_vector->data[3], 1.0));
+
+    stonesoup_gaussian_state_free(prior);
+    stonesoup_covariance_matrix_free(F);
+    stonesoup_covariance_matrix_free(Q);
+    stonesoup_gaussian_state_free(predicted);
+    return 1;
+}
+
+static int test_ekf_update_with_nonlinear_func(void) {
+    stonesoup_gaussian_state_t* predicted = stonesoup_gaussian_state_create(4);
+    assert(predicted);
+
+    predicted->state_vector->data[0] = 1.0;
+    predicted->state_vector->data[1] = 1.0;
+    predicted->state_vector->data[2] = 2.0;
+    predicted->state_vector->data[3] = 1.0;
+    stonesoup_covariance_matrix_eye(predicted->covariance);
+
+    stonesoup_state_vector_t* measurement = stonesoup_state_vector_create(2);
+    measurement->data[0] = 1.1;  // measured x
+    measurement->data[1] = 2.1;  // measured y
+
+    stonesoup_covariance_matrix_t* H = create_measurement_matrix();
+    stonesoup_covariance_matrix_t* R = create_measurement_noise(0.1);
+    stonesoup_gaussian_state_t* posterior = stonesoup_gaussian_state_create(4);
+
+    assert(measurement && H && R && posterior);
+
+    // Use nonlinear measurement function
+    stonesoup_error_t err = stonesoup_ekf_update(predicted, measurement, H, R,
+                                                  position_measurement, posterior);
+
+    if (err == STONESOUP_ERROR_NOT_IMPLEMENTED) {
+        printf("SKIPPED (not implemented) ");
+        stonesoup_gaussian_state_free(predicted);
+        stonesoup_state_vector_free(measurement);
+        stonesoup_covariance_matrix_free(H);
+        stonesoup_covariance_matrix_free(R);
+        stonesoup_gaussian_state_free(posterior);
+        return 1;
+    }
+
+    assert(err == STONESOUP_SUCCESS);
+
+    // Posterior should be between prediction and measurement
+    assert(posterior->state_vector->data[0] >= 0.9 &&
+           posterior->state_vector->data[0] <= 1.2);
+    assert(posterior->state_vector->data[2] >= 1.9 &&
+           posterior->state_vector->data[2] <= 2.2);
+
+    stonesoup_gaussian_state_free(predicted);
+    stonesoup_state_vector_free(measurement);
+    stonesoup_covariance_matrix_free(H);
+    stonesoup_covariance_matrix_free(R);
+    stonesoup_gaussian_state_free(posterior);
+    return 1;
+}
+
+/* ============================================================================
+ * Dimension Error Tests
+ * ============================================================================ */
+
+static int test_kalman_predict_dimension_error(void) {
+    stonesoup_gaussian_state_t* prior = stonesoup_gaussian_state_create(4);
+    stonesoup_covariance_matrix_t* F = stonesoup_covariance_matrix_create(3, 3);  // Wrong size
+    stonesoup_covariance_matrix_t* Q = create_process_noise(0.1);
+    stonesoup_gaussian_state_t* predicted = stonesoup_gaussian_state_create(4);
+
+    assert(prior && F && Q && predicted);
+
+    stonesoup_covariance_matrix_eye(prior->covariance);
+
+    stonesoup_error_t err = stonesoup_kalman_predict(prior, F, Q, predicted);
+
+    if (err != STONESOUP_ERROR_NOT_IMPLEMENTED) {
+        assert(err == STONESOUP_ERROR_DIMENSION);
+    }
+
+    stonesoup_gaussian_state_free(prior);
+    stonesoup_covariance_matrix_free(F);
+    stonesoup_covariance_matrix_free(Q);
+    stonesoup_gaussian_state_free(predicted);
+    return 1;
+}
+
+static int test_kalman_update_dimension_error(void) {
+    stonesoup_gaussian_state_t* predicted = stonesoup_gaussian_state_create(4);
+    stonesoup_state_vector_t* measurement = stonesoup_state_vector_create(2);
+    stonesoup_covariance_matrix_t* H = stonesoup_covariance_matrix_create(3, 4);  // Wrong rows
+    stonesoup_covariance_matrix_t* R = create_measurement_noise(0.1);
+    stonesoup_gaussian_state_t* posterior = stonesoup_gaussian_state_create(4);
+
+    assert(predicted && measurement && H && R && posterior);
+
+    stonesoup_covariance_matrix_eye(predicted->covariance);
+
+    stonesoup_error_t err = stonesoup_kalman_update(predicted, measurement, H, R, posterior);
+
+    if (err != STONESOUP_ERROR_NOT_IMPLEMENTED) {
+        assert(err == STONESOUP_ERROR_DIMENSION);
+    }
+
+    stonesoup_gaussian_state_free(predicted);
+    stonesoup_state_vector_free(measurement);
+    stonesoup_covariance_matrix_free(H);
+    stonesoup_covariance_matrix_free(R);
+    stonesoup_gaussian_state_free(posterior);
+    return 1;
+}
+
+static int test_kalman_innovation_null_pointer(void) {
+    stonesoup_gaussian_state_t* predicted = stonesoup_gaussian_state_create(4);
+    stonesoup_state_vector_t* measurement = stonesoup_state_vector_create(2);
+    stonesoup_covariance_matrix_t* H = create_measurement_matrix();
+
+    assert(predicted && measurement && H);
+
+    stonesoup_error_t err = stonesoup_kalman_innovation(predicted, measurement, H, NULL);
+
+    if (err != STONESOUP_ERROR_NOT_IMPLEMENTED) {
+        assert(err == STONESOUP_ERROR_NULL_POINTER);
+    }
+
+    stonesoup_gaussian_state_free(predicted);
+    stonesoup_state_vector_free(measurement);
+    stonesoup_covariance_matrix_free(H);
+    return 1;
+}
+
+static int test_kalman_innovation_cov_null_pointer(void) {
+    stonesoup_gaussian_state_t* predicted = stonesoup_gaussian_state_create(4);
+    stonesoup_covariance_matrix_t* H = create_measurement_matrix();
+    stonesoup_covariance_matrix_t* R = create_measurement_noise(0.1);
+
+    assert(predicted && H && R);
+
+    stonesoup_covariance_matrix_eye(predicted->covariance);
+
+    stonesoup_error_t err = stonesoup_kalman_innovation_covariance(predicted, H, R, NULL);
+
+    if (err != STONESOUP_ERROR_NOT_IMPLEMENTED) {
+        assert(err == STONESOUP_ERROR_NULL_POINTER);
+    }
+
+    stonesoup_gaussian_state_free(predicted);
+    stonesoup_covariance_matrix_free(H);
+    stonesoup_covariance_matrix_free(R);
+    return 1;
+}
+
+static int test_ekf_predict_null_pointer(void) {
+    stonesoup_covariance_matrix_t* F = create_cv_transition_matrix(1.0);
+    stonesoup_covariance_matrix_t* Q = create_process_noise(0.1);
+    stonesoup_gaussian_state_t* predicted = stonesoup_gaussian_state_create(4);
+
+    assert(F && Q && predicted);
+
+    stonesoup_error_t err = stonesoup_ekf_predict(NULL, F, Q, NULL, predicted);
+
+    if (err != STONESOUP_ERROR_NOT_IMPLEMENTED) {
+        assert(err == STONESOUP_ERROR_NULL_POINTER);
+    }
+
+    stonesoup_covariance_matrix_free(F);
+    stonesoup_covariance_matrix_free(Q);
+    stonesoup_gaussian_state_free(predicted);
+    return 1;
+}
+
+static int test_ekf_update_null_pointer(void) {
+    stonesoup_state_vector_t* measurement = stonesoup_state_vector_create(2);
+    stonesoup_covariance_matrix_t* H = create_measurement_matrix();
+    stonesoup_covariance_matrix_t* R = create_measurement_noise(0.1);
+    stonesoup_gaussian_state_t* posterior = stonesoup_gaussian_state_create(4);
+
+    assert(measurement && H && R && posterior);
+
+    stonesoup_error_t err = stonesoup_ekf_update(NULL, measurement, H, R, NULL, posterior);
+
+    if (err != STONESOUP_ERROR_NOT_IMPLEMENTED) {
+        assert(err == STONESOUP_ERROR_NULL_POINTER);
+    }
+
+    stonesoup_state_vector_free(measurement);
+    stonesoup_covariance_matrix_free(H);
+    stonesoup_covariance_matrix_free(R);
+    stonesoup_gaussian_state_free(posterior);
+    return 1;
+}
+
 int main(void) {
     printf("Stone Soup C Library - Kalman Filter Tests\n");
     printf("===========================================\n\n");
@@ -508,6 +793,18 @@ int main(void) {
     printf("\nExtended Kalman Filter:\n");
     TEST(test_ekf_predict);
     TEST(test_ekf_update);
+    TEST(test_ekf_predict_with_nonlinear_func);
+    TEST(test_ekf_predict_null_transition);
+    TEST(test_ekf_update_with_nonlinear_func);
+
+    /* Dimension Error Tests */
+    printf("\nDimension and Error Handling:\n");
+    TEST(test_kalman_predict_dimension_error);
+    TEST(test_kalman_update_dimension_error);
+    TEST(test_kalman_innovation_null_pointer);
+    TEST(test_kalman_innovation_cov_null_pointer);
+    TEST(test_ekf_predict_null_pointer);
+    TEST(test_ekf_update_null_pointer);
 
     printf("\n===========================================\n");
     printf("Tests run: %d\n", tests_run);

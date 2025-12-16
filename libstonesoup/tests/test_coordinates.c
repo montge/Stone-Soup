@@ -616,6 +616,330 @@ static int test_interplanetary_scale_precision(void) {
 }
 
 /*===========================================================================*/
+/* Jacobian Tests                                                            */
+/*===========================================================================*/
+
+/**
+ * Test Cartesian to polar Jacobian
+ */
+static int test_cart2polar_jacobian(void) {
+    stonesoup_state_vector_t* cart = stonesoup_state_vector_create(2);
+    stonesoup_covariance_matrix_t* jacobian = stonesoup_covariance_matrix_create(2, 2);
+
+    if (!cart || !jacobian) {
+        stonesoup_state_vector_free(cart);
+        stonesoup_covariance_matrix_free(jacobian);
+        return 0;
+    }
+
+    /* Test point (3, 4) -> range=5 */
+    cart->data[0] = 3.0;
+    cart->data[1] = 4.0;
+
+    stonesoup_error_t err = stonesoup_cart2polar_jacobian(cart, jacobian);
+
+    /* This function is implemented, so check results */
+    int success = (err == STONESOUP_SUCCESS);
+    if (success) {
+        /* Verify Jacobian structure:
+         * [ x/r,   y/r   ]   [ 3/5, 4/5 ]   [ 0.6, 0.8  ]
+         * [-y/r^2, x/r^2 ]   [-4/25, 3/25]  [-0.16, 0.12]
+         */
+        double r = 5.0;
+        double x = 3.0, y = 4.0;
+        success = approx_equal(jacobian->data[0], x / r, EPSILON) &&
+                  approx_equal(jacobian->data[1], y / r, EPSILON) &&
+                  approx_equal(jacobian->data[2], -y / (r*r), EPSILON) &&
+                  approx_equal(jacobian->data[3], x / (r*r), EPSILON);
+    }
+
+    stonesoup_state_vector_free(cart);
+    stonesoup_covariance_matrix_free(jacobian);
+
+    return success;
+}
+
+/**
+ * Test polar to Cartesian Jacobian
+ */
+static int test_polar2cart_jacobian(void) {
+    stonesoup_state_vector_t* polar = stonesoup_state_vector_create(2);
+    stonesoup_covariance_matrix_t* jacobian = stonesoup_covariance_matrix_create(2, 2);
+
+    if (!polar || !jacobian) {
+        stonesoup_state_vector_free(polar);
+        stonesoup_covariance_matrix_free(jacobian);
+        return 0;
+    }
+
+    /* Test range=5, bearing=π/4 (45 degrees) */
+    polar->data[0] = 5.0;
+    polar->data[1] = M_PI / 4.0;
+
+    stonesoup_error_t err = stonesoup_polar2cart_jacobian(polar, jacobian);
+
+    int success = (err == STONESOUP_SUCCESS);
+    if (success) {
+        /* Verify Jacobian structure:
+         * [ cos(b), -r*sin(b) ]
+         * [ sin(b),  r*cos(b) ]
+         */
+        double r = 5.0;
+        double b = M_PI / 4.0;
+        double cos_b = cos(b);
+        double sin_b = sin(b);
+        success = approx_equal(jacobian->data[0], cos_b, EPSILON) &&
+                  approx_equal(jacobian->data[1], -r * sin_b, EPSILON) &&
+                  approx_equal(jacobian->data[2], sin_b, EPSILON) &&
+                  approx_equal(jacobian->data[3], r * cos_b, EPSILON);
+    }
+
+    stonesoup_state_vector_free(polar);
+    stonesoup_covariance_matrix_free(jacobian);
+
+    return success;
+}
+
+/**
+ * Test cart2polar_jacobian with singular point (origin)
+ */
+static int test_cart2polar_jacobian_singular(void) {
+    stonesoup_state_vector_t* cart = stonesoup_state_vector_create(2);
+    stonesoup_covariance_matrix_t* jacobian = stonesoup_covariance_matrix_create(2, 2);
+
+    if (!cart || !jacobian) {
+        stonesoup_state_vector_free(cart);
+        stonesoup_covariance_matrix_free(jacobian);
+        return 0;
+    }
+
+    /* Test at origin - should return SINGULAR error */
+    cart->data[0] = 0.0;
+    cart->data[1] = 0.0;
+
+    stonesoup_error_t err = stonesoup_cart2polar_jacobian(cart, jacobian);
+
+    int success = (err == STONESOUP_ERROR_SINGULAR);
+
+    stonesoup_state_vector_free(cart);
+    stonesoup_covariance_matrix_free(jacobian);
+
+    return success;
+}
+
+/**
+ * Test cart2sphere_jacobian (not implemented)
+ */
+static int test_cart2sphere_jacobian(void) {
+    stonesoup_state_vector_t* cart = stonesoup_state_vector_create(3);
+    stonesoup_covariance_matrix_t* jacobian = stonesoup_covariance_matrix_create(3, 3);
+
+    if (!cart || !jacobian) {
+        stonesoup_state_vector_free(cart);
+        stonesoup_covariance_matrix_free(jacobian);
+        return 0;
+    }
+
+    cart->data[0] = 1.0;
+    cart->data[1] = 2.0;
+    cart->data[2] = 3.0;
+
+    stonesoup_error_t err = stonesoup_cart2sphere_jacobian(cart, jacobian);
+
+    /* This function returns NOT_IMPLEMENTED */
+    int success = (err == STONESOUP_ERROR_NOT_IMPLEMENTED);
+
+    stonesoup_state_vector_free(cart);
+    stonesoup_covariance_matrix_free(jacobian);
+
+    return success;
+}
+
+/**
+ * Test sphere2cart_jacobian (not implemented)
+ */
+static int test_sphere2cart_jacobian(void) {
+    stonesoup_state_vector_t* sphere = stonesoup_state_vector_create(3);
+    stonesoup_covariance_matrix_t* jacobian = stonesoup_covariance_matrix_create(3, 3);
+
+    if (!sphere || !jacobian) {
+        stonesoup_state_vector_free(sphere);
+        stonesoup_covariance_matrix_free(jacobian);
+        return 0;
+    }
+
+    sphere->data[0] = 5.0;
+    sphere->data[1] = M_PI / 4.0;
+    sphere->data[2] = M_PI / 6.0;
+
+    stonesoup_error_t err = stonesoup_sphere2cart_jacobian(sphere, jacobian);
+
+    /* This function returns NOT_IMPLEMENTED */
+    int success = (err == STONESOUP_ERROR_NOT_IMPLEMENTED);
+
+    stonesoup_state_vector_free(sphere);
+    stonesoup_covariance_matrix_free(jacobian);
+
+    return success;
+}
+
+/**
+ * Test ecef2geodetic (not implemented)
+ */
+static int test_ecef2geodetic(void) {
+    stonesoup_state_vector_t* ecef = stonesoup_state_vector_create(3);
+    stonesoup_state_vector_t* geodetic = stonesoup_state_vector_create(3);
+
+    if (!ecef || !geodetic) {
+        stonesoup_state_vector_free(ecef);
+        stonesoup_state_vector_free(geodetic);
+        return 0;
+    }
+
+    ecef->data[0] = 6378137.0;
+    ecef->data[1] = 0.0;
+    ecef->data[2] = 0.0;
+
+    stonesoup_error_t err = stonesoup_ecef2geodetic(ecef, geodetic);
+
+    /* This function returns NOT_IMPLEMENTED */
+    int success = (err == STONESOUP_ERROR_NOT_IMPLEMENTED);
+
+    stonesoup_state_vector_free(ecef);
+    stonesoup_state_vector_free(geodetic);
+
+    return success;
+}
+
+/*===========================================================================*/
+/* Null Pointer and Dimension Error Tests                                    */
+/*===========================================================================*/
+
+/**
+ * Test cart2polar with null pointers
+ */
+static int test_cart2polar_null(void) {
+    stonesoup_state_vector_t* cart = stonesoup_state_vector_create(2);
+    stonesoup_state_vector_t* polar = stonesoup_state_vector_create(2);
+
+    if (!cart || !polar) {
+        stonesoup_state_vector_free(cart);
+        stonesoup_state_vector_free(polar);
+        return 0;
+    }
+
+    /* Test with null input */
+    stonesoup_error_t err = stonesoup_cart2polar(NULL, polar);
+    int success1 = (err == STONESOUP_ERROR_NULL_POINTER);
+
+    /* Test with null output */
+    err = stonesoup_cart2polar(cart, NULL);
+    int success2 = (err == STONESOUP_ERROR_NULL_POINTER);
+
+    stonesoup_state_vector_free(cart);
+    stonesoup_state_vector_free(polar);
+
+    return success1 && success2;
+}
+
+/**
+ * Test cart2polar with wrong dimensions
+ */
+static int test_cart2polar_dimension_error(void) {
+    stonesoup_state_vector_t* cart = stonesoup_state_vector_create(3);  /* Wrong size */
+    stonesoup_state_vector_t* polar = stonesoup_state_vector_create(2);
+
+    if (!cart || !polar) {
+        stonesoup_state_vector_free(cart);
+        stonesoup_state_vector_free(polar);
+        return 0;
+    }
+
+    stonesoup_error_t err = stonesoup_cart2polar(cart, polar);
+    int success = (err == STONESOUP_ERROR_INVALID_SIZE);
+
+    stonesoup_state_vector_free(cart);
+    stonesoup_state_vector_free(polar);
+
+    return success;
+}
+
+/**
+ * Test cart2sphere with null pointers
+ */
+static int test_cart2sphere_null(void) {
+    stonesoup_state_vector_t* cart = stonesoup_state_vector_create(3);
+    stonesoup_state_vector_t* sphere = stonesoup_state_vector_create(3);
+
+    if (!cart || !sphere) {
+        stonesoup_state_vector_free(cart);
+        stonesoup_state_vector_free(sphere);
+        return 0;
+    }
+
+    stonesoup_error_t err = stonesoup_cart2sphere(NULL, sphere);
+    int success1 = (err == STONESOUP_ERROR_NULL_POINTER);
+
+    err = stonesoup_cart2sphere(cart, NULL);
+    int success2 = (err == STONESOUP_ERROR_NULL_POINTER);
+
+    stonesoup_state_vector_free(cart);
+    stonesoup_state_vector_free(sphere);
+
+    return success1 && success2;
+}
+
+/**
+ * Test jacobian with dimension error
+ */
+static int test_jacobian_dimension_error(void) {
+    stonesoup_state_vector_t* cart = stonesoup_state_vector_create(2);
+    stonesoup_covariance_matrix_t* jacobian = stonesoup_covariance_matrix_create(3, 3);  /* Wrong size */
+
+    if (!cart || !jacobian) {
+        stonesoup_state_vector_free(cart);
+        stonesoup_covariance_matrix_free(jacobian);
+        return 0;
+    }
+
+    cart->data[0] = 3.0;
+    cart->data[1] = 4.0;
+
+    stonesoup_error_t err = stonesoup_cart2polar_jacobian(cart, jacobian);
+    int success = (err == STONESOUP_ERROR_DIMENSION);
+
+    stonesoup_state_vector_free(cart);
+    stonesoup_covariance_matrix_free(jacobian);
+
+    return success;
+}
+
+/**
+ * Test geodetic2ecef with null pointers
+ */
+static int test_geodetic2ecef_null(void) {
+    stonesoup_state_vector_t* geodetic = stonesoup_state_vector_create(3);
+    stonesoup_state_vector_t* ecef = stonesoup_state_vector_create(3);
+
+    if (!geodetic || !ecef) {
+        stonesoup_state_vector_free(geodetic);
+        stonesoup_state_vector_free(ecef);
+        return 0;
+    }
+
+    stonesoup_error_t err = stonesoup_geodetic2ecef(NULL, ecef);
+    int success1 = (err == STONESOUP_ERROR_NULL_POINTER);
+
+    err = stonesoup_geodetic2ecef(geodetic, NULL);
+    int success2 = (err == STONESOUP_ERROR_NULL_POINTER);
+
+    stonesoup_state_vector_free(geodetic);
+    stonesoup_state_vector_free(ecef);
+
+    return success1 && success2;
+}
+
+/*===========================================================================*/
 /* Geodetic Transformation Tests                                             */
 /*===========================================================================*/
 
@@ -721,6 +1045,23 @@ int main(void) {
     /* Geodetic transformation tests */
     TEST(test_geodetic2ecef_basic);
     TEST(test_geodetic2ecef_north_pole);
+
+    /* Jacobian tests */
+    printf("\nJacobian tests:\n");
+    TEST(test_cart2polar_jacobian);
+    TEST(test_polar2cart_jacobian);
+    TEST(test_cart2polar_jacobian_singular);
+    TEST(test_cart2sphere_jacobian);
+    TEST(test_sphere2cart_jacobian);
+    TEST(test_ecef2geodetic);
+
+    /* Null pointer and dimension error tests */
+    printf("\nError handling tests:\n");
+    TEST(test_cart2polar_null);
+    TEST(test_cart2polar_dimension_error);
+    TEST(test_cart2sphere_null);
+    TEST(test_jacobian_dimension_error);
+    TEST(test_geodetic2ecef_null);
 
     printf("\n========================================\n");
     printf("Tests run: %d\n", tests_run);
