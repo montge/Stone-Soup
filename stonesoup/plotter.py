@@ -127,7 +127,6 @@ class _Plotter(ABC):
                 conv_detections[state] = (*state_vec,)
             else:
                 warnings.warn(f"Unknown type {type(state)}", stacklevel=2)
-                continue
         return conv_detections, conv_clutter
 
 

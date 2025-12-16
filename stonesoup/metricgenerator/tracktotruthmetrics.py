@@ -633,7 +633,7 @@ class IDSIAPMetrics(SIAPMetrics):
         id_correctness_at_times = []
         id_ambiguity_at_times = []
 
-        JT_sum = JU_sum = JC_sum = JI_sum = JA_sum = 0
+        JT_sum = JU_sum = JC_sum = _JI_sum = JA_sum = 0
 
         for timestamp in timestamps:
             JTt = self.num_associated_truths_at_time(manager, ground_truths, timestamp)
@@ -641,7 +641,7 @@ class IDSIAPMetrics(SIAPMetrics):
             JUt, JCt, JIt = self.num_id_truths_at_time(manager, ground_truths, timestamp)
             JU_sum += JUt
             JC_sum += JCt
-            JI_sum += JIt
+            _JI_sum += JIt
             JAt = JTt - JCt - JIt - JUt
             JA_sum += JAt
 

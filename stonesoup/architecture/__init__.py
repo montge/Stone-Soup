@@ -653,7 +653,6 @@ class InformationArchitecture(Architecture):
 
         if self.fully_propagated:
             self.current_time += timedelta(seconds=time_increment)
-            return
         else:
             self.propagate(time_increment, failed_edges)
 

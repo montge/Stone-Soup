@@ -242,7 +242,6 @@ class TrackStitcher(Base):
             if count == len(combo):
                 count = 0
                 i += 1
-                continue
 
         tracks = set(tracks)
         stitched_track_map = {}

@@ -491,8 +491,8 @@ class ErrorControllerBayesianRecursiveUpdater(BayesianRecursiveUpdater):
         # 4) define initial ds value
         ds = 1 / self.number_steps
 
-        # 5) start iteration count
-        i = 1
+        # 5) start iteration count (used for documentation only)
+        _i = 1
 
         # Make two deep copies of the hypothesis
         nhypothesis = copy.deepcopy(hypothesis)
@@ -591,7 +591,7 @@ class ErrorControllerBayesianRecursiveUpdater(BayesianRecursiveUpdater):
             P_iminus1 = P_i
 
             # 35) update iteration count
-            i += 1
+            _i += 1
 
             # 36) update ds
             ds = ds * min(self.fmax, max(self.fmin, self.f * math.sqrt(1 / error)))
