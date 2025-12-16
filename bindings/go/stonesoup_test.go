@@ -453,3 +453,238 @@ func TestGaussianStateCovariance(t *testing.T) {
 		t.Errorf("Expected cov[0,0]=0.5, got %f", gs.Covariance.Get(0, 0))
 	}
 }
+
+// Tests for Detection
+func TestDetection(t *testing.T) {
+	t.Run("NewDetection", func(t *testing.T) {
+		det := NewDetection([]float64{1.0, 2.0}, 0.5)
+		if det.Measurement.Get(0) != 1.0 {
+			t.Errorf("Expected measurement[0]=1.0, got %f", det.Measurement.Get(0))
+		}
+		if det.Timestamp != 0.5 {
+			t.Errorf("Expected timestamp=0.5, got %f", det.Timestamp)
+		}
+	})
+
+	t.Run("DetectionDimension", func(t *testing.T) {
+		det := NewDetection([]float64{3.0, 4.0, 5.0}, 1.0)
+		if det.Measurement.Dims() != 3 {
+			t.Errorf("Expected dims=3, got %d", det.Measurement.Dims())
+		}
+	})
+}
+
+// Additional Kalman filter error tests
+func TestKalmanPredictErrors(t *testing.T) {
+	t.Run("TransitionDimensionMismatch", func(t *testing.T) {
+		sv := NewStateVector([]float64{0.0, 1.0})
+		cov := IdentityMatrix(2)
+		prior, _ := NewGaussianState(sv, cov)
+
+		// Wrong dimension transition matrix
+		F, _ := FromSlice([][]float64{
+			{1.0, 0.0, 0.0},
+			{0.0, 1.0, 0.0},
+			{0.0, 0.0, 1.0},
+		})
+		Q := IdentityMatrix(2)
+
+		_, err := KalmanPredict(prior, F, Q)
+		if err == nil {
+			t.Error("Expected dimension mismatch error")
+		}
+	})
+
+	t.Run("ProcessNoiseDimensionMismatch", func(t *testing.T) {
+		sv := NewStateVector([]float64{0.0, 1.0})
+		cov := IdentityMatrix(2)
+		prior, _ := NewGaussianState(sv, cov)
+
+		F := IdentityMatrix(2)
+		Q := IdentityMatrix(3) // Wrong dimension
+
+		_, err := KalmanPredict(prior, F, Q)
+		if err == nil {
+			t.Error("Expected dimension mismatch error")
+		}
+	})
+}
+
+func TestKalmanUpdateErrors(t *testing.T) {
+	t.Run("MeasurementMatrixDimensionMismatch", func(t *testing.T) {
+		sv := NewStateVector([]float64{0.0, 1.0})
+		cov := IdentityMatrix(2)
+		predicted, _ := NewGaussianState(sv, cov)
+
+		z := NewStateVector([]float64{1.0})
+		H, _ := FromSlice([][]float64{{1.0, 0.0, 0.0}}) // Wrong cols
+		R := DiagonalMatrix([]float64{0.1})
+
+		_, err := KalmanUpdate(predicted, z, H, R)
+		if err == nil {
+			t.Error("Expected dimension mismatch error")
+		}
+	})
+
+	t.Run("MeasurementNoiseDimensionMismatch", func(t *testing.T) {
+		sv := NewStateVector([]float64{0.0, 1.0})
+		cov := IdentityMatrix(2)
+		predicted, _ := NewGaussianState(sv, cov)
+
+		z := NewStateVector([]float64{1.0})
+		H, _ := FromSlice([][]float64{{1.0, 0.0}})
+		R := IdentityMatrix(2) // Wrong dimension
+
+		_, err := KalmanUpdate(predicted, z, H, R)
+		if err == nil {
+			t.Error("Expected dimension mismatch error")
+		}
+	})
+
+	t.Run("SingularInnovationCovariance", func(t *testing.T) {
+		sv := NewStateVector([]float64{0.0, 1.0})
+		cov := NewMatrix(2, 2) // Zero covariance
+		predicted, _ := NewGaussianState(sv, cov)
+
+		z := NewStateVector([]float64{1.0})
+		H, _ := FromSlice([][]float64{{1.0, 0.0}})
+		R := NewMatrix(1, 1) // Zero R - singular S
+
+		_, err := KalmanUpdate(predicted, z, H, R)
+		if err == nil {
+			t.Error("Expected singular matrix error")
+		}
+	})
+
+	t.Run("TwoDimensionalMeasurement", func(t *testing.T) {
+		// Test 2D measurement update
+		sv := NewStateVector([]float64{0.0, 1.0, 0.0, 1.0})
+		cov := IdentityMatrix(4)
+		predicted, _ := NewGaussianState(sv, cov)
+
+		z := NewStateVector([]float64{0.5, 0.5})
+		H, _ := FromSlice([][]float64{
+			{1.0, 0.0, 0.0, 0.0},
+			{0.0, 0.0, 1.0, 0.0},
+		})
+		R := DiagonalMatrix([]float64{0.1, 0.1})
+
+		posterior, err := KalmanUpdate(predicted, z, H, R)
+		if err != nil {
+			t.Fatalf("KalmanUpdate failed: %v", err)
+		}
+		if posterior.Dim() != 4 {
+			t.Errorf("Expected dim=4, got %d", posterior.Dim())
+		}
+	})
+}
+
+func TestFromSliceInconsistentRows(t *testing.T) {
+	// Rows with different lengths
+	_, err := FromSlice([][]float64{
+		{1.0, 2.0},
+		{3.0},
+	})
+	if err == nil {
+		t.Error("Expected error for inconsistent row lengths")
+	}
+}
+
+func TestMatrixInverse1x1Singular(t *testing.T) {
+	m := NewMatrix(1, 1) // Zero matrix
+	_, err := m.Inverse()
+	if err != ErrSingularMatrix {
+		t.Error("Expected singular matrix error for zero 1x1 matrix")
+	}
+}
+
+func TestStateVectorData(t *testing.T) {
+	sv := NewStateVector([]float64{1.0, 2.0, 3.0})
+	data := sv.Data()
+
+	// Verify data is a copy
+	if len(data) != 3 {
+		t.Errorf("Expected len=3, got %d", len(data))
+	}
+	if data[0] != 1.0 || data[1] != 2.0 || data[2] != 3.0 {
+		t.Error("Data values incorrect")
+	}
+
+	// Modify copy - original should be unchanged
+	data[0] = 99.0
+	if sv.Get(0) == 99.0 {
+		t.Error("Modifying data copy should not affect original")
+	}
+}
+
+func TestStateVectorSetBoundsCheck(t *testing.T) {
+	sv := Zeros(2)
+	// Setting out of bounds should be a no-op
+	sv.Set(-1, 1.0)
+	sv.Set(5, 1.0)
+	// Original values should be unchanged
+	if sv.Get(0) != 0.0 || sv.Get(1) != 0.0 {
+		t.Error("Out of bounds Set should not modify vector")
+	}
+}
+
+func TestStateVectorGetBoundsCheck(t *testing.T) {
+	sv := NewStateVector([]float64{1.0, 2.0})
+	// Getting out of bounds should return 0
+	if sv.Get(-1) != 0.0 {
+		t.Error("Get with negative index should return 0")
+	}
+	if sv.Get(5) != 0.0 {
+		t.Error("Get with index >= len should return 0")
+	}
+}
+
+func TestCompleteTrackingWorkflow(t *testing.T) {
+	// Create track
+	track := NewTrack("target-1")
+
+	// Initial state: [x, vx, y, vy]
+	sv := NewStateVector([]float64{0.0, 1.0, 0.0, 1.0})
+	cov := IdentityMatrix(4)
+	state, _ := NewGaussianState(sv, cov)
+	track.AddState(state)
+
+	// Kalman filter matrices
+	F := ConstantVelocityTransition(2, 1.0)
+	Q := DiagonalMatrix([]float64{0.01, 0.1, 0.01, 0.1})
+	H := PositionMeasurement(2)
+	R := DiagonalMatrix([]float64{0.5, 0.5})
+
+	// Process measurements
+	measurements := [][]float64{
+		{1.0, 1.0},
+		{2.0, 2.0},
+		{3.0, 3.0},
+	}
+
+	for _, meas := range measurements {
+		// Predict
+		state, _ = KalmanPredict(state, F, Q)
+
+		// Create detection and update
+		det := NewDetection(meas, 0.0)
+		state, _ = KalmanUpdate(state, det.Measurement, H, R)
+		track.AddState(state)
+	}
+
+	// Verify track
+	if track.Length() != 4 {
+		t.Errorf("Expected track length=4, got %d", track.Length())
+	}
+
+	// Final state should be near (3, 3)
+	final := track.Latest()
+	x := final.StateVector.Get(0)
+	y := final.StateVector.Get(2)
+	if x < 2.0 || x > 4.0 {
+		t.Errorf("Expected x near 3, got %f", x)
+	}
+	if y < 2.0 || y > 4.0 {
+		t.Errorf("Expected y near 3, got %f", y)
+	}
+}
