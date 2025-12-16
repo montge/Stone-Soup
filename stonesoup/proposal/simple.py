@@ -25,7 +25,7 @@ class DynamicsProposal(Proposal):
     control_model: ControlModel = Property(default=None, doc="control model")
 
     def rvs(self, prior: State, measurement=None, time_interval=None, control_input=None,
-            **kwargs) -> Union[StateVector, StateVectors]:
+            **kwargs) -> StateVector | StateVectors:
         """Generate samples from the proposal.
 
         Parameters

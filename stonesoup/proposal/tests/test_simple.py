@@ -4,19 +4,17 @@ import itertools
 import numpy as np
 import pytest
 
+from stonesoup.models.control.linear import LinearControlModel
 from stonesoup.models.measurement.linear import LinearGaussian
 from stonesoup.models.transition.linear import ConstantVelocity
 from stonesoup.predictor.kalman import KalmanPredictor
 from stonesoup.predictor.particle import ParticlePredictor
-
-# Import the proposals
 from stonesoup.proposal.simple import DynamicsProposal, KalmanProposal
-from stonesoup.models.control.linear import LinearControlModel
-from stonesoup.types.particle import Particle
-from stonesoup.types.prediction import ParticleStatePrediction
-from stonesoup.types.state import ParticleState, GaussianState, State
 from stonesoup.types.detection import Detection
 from stonesoup.types.hypothesis import SingleHypothesis
+from stonesoup.types.particle import Particle
+from stonesoup.types.prediction import ParticleStatePrediction
+from stonesoup.types.state import GaussianState, ParticleState, State
 from stonesoup.updater.kalman import KalmanUpdater
 
 
