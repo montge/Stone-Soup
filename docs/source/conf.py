@@ -170,6 +170,8 @@ sphinx_gallery_conf = {
     "examples_dirs": ["../tutorials", "../examples", "../demos"],
     "gallery_dirs": ["auto_tutorials", "auto_examples", "auto_demos"],
     "filename_pattern": re.escape(os.sep),
+    # Skip demos that require external services (YouTube)
+    "ignore_pattern": r"Video_Processing\.py",
     "image_scrapers": ("doc_extensions.gallery_scraper",),
     "reset_modules": ("matplotlib", "seaborn", "doc_extensions.reset_numpy_random_seed"),
     "reset_modules_order": "both",
