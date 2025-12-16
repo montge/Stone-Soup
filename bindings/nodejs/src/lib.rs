@@ -700,3 +700,381 @@ pub fn initialize() -> Result<()> {
 pub fn get_version() -> String {
     "0.1.0".to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // StateVector tests
+    #[test]
+    fn test_state_vector_new() {
+        let sv = StateVector::new(vec![1.0, 2.0, 3.0]);
+        assert_eq!(sv.dims(), 3);
+        assert_eq!(sv.to_array(), vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn test_state_vector_zeros() {
+        let sv = StateVector::zeros(4);
+        assert_eq!(sv.dims(), 4);
+        assert_eq!(sv.to_array(), vec![0.0, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn test_state_vector_get_set() {
+        let mut sv = StateVector::new(vec![1.0, 2.0, 3.0]);
+        assert_eq!(sv.get(1), Some(2.0));
+        assert_eq!(sv.get(5), None);
+
+        sv.set(1, 5.0).unwrap();
+        assert_eq!(sv.get(1), Some(5.0));
+
+        assert!(sv.set(10, 1.0).is_err());
+    }
+
+    #[test]
+    fn test_state_vector_norm() {
+        let sv = StateVector::new(vec![3.0, 4.0]);
+        assert!((sv.norm() - 5.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_state_vector_add() {
+        let sv1 = StateVector::new(vec![1.0, 2.0]);
+        let sv2 = StateVector::new(vec![3.0, 4.0]);
+        let result = sv1.add(&sv2).unwrap();
+        assert_eq!(result.to_array(), vec![4.0, 6.0]);
+    }
+
+    #[test]
+    fn test_state_vector_add_dimension_mismatch() {
+        let sv1 = StateVector::new(vec![1.0, 2.0]);
+        let sv2 = StateVector::new(vec![3.0, 4.0, 5.0]);
+        assert!(sv1.add(&sv2).is_err());
+    }
+
+    #[test]
+    fn test_state_vector_sub() {
+        let sv1 = StateVector::new(vec![5.0, 7.0]);
+        let sv2 = StateVector::new(vec![3.0, 4.0]);
+        let result = sv1.sub(&sv2).unwrap();
+        assert_eq!(result.to_array(), vec![2.0, 3.0]);
+    }
+
+    #[test]
+    fn test_state_vector_scale() {
+        let sv = StateVector::new(vec![1.0, 2.0, 3.0]);
+        let result = sv.scale(2.0);
+        assert_eq!(result.to_array(), vec![2.0, 4.0, 6.0]);
+    }
+
+    #[test]
+    fn test_state_vector_to_string() {
+        let sv = StateVector::new(vec![1.0, 2.0]);
+        assert!(sv.to_string().contains("dims=2"));
+    }
+
+    // CovarianceMatrix tests
+    #[test]
+    fn test_covariance_matrix_new() {
+        let cov = CovarianceMatrix::new(vec![
+            vec![1.0, 0.5],
+            vec![0.5, 1.0],
+        ]).unwrap();
+        assert_eq!(cov.dim(), 2);
+    }
+
+    #[test]
+    fn test_covariance_matrix_empty_error() {
+        assert!(CovarianceMatrix::new(vec![]).is_err());
+    }
+
+    #[test]
+    fn test_covariance_matrix_non_square_error() {
+        assert!(CovarianceMatrix::new(vec![
+            vec![1.0, 2.0, 3.0],
+            vec![4.0, 5.0, 6.0],
+        ]).is_err());
+    }
+
+    #[test]
+    fn test_covariance_matrix_inconsistent_rows_error() {
+        assert!(CovarianceMatrix::new(vec![
+            vec![1.0, 2.0],
+            vec![3.0],
+        ]).is_err());
+    }
+
+    #[test]
+    fn test_covariance_matrix_identity() {
+        let cov = CovarianceMatrix::identity(3);
+        assert_eq!(cov.dim(), 3);
+        assert_eq!(cov.get(0, 0), Some(1.0));
+        assert_eq!(cov.get(1, 1), Some(1.0));
+        assert_eq!(cov.get(0, 1), Some(0.0));
+    }
+
+    #[test]
+    fn test_covariance_matrix_diagonal() {
+        let cov = CovarianceMatrix::diagonal(vec![1.0, 2.0, 3.0]);
+        assert_eq!(cov.dim(), 3);
+        assert_eq!(cov.get(0, 0), Some(1.0));
+        assert_eq!(cov.get(1, 1), Some(2.0));
+        assert_eq!(cov.get(2, 2), Some(3.0));
+        assert_eq!(cov.get(0, 1), Some(0.0));
+    }
+
+    #[test]
+    fn test_covariance_matrix_get_set() {
+        let mut cov = CovarianceMatrix::identity(2);
+        assert_eq!(cov.get(0, 1), Some(0.0));
+        cov.set(0, 1, 0.5).unwrap();
+        assert_eq!(cov.get(0, 1), Some(0.5));
+        assert_eq!(cov.get(5, 5), None);
+        assert!(cov.set(5, 5, 1.0).is_err());
+    }
+
+    #[test]
+    fn test_covariance_matrix_to_array() {
+        let cov = CovarianceMatrix::new(vec![
+            vec![1.0, 2.0],
+            vec![3.0, 4.0],
+        ]).unwrap();
+        assert_eq!(cov.to_array(), vec![vec![1.0, 2.0], vec![3.0, 4.0]]);
+    }
+
+    #[test]
+    fn test_covariance_matrix_trace() {
+        let cov = CovarianceMatrix::new(vec![
+            vec![1.0, 2.0],
+            vec![3.0, 4.0],
+        ]).unwrap();
+        assert!((cov.trace() - 5.0).abs() < 1e-10);
+    }
+
+    // GaussianState tests
+    #[test]
+    fn test_gaussian_state_new() {
+        let gs = GaussianState::new(
+            vec![1.0, 2.0],
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+        ).unwrap();
+        assert_eq!(gs.dims(), 2);
+        assert_eq!(gs.state_vector(), vec![1.0, 2.0]);
+    }
+
+    #[test]
+    fn test_gaussian_state_dimension_mismatch() {
+        assert!(GaussianState::new(
+            vec![1.0, 2.0],
+            vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0], vec![0.0, 0.0, 1.0]],
+        ).is_err());
+    }
+
+    #[test]
+    fn test_gaussian_state_non_square_covariance() {
+        assert!(GaussianState::new(
+            vec![1.0, 2.0],
+            vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0]],
+        ).is_err());
+    }
+
+    #[test]
+    fn test_gaussian_state_with_timestamp() {
+        let gs = GaussianState::with_timestamp(
+            vec![1.0, 2.0],
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            100.0,
+        ).unwrap();
+        assert_eq!(gs.timestamp(), Some(100.0));
+    }
+
+    #[test]
+    fn test_gaussian_state_set_timestamp() {
+        let mut gs = GaussianState::new(
+            vec![1.0, 2.0],
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+        ).unwrap();
+        assert_eq!(gs.timestamp(), None);
+        gs.set_timestamp(50.0);
+        assert_eq!(gs.timestamp(), Some(50.0));
+    }
+
+    // Detection tests
+    #[test]
+    fn test_detection_new() {
+        let det = Detection::new(vec![1.0, 2.0], 10.0);
+        assert_eq!(det.measurement(), vec![1.0, 2.0]);
+        assert_eq!(det.timestamp(), 10.0);
+    }
+
+    #[test]
+    fn test_detection_to_string() {
+        let det = Detection::new(vec![1.0, 2.0], 10.0);
+        let s = det.to_string();
+        assert!(s.contains("dims=2"));
+        assert!(s.contains("timestamp=10"));
+    }
+
+    // Track tests
+    #[test]
+    fn test_track_new() {
+        let track = Track::new("track-1".to_string());
+        assert_eq!(track.id(), "track-1");
+        assert_eq!(track.length(), 0);
+    }
+
+    #[test]
+    fn test_track_add_state() {
+        let mut track = Track::new("track-1".to_string());
+        let gs = GaussianState::new(
+            vec![1.0, 2.0],
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+        ).unwrap();
+        track.add_state(&gs);
+        assert_eq!(track.length(), 1);
+    }
+
+    // Kalman filter tests
+    #[test]
+    fn test_kalman_predict() {
+        let prior = GaussianState::new(
+            vec![0.0, 1.0],
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+        ).unwrap();
+
+        let f = vec![
+            vec![1.0, 1.0],
+            vec![0.0, 1.0],
+        ];
+        let q = vec![
+            vec![0.1, 0.0],
+            vec![0.0, 0.1],
+        ];
+
+        let predicted = kalman_predict(&prior, f, q).unwrap();
+        assert_eq!(predicted.dims(), 2);
+        // x_pred = F * x = [1*0 + 1*1, 0*0 + 1*1] = [1.0, 1.0]
+        let state = predicted.state_vector();
+        assert!((state[0] - 1.0).abs() < 1e-10);
+        assert!((state[1] - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_kalman_predict_dimension_error() {
+        let prior = GaussianState::new(
+            vec![0.0, 1.0],
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+        ).unwrap();
+
+        let f = vec![vec![1.0]]; // Wrong dimension
+        let q = vec![vec![0.1, 0.0], vec![0.0, 0.1]];
+
+        assert!(kalman_predict(&prior, f, q).is_err());
+    }
+
+    #[test]
+    fn test_kalman_update_1d() {
+        let predicted = GaussianState::new(
+            vec![0.0, 0.0],
+            vec![vec![2.0, 0.0], vec![0.0, 2.0]],
+        ).unwrap();
+
+        let z = vec![1.0]; // measurement
+        let h = vec![vec![1.0, 0.0]]; // measure position only
+        let r = vec![vec![1.0]]; // measurement noise
+
+        let updated = kalman_update(&predicted, z, h, r).unwrap();
+        assert_eq!(updated.dims(), 2);
+        // Should move state toward measurement
+        let state = updated.state_vector();
+        assert!(state[0] > 0.0); // Moved toward measurement of 1.0
+    }
+
+    #[test]
+    fn test_kalman_update_2d() {
+        let predicted = GaussianState::new(
+            vec![0.0, 0.0, 0.0, 0.0],
+            vec![
+                vec![1.0, 0.0, 0.0, 0.0],
+                vec![0.0, 1.0, 0.0, 0.0],
+                vec![0.0, 0.0, 1.0, 0.0],
+                vec![0.0, 0.0, 0.0, 1.0],
+            ],
+        ).unwrap();
+
+        let z = vec![1.0, 2.0]; // measurement
+        let h = vec![
+            vec![1.0, 0.0, 0.0, 0.0],
+            vec![0.0, 0.0, 1.0, 0.0],
+        ];
+        let r = vec![
+            vec![0.5, 0.0],
+            vec![0.0, 0.5],
+        ];
+
+        let updated = kalman_update(&predicted, z, h, r).unwrap();
+        assert_eq!(updated.dims(), 4);
+    }
+
+    #[test]
+    fn test_kalman_update_unsupported_dimension() {
+        let predicted = GaussianState::new(
+            vec![0.0, 0.0, 0.0],
+            vec![
+                vec![1.0, 0.0, 0.0],
+                vec![0.0, 1.0, 0.0],
+                vec![0.0, 0.0, 1.0],
+            ],
+        ).unwrap();
+
+        let z = vec![1.0, 2.0, 3.0]; // 3D measurement not supported
+        let h = vec![
+            vec![1.0, 0.0, 0.0],
+            vec![0.0, 1.0, 0.0],
+            vec![0.0, 0.0, 1.0],
+        ];
+        let r = vec![
+            vec![1.0, 0.0, 0.0],
+            vec![0.0, 1.0, 0.0],
+            vec![0.0, 0.0, 1.0],
+        ];
+
+        assert!(kalman_update(&predicted, z, h, r).is_err());
+    }
+
+    // Helper function tests
+    #[test]
+    fn test_constant_velocity_transition() {
+        let f = constant_velocity_transition(2, 0.1);
+        assert_eq!(f.len(), 4);
+        assert_eq!(f[0].len(), 4);
+        // Check diagonal
+        assert_eq!(f[0][0], 1.0);
+        assert_eq!(f[1][1], 1.0);
+        // Check dt coupling
+        assert_eq!(f[0][1], 0.1);
+        assert_eq!(f[2][3], 0.1);
+    }
+
+    #[test]
+    fn test_position_measurement() {
+        let h = position_measurement(2);
+        assert_eq!(h.len(), 2); // 2D measurement
+        assert_eq!(h[0].len(), 4); // 4D state
+        assert_eq!(h[0][0], 1.0);
+        assert_eq!(h[0][1], 0.0);
+        assert_eq!(h[1][2], 1.0);
+        assert_eq!(h[1][3], 0.0);
+    }
+
+    #[test]
+    fn test_initialize() {
+        assert!(initialize().is_ok());
+    }
+
+    #[test]
+    fn test_get_version() {
+        assert_eq!(get_version(), "0.1.0");
+    }
+}
