@@ -91,6 +91,13 @@ class StateVectorTest {
                 assertEquals(5.0, vec.get(i), EPSILON);
             }
         }
+
+        @Test
+        @DisplayName("fill rejects invalid dimension")
+        void fillRejectsInvalidDimension() {
+            assertThrows(IllegalArgumentException.class, () -> StateVector.fill(0, 1.0));
+            assertThrows(IllegalArgumentException.class, () -> StateVector.fill(-1, 1.0));
+        }
     }
 
     @Nested
@@ -242,6 +249,82 @@ class StateVectorTest {
             StateVector b = new StateVector(new double[]{1.0, 3.0});
 
             assertNotEquals(a, b);
+        }
+
+        @Test
+        @DisplayName("equals returns false for null")
+        void equalsReturnsFalseForNull() {
+            StateVector a = new StateVector(new double[]{1.0, 2.0});
+            assertNotEquals(null, a);
+        }
+
+        @Test
+        @DisplayName("equals returns false for different type")
+        void equalsReturnsFalseForDifferentType() {
+            StateVector a = new StateVector(new double[]{1.0, 2.0});
+            assertNotEquals("not a vector", a);
+        }
+
+        @Test
+        @DisplayName("equals returns true for same object")
+        void equalsReturnsTrueForSameObject() {
+            StateVector a = new StateVector(new double[]{1.0, 2.0});
+            assertEquals(a, a);
+        }
+    }
+
+    @Nested
+    @DisplayName("Additional Edge Cases")
+    class AdditionalEdgeCases {
+
+        @Test
+        @DisplayName("subtract throws on dimension mismatch")
+        void subtractThrowsOnDimensionMismatch() {
+            StateVector a = new StateVector(new double[]{1.0, 2.0});
+            StateVector b = new StateVector(new double[]{3.0, 4.0, 5.0});
+
+            assertThrows(IllegalArgumentException.class, () -> a.subtract(b));
+        }
+
+        @Test
+        @DisplayName("dot throws on dimension mismatch")
+        void dotThrowsOnDimensionMismatch() {
+            StateVector a = new StateVector(new double[]{1.0, 2.0});
+            StateVector b = new StateVector(new double[]{3.0, 4.0, 5.0});
+
+            assertThrows(IllegalArgumentException.class, () -> a.dot(b));
+        }
+
+        @Test
+        @DisplayName("toString returns formatted string")
+        void toStringReturnsFormattedString() {
+            StateVector vec = new StateVector(new double[]{1.0, 2.0});
+            String str = vec.toString();
+
+            assertTrue(str.contains("StateVector"));
+            assertTrue(str.contains("1.0"));
+            assertTrue(str.contains("2.0"));
+        }
+
+        @Test
+        @DisplayName("add throws on null")
+        void addThrowsOnNull() {
+            StateVector a = new StateVector(new double[]{1.0, 2.0});
+            assertThrows(NullPointerException.class, () -> a.add(null));
+        }
+
+        @Test
+        @DisplayName("subtract throws on null")
+        void subtractThrowsOnNull() {
+            StateVector a = new StateVector(new double[]{1.0, 2.0});
+            assertThrows(NullPointerException.class, () -> a.subtract(null));
+        }
+
+        @Test
+        @DisplayName("dot throws on null")
+        void dotThrowsOnNull() {
+            StateVector a = new StateVector(new double[]{1.0, 2.0});
+            assertThrows(NullPointerException.class, () -> a.dot(null));
         }
     }
 }

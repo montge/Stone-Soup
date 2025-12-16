@@ -35,6 +35,12 @@ class StoneSoupTest {
         }
 
         @Test
+        @DisplayName("version constant is accessible")
+        void versionConstantIsAccessible() {
+            assertEquals("0.1.0", StoneSoup.VERSION);
+        }
+
+        @Test
         @DisplayName("reports initialized status")
         void reportsInitializedStatus() {
             assertTrue(StoneSoup.isInitialized());
@@ -45,6 +51,77 @@ class StoneSoupTest {
         void reportsExecutionMode() {
             String mode = StoneSoup.getMode();
             assertTrue(mode.equals("native") || mode.equals("java"));
+        }
+
+        @Test
+        @DisplayName("reports native availability status")
+        void reportsNativeAvailabilityStatus() {
+            // Just test that it returns a boolean without throwing
+            boolean native_available = StoneSoup.isNativeAvailable();
+            // Mode should be consistent with native availability
+            if (native_available) {
+                assertEquals("native", StoneSoup.getMode());
+            } else {
+                assertEquals("java", StoneSoup.getMode());
+            }
+        }
+
+        @Test
+        @DisplayName("multiple initialize calls are idempotent")
+        void multipleInitializeCallsAreIdempotent() throws StoneSoupException {
+            // Should not throw even when already initialized
+            StoneSoup.initialize();
+            StoneSoup.initialize();
+            assertTrue(StoneSoup.isInitialized());
+        }
+    }
+
+    @Nested
+    @DisplayName("Internal Accessors")
+    class InternalAccessors {
+
+        @Test
+        @DisplayName("getArena returns arena when initialized")
+        void getArenaReturnsArenaWhenInitialized() {
+            // When initialized, arena should be non-null
+            assertNotNull(StoneSoup.getArena());
+        }
+
+        @Test
+        @DisplayName("getLinker returns linker or null based on native availability")
+        void getLinkerReturnsLinkerOrNull() {
+            // Just verify no exception is thrown
+            var linker = StoneSoup.getLinker();
+            if (StoneSoup.isNativeAvailable()) {
+                assertNotNull(linker);
+            }
+            // linker may be null in pure java mode
+        }
+
+        @Test
+        @DisplayName("getSymbolLookup returns lookup or null based on native availability")
+        void getSymbolLookupReturnsLookupOrNull() {
+            // Just verify no exception is thrown
+            var lookup = StoneSoup.getSymbolLookup();
+            if (StoneSoup.isNativeAvailable()) {
+                assertNotNull(lookup);
+            }
+            // lookup may be null in pure java mode
+        }
+    }
+
+    @Nested
+    @DisplayName("Constructor")
+    class ConstructorTests {
+
+        @Test
+        @DisplayName("cannot instantiate utility class")
+        void cannotInstantiateUtilityClass() throws Exception {
+            java.lang.reflect.Constructor<StoneSoup> constructor =
+                    StoneSoup.class.getDeclaredConstructor();
+            constructor.setAccessible(true);
+            assertThrows(java.lang.reflect.InvocationTargetException.class,
+                    () -> constructor.newInstance());
         }
     }
 
