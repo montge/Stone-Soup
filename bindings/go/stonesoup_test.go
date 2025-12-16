@@ -269,3 +269,187 @@ func TestVersion(t *testing.T) {
 		t.Errorf("Expected version 0.1.0, got %s", v)
 	}
 }
+
+// Additional tests for improved coverage
+
+func TestStateVectorDimensionErrors(t *testing.T) {
+	t.Run("AddDimensionMismatch", func(t *testing.T) {
+		a := NewStateVector([]float64{1.0, 2.0})
+		b := NewStateVector([]float64{1.0, 2.0, 3.0})
+		_, err := a.Add(b)
+		if err != ErrDimensionMismatch {
+			t.Error("Expected dimension mismatch error")
+		}
+	})
+
+	t.Run("SubDimensionMismatch", func(t *testing.T) {
+		a := NewStateVector([]float64{1.0, 2.0})
+		b := NewStateVector([]float64{1.0})
+		_, err := a.Sub(b)
+		if err != ErrDimensionMismatch {
+			t.Error("Expected dimension mismatch error")
+		}
+	})
+}
+
+func TestMatrixCopy(t *testing.T) {
+	m := DiagonalMatrix([]float64{1.0, 2.0, 3.0})
+	copy := m.Copy()
+
+	// Verify copy has same values
+	if copy.Get(0, 0) != 1.0 || copy.Get(1, 1) != 2.0 || copy.Get(2, 2) != 3.0 {
+		t.Error("Copy values don't match original")
+	}
+
+	// Verify modifying copy doesn't affect original
+	copy.Set(0, 0, 99.0)
+	if m.Get(0, 0) == 99.0 {
+		t.Error("Modifying copy should not affect original")
+	}
+}
+
+func TestMatrixDimensionErrors(t *testing.T) {
+	t.Run("AddDimensionMismatch", func(t *testing.T) {
+		a := NewMatrix(2, 2)
+		b := NewMatrix(3, 3)
+		_, err := a.Add(b)
+		if err != ErrDimensionMismatch {
+			t.Error("Expected dimension mismatch error")
+		}
+	})
+
+	t.Run("MultiplyDimensionMismatch", func(t *testing.T) {
+		a := NewMatrix(2, 3)
+		b := NewMatrix(2, 3)
+		_, err := a.Multiply(b)
+		if err != ErrDimensionMismatch {
+			t.Error("Expected dimension mismatch error")
+		}
+	})
+
+	t.Run("MultiplyVecDimensionMismatch", func(t *testing.T) {
+		m := NewMatrix(2, 3)
+		v := NewStateVector([]float64{1.0, 2.0})
+		_, err := m.MultiplyVec(v)
+		if err != ErrDimensionMismatch {
+			t.Error("Expected dimension mismatch error")
+		}
+	})
+
+	t.Run("InverseSingular", func(t *testing.T) {
+		// Zero matrix is singular
+		m := NewMatrix(2, 2)
+		_, err := m.Inverse()
+		if err != ErrSingularMatrix {
+			t.Error("Expected singular matrix error")
+		}
+	})
+}
+
+func TestMatrixFromSlice(t *testing.T) {
+	t.Run("ValidSlice", func(t *testing.T) {
+		m, err := FromSlice([][]float64{
+			{1.0, 2.0},
+			{3.0, 4.0},
+		})
+		if err != nil {
+			t.Fatalf("FromSlice failed: %v", err)
+		}
+		if m.Get(0, 0) != 1.0 || m.Get(1, 1) != 4.0 {
+			t.Error("Values incorrect")
+		}
+	})
+
+	t.Run("EmptySlice", func(t *testing.T) {
+		_, err := FromSlice([][]float64{})
+		if err == nil {
+			t.Error("Expected error for empty slice")
+		}
+	})
+}
+
+func TestMatrixBoundsCheck(t *testing.T) {
+	m := NewMatrix(2, 2)
+	m.Set(0, 0, 1.0)
+
+	// Test Get with invalid indices returns 0 (as per implementation)
+	val := m.Get(5, 5)
+	if val != 0.0 {
+		t.Errorf("Expected 0.0 for out of bounds, got %f", val)
+	}
+}
+
+func TestMatrixAdd(t *testing.T) {
+	a := DiagonalMatrix([]float64{1.0, 2.0})
+	b := DiagonalMatrix([]float64{3.0, 4.0})
+	sum, err := a.Add(b)
+	if err != nil {
+		t.Fatalf("Add failed: %v", err)
+	}
+	if sum.Get(0, 0) != 4.0 || sum.Get(1, 1) != 6.0 {
+		t.Error("Sum values incorrect")
+	}
+}
+
+func TestMatrixMultiplyVec(t *testing.T) {
+	m := DiagonalMatrix([]float64{2.0, 3.0})
+	v := NewStateVector([]float64{1.0, 1.0})
+	result, err := m.MultiplyVec(v)
+	if err != nil {
+		t.Fatalf("MultiplyVec failed: %v", err)
+	}
+	if result.Get(0) != 2.0 || result.Get(1) != 3.0 {
+		t.Error("MultiplyVec result incorrect")
+	}
+}
+
+func TestMatrixInverse3x3NotSupported(t *testing.T) {
+	// 3x3 inverse is not implemented - should return error
+	m := DiagonalMatrix([]float64{2.0, 4.0, 8.0})
+	_, err := m.Inverse()
+	if err == nil {
+		t.Error("Expected error for 3x3 inverse (not implemented)")
+	}
+}
+
+func TestMatrixInverse1x1(t *testing.T) {
+	m := DiagonalMatrix([]float64{4.0})
+	inv, err := m.Inverse()
+	if err != nil {
+		t.Fatalf("Inverse failed: %v", err)
+	}
+	if math.Abs(inv.Get(0, 0)-0.25) > epsilon {
+		t.Errorf("Expected inv[0,0]=0.25, got %f", inv.Get(0, 0))
+	}
+}
+
+func TestMatrixTraceNonSquare(t *testing.T) {
+	m := NewMatrix(2, 3)
+	// Trace of non-square matrix should still work (sum of min(rows,cols) diagonal)
+	trace := m.Trace()
+	if trace != 0.0 {
+		t.Errorf("Expected trace=0.0 for zero matrix, got %f", trace)
+	}
+}
+
+func TestTrackEmpty(t *testing.T) {
+	track := NewTrack("empty")
+	latest := track.Latest()
+	if latest != nil {
+		t.Error("Latest of empty track should be nil")
+	}
+}
+
+func TestGaussianStateCovariance(t *testing.T) {
+	sv := NewStateVector([]float64{1.0, 2.0})
+	cov := DiagonalMatrix([]float64{0.5, 0.25})
+	gs, err := NewGaussianState(sv, cov)
+	if err != nil {
+		t.Fatalf("NewGaussianState failed: %v", err)
+	}
+
+	// Check covariance access
+	if math.Abs(gs.Covariance.Get(0, 0)-0.5) > epsilon {
+		t.Errorf("Expected cov[0,0]=0.5, got %f", gs.Covariance.Get(0, 0))
+	}
+}
