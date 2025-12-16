@@ -357,9 +357,9 @@ jobs:
         run: |
           cd libstonesoup/build
           # Generate LCOV report for human-readable coverage
-          lcov --capture --directory . --output-file coverage.info
-          lcov --remove coverage.info '/usr/*' --output-file coverage.info --ignore-errors unused
-          lcov --list coverage.info
+          lcov --capture --directory . --output-file coverage.info --ignore-errors mismatch
+          lcov --remove coverage.info '/usr/*' --output-file coverage.info --ignore-errors unused,mismatch
+          lcov --list coverage.info --ignore-errors mismatch
           # Generate .gcov files for SonarCloud
           mkdir -p gcov_reports
           find . -name '*.gcda' | while read gcda; do
@@ -633,9 +633,9 @@ jobs:
       - name: Generate C++ coverage report
         run: |
           cd bindings/cpp/build
-          lcov --capture --directory . --output-file coverage.info
-          lcov --remove coverage.info '/usr/*' --output-file coverage.info --ignore-errors unused
-          lcov --list coverage.info
+          lcov --capture --directory . --output-file coverage.info --ignore-errors mismatch
+          lcov --remove coverage.info '/usr/*' --output-file coverage.info --ignore-errors unused,mismatch
+          lcov --list coverage.info --ignore-errors mismatch
 
       - name: Upload C++ coverage
         uses: actions/upload-artifact@v4
