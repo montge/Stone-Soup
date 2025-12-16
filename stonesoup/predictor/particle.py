@@ -37,7 +37,7 @@ class ParticlePredictor(Predictor):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.proposal is None:
-            self.proposal = DynamicsProposal(self.transition_model)
+            self.proposal = DynamicsProposal(self.transition_model, self.control_model)
 
     @predict_lru_cache()
     def predict(self, prior, timestamp=None, measurement=None, **kwargs):
@@ -104,7 +104,8 @@ class ParticleFlowKalmanPredictor(ParticlePredictor):
         super().__init__(*args, **kwargs)
 
         if self.kalman_predictor is None:
-            self.kalman_predictor = ExtendedKalmanPredictor(self.transition_model)
+            self.kalman_predictor = ExtendedKalmanPredictor(
+                self.transition_model, self.control_model)
 
     def predict(self, prior, *args, **kwargs):
         particle_prediction = super().predict(prior, *args, **kwargs)
