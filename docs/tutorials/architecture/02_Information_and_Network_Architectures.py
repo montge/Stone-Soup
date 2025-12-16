@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding: utf-8
 
 """
 ========================================
@@ -31,10 +30,11 @@
 # Module Imports
 # ^^^^^^^^^^^^^^
 
-from datetime import datetime, timedelta
-from ordered_set import OrderedSet
-import numpy as np
 import random
+from datetime import datetime, timedelta
+
+import numpy as np
+from ordered_set import OrderedSet
 
 # %%
 # 1 - Ground Truth
@@ -47,13 +47,16 @@ start_time = datetime.now().replace(microsecond=0)
 np.random.seed(2024)
 random.seed(2024)
 
-from stonesoup.models.transition.linear import CombinedLinearGaussianTransitionModel, \
-    ConstantVelocity
+from stonesoup.models.transition.linear import (
+    CombinedLinearGaussianTransitionModel,
+    ConstantVelocity,
+)
 from stonesoup.types.groundtruth import GroundTruthPath, GroundTruthState
 
 # Generate transition model
-transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                          ConstantVelocity(0.005)])
+transition_model = CombinedLinearGaussianTransitionModel(
+    [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+)
 
 yps = range(0, 100, 10)  # y value for prior state
 truths = OrderedSet()
@@ -66,14 +69,20 @@ ydirection = 1
 
 # Generate ground truths
 for j in range(0, ntruths):
-    truth = GroundTruthPath([GroundTruthState([0, xdirection, yps[j], ydirection],
-                                              timestamp=timesteps[0])], id=f"id{j}")
+    truth = GroundTruthPath(
+        [GroundTruthState([0, xdirection, yps[j], ydirection], timestamp=timesteps[0])],
+        id=f"id{j}",
+    )
 
     for k in range(1, time_max):
         truth.append(
-            GroundTruthState(transition_model.function(truth[k - 1], noise=True,
-                                                       time_interval=timedelta(seconds=1)),
-                             timestamp=timesteps[k]))
+            GroundTruthState(
+                transition_model.function(
+                    truth[k - 1], noise=True, time_interval=timedelta(seconds=1)
+                ),
+                timestamp=timesteps[k],
+            )
+        )
     truths.add(truth)
 
     xdirection *= -1
@@ -97,15 +106,14 @@ for j in range(0, ntruths):
 # the base sensor's position (`base_sensor.position` +- a specified distance).
 
 
-from stonesoup.types.state import StateVector
 from stonesoup.sensor.radar.radar import RadarRotatingBearingRange
 from stonesoup.types.angle import Angle
+from stonesoup.types.state import StateVector
 
 # Create base sensor
 base_sensor = RadarRotatingBearingRange(
     position_mapping=(0, 2),
-    noise_covar=np.array([[0.25*np.radians(0.5) ** 2, 0],
-                          [0, 0.25*1 ** 2]]),
+    noise_covar=np.array([[0.25 * np.radians(0.5) ** 2, 0], [0, 0.25 * 1**2]]),
     ndim_state=4,
     position=np.array([[10], [10]]),
     rpm=60,
@@ -113,7 +121,7 @@ base_sensor = RadarRotatingBearingRange(
     dwell_centre=StateVector([0.0]),
     max_range=np.inf,
     resolution=Angle(np.radians(30)),
-    seed=2024
+    seed=2024,
 )
 base_sensor.timestamp = start_time
 
@@ -126,17 +134,17 @@ base_sensor.timestamp = start_time
 # after duplication.
 
 
-from stonesoup.predictor.kalman import KalmanPredictor
-from stonesoup.updater.kalman import ExtendedKalmanUpdater
-from stonesoup.hypothesiser.distance import DistanceHypothesiser
-from stonesoup.measures import Mahalanobis
 from stonesoup.dataassociator.neighbour import GNNWith2DAssignment
 from stonesoup.deleter.time import UpdateTimeStepsDeleter
-from stonesoup.types.state import GaussianState
+from stonesoup.hypothesiser.distance import DistanceHypothesiser
 from stonesoup.initiator.simple import MultiMeasurementInitiator
+from stonesoup.measures import Mahalanobis
+from stonesoup.predictor.kalman import KalmanPredictor
 from stonesoup.tracker.simple import MultiTargetTracker
-from stonesoup.updater.wrapper import DetectionAndTrackSwitchingUpdater
+from stonesoup.types.state import GaussianState
 from stonesoup.updater.chernoff import ChernoffUpdater
+from stonesoup.updater.kalman import ExtendedKalmanUpdater
+from stonesoup.updater.wrapper import DetectionAndTrackSwitchingUpdater
 
 predictor = KalmanPredictor(transition_model)
 updater = ExtendedKalmanUpdater(measurement_model=None)
@@ -150,14 +158,15 @@ initiator = MultiMeasurementInitiator(
     data_associator=data_associator,
     updater=updater,
     min_points=4,
-    )
+)
 
 track_updater = ChernoffUpdater(None)
 detection_updater = ExtendedKalmanUpdater(None)
 detection_track_updater = DetectionAndTrackSwitchingUpdater(None, detection_updater, track_updater)
 
 base_tracker = MultiTargetTracker(
-    initiator, deleter, None, data_associator, detection_track_updater)
+    initiator, deleter, None, data_associator, detection_track_updater
+)
 
 # %%
 # 3 - Generate Identical Architectures
@@ -174,14 +183,16 @@ base_tracker = MultiTargetTracker(
 
 from stonesoup.architecture.generator import NetworkArchitectureGenerator
 
-gen = NetworkArchitectureGenerator('hierarchical',
-                                   start_time,
-                                   mean_degree=2,
-                                   node_ratio=[3, 1, 2],
-                                   base_tracker=base_tracker,
-                                   base_sensor=base_sensor,
-                                   sensor_max_distance=(30, 30),
-                                   n_archs=4)
+gen = NetworkArchitectureGenerator(
+    "hierarchical",
+    start_time,
+    mean_degree=2,
+    node_ratio=[3, 1, 2],
+    base_tracker=base_tracker,
+    base_sensor=base_sensor,
+    sensor_max_distance=(30, 30),
+    n_archs=4,
+)
 id_net_archs = gen.generate()
 
 # Network and Information arch pair
@@ -221,8 +232,8 @@ na_sensors = []
 na_dets = set()
 for sn in network_arch.sensor_nodes:
     na_sensors.append(sn.sensor)
-    for timestep in sn.data_held['created'].keys():
-        for datapiece in sn.data_held['created'][timestep]:
+    for timestep in sn.data_held["created"].keys():
+        for datapiece in sn.data_held["created"][timestep]:
             na_dets.add(datapiece.data)
 
 # %%
@@ -233,21 +244,21 @@ from stonesoup.plotter import Plotterly
 
 
 def reduce_tracks(tracks):
-    return {
-        type(track)([s for s in track.last_timestamp_generator()])
-        for track in tracks}
+    return {type(track)([s for s in track.last_timestamp_generator()]) for track in tracks}
 
 
 plotter = Plotterly()
 plotter.plot_ground_truths(truths, [0, 2])
 plotter.plot_measurements(na_dets, [0, 2])
 for node in network_arch.fusion_nodes:
-    hexcol = ["#"+''.join([random.choice('ABCDEF0123456789') for i in range(6)])]
-    plotter.plot_tracks(reduce_tracks(node.tracks),
-                        [0, 2],
-                        track_label=str(node.label),
-                        line=dict(color=hexcol[0]),
-                        uncertainty=True)
+    hexcol = ["#" + "".join([random.choice("ABCDEF0123456789") for i in range(6)])]  # NOSONAR
+    plotter.plot_tracks(
+        reduce_tracks(node.tracks),
+        [0, 2],
+        track_label=str(node.label),
+        line=dict(color=hexcol[0]),
+        uncertainty=True,
+    )
 plotter.plot_sensors(na_sensors)
 plotter.fig
 
@@ -267,8 +278,8 @@ ia_sensors = []
 ia_dets = set()
 for sn in information_arch.sensor_nodes:
     ia_sensors.append(sn.sensor)
-    for timestep in sn.data_held['created'].keys():
-        for datapiece in sn.data_held['created'][timestep]:
+    for timestep in sn.data_held["created"].keys():
+        for datapiece in sn.data_held["created"][timestep]:
             ia_dets.add(datapiece.data)
 
 # %%
@@ -276,10 +287,14 @@ plotter = Plotterly()
 plotter.plot_ground_truths(truths, [0, 2])
 plotter.plot_measurements(ia_dets, [0, 2])
 for node in information_arch.fusion_nodes:
-    hexcol = ["#"+''.join([random.choice('ABCDEF0123456789') for i in range(6)])]
-    plotter.plot_tracks(reduce_tracks(node.tracks), [0, 2],
-                        track_label=str(node.label),
-                        line=dict(color=hexcol[0]), uncertainty=True)
+    hexcol = ["#" + "".join([random.choice("ABCDEF0123456789") for i in range(6)])]  # NOSONAR
+    plotter.plot_tracks(
+        reduce_tracks(node.tracks),
+        [0, 2],
+        track_label=str(node.label),
+        line=dict(color=hexcol[0]),
+        uncertainty=True,
+    )
 plotter.plot_sensors(ia_sensors)
 plotter.fig
 
@@ -297,62 +312,75 @@ plotter.fig
 top_node = network_arch.top_level_nodes.pop()
 
 # %%
-from stonesoup.metricgenerator.tracktotruthmetrics import SIAPMetrics
-from stonesoup.measures import Euclidean
 from stonesoup.dataassociator.tracktotrack import TrackToTruth
+from stonesoup.measures import Euclidean
 from stonesoup.metricgenerator.manager import MultiManager
+from stonesoup.metricgenerator.tracktotruthmetrics import SIAPMetrics
 
-network_siap = SIAPMetrics(position_measure=Euclidean((0, 2)),
-                           velocity_measure=Euclidean((1, 3)),
-                           generator_name='network_siap',
-                           tracks_key='network_tracks',
-                           truths_key='truths'
-                           )
+network_siap = SIAPMetrics(
+    position_measure=Euclidean((0, 2)),
+    velocity_measure=Euclidean((1, 3)),
+    generator_name="network_siap",
+    tracks_key="network_tracks",
+    truths_key="truths",
+)
 
 associator = TrackToTruth(association_threshold=30)
 
 
 # %%
 network_metric_manager = MultiManager([network_siap], associator)
-network_metric_manager.add_data({'network_tracks': top_node.tracks,
-                                 'truths': truths}, overwrite=False)
+network_metric_manager.add_data(
+    {"network_tracks": top_node.tracks, "truths": truths}, overwrite=False
+)
 network_metrics = network_metric_manager.generate_metrics()
 
 # %%
-network_siap_metrics = network_metrics['network_siap']
-network_siap_averages = {network_siap_metrics.get(metric) for metric in network_siap_metrics if
-                         metric.startswith("SIAP") and not metric.endswith(" at times")}
+network_siap_metrics = network_metrics["network_siap"]
+network_siap_averages = {
+    network_siap_metrics.get(metric)
+    for metric in network_siap_metrics
+    if metric.startswith("SIAP") and not metric.endswith(" at times")
+}
 
 # %%
 top_node = information_arch.top_level_nodes.pop()
 
 # %%
-information_siap = SIAPMetrics(position_measure=Euclidean((0, 2)),
-                               velocity_measure=Euclidean((1, 3)),
-                               generator_name='information_siap',
-                               tracks_key='information_tracks',
-                               truths_key='truths'
-                               )
+information_siap = SIAPMetrics(
+    position_measure=Euclidean((0, 2)),
+    velocity_measure=Euclidean((1, 3)),
+    generator_name="information_siap",
+    tracks_key="information_tracks",
+    truths_key="truths",
+)
 
 associator = TrackToTruth(association_threshold=30)
 
 # %%
 information_metric_manager = MultiManager([information_siap], associator)
-information_metric_manager.add_data({'information_tracks': top_node.tracks,
-                                     'truths': truths}, overwrite=False)
+information_metric_manager.add_data(
+    {"information_tracks": top_node.tracks, "truths": truths}, overwrite=False
+)
 information_metrics = information_metric_manager.generate_metrics()
 
 # %%
-information_siap_metrics = information_metrics['information_siap']
-information_siap_averages = {information_siap_metrics.get(metric) for
-                             metric in information_siap_metrics if
-                             metric.startswith("SIAP") and not metric.endswith(" at times")}
+information_siap_metrics = information_metrics["information_siap"]
+information_siap_averages = {
+    information_siap_metrics.get(metric)
+    for metric in information_siap_metrics
+    if metric.startswith("SIAP") and not metric.endswith(" at times")
+}
 
 # %%
 from stonesoup.metricgenerator.metrictables import SIAPDiffTableGenerator
-SIAPDiffTableGenerator([network_siap_averages, information_siap_averages],
-                       ['Network Arch.', 'Information Arch.'],
-                       rtol=1e-2, atol=1e-5).compute_metric()
+
+SIAPDiffTableGenerator(
+    [network_siap_averages, information_siap_averages],
+    ["Network Arch.", "Information Arch."],
+    rtol=1e-2,
+    atol=1e-5,
+).compute_metric()
 
 # %%
 # 5 - Remove edges from each architecture and re-run
@@ -379,7 +407,7 @@ information_arch_rm = id_net_archs[3].information_arch
 # %%
 rm = []
 for edge in network_arch_rm.edges:
-    if 'r3' in [node.label for node in edge.nodes]:
+    if "r3" in [node.label for node in edge.nodes]:
         rm.append(edge)
 
 for edge in rm:
@@ -401,8 +429,9 @@ network_arch_rm
 
 rm = []
 for edge in information_arch_rm.edges:
-    if ('sf0' in [node.label for node in edge.nodes]) and \
-     ('f1' in [node.label for node in edge.nodes]):
+    if ("sf0" in [node.label for node in edge.nodes]) and (
+        "f1" in [node.label for node in edge.nodes]
+    ):
         rm.append(edge)
 
 for edge in rm:
@@ -423,54 +452,68 @@ for time in timesteps:
     information_arch_rm.propagate(time_increment=1)
 
 # %%
-top_node = [node for node in network_arch_rm.all_nodes if node.label == 'f1'][0]
+top_node = [node for node in network_arch_rm.all_nodes if node.label == "f1"][0]
 
-network_rm_siap = SIAPMetrics(position_measure=Euclidean((0, 2)),
-                              velocity_measure=Euclidean((1, 3)),
-                              generator_name='network_rm_siap',
-                              tracks_key='network_rm_tracks',
-                              truths_key='truths'
-                              )
+network_rm_siap = SIAPMetrics(
+    position_measure=Euclidean((0, 2)),
+    velocity_measure=Euclidean((1, 3)),
+    generator_name="network_rm_siap",
+    tracks_key="network_rm_tracks",
+    truths_key="truths",
+)
 
 network_rm_metric_manager = MultiManager([network_rm_siap], associator)
-network_rm_metric_manager.add_data({'network_rm_tracks': top_node.tracks,
-                                    'truths': truths}, overwrite=False)
+network_rm_metric_manager.add_data(
+    {"network_rm_tracks": top_node.tracks, "truths": truths}, overwrite=False
+)
 network_rm_metrics = network_rm_metric_manager.generate_metrics()
 
-network_rm_siap_metrics = network_rm_metrics['network_rm_siap']
-network_rm_siap_averages = {network_rm_siap_metrics.get(metric) for
-                            metric in network_rm_siap_metrics
-                            if metric.startswith("SIAP") and not metric.endswith(" at times")}
+network_rm_siap_metrics = network_rm_metrics["network_rm_siap"]
+network_rm_siap_averages = {
+    network_rm_siap_metrics.get(metric)
+    for metric in network_rm_siap_metrics
+    if metric.startswith("SIAP") and not metric.endswith(" at times")
+}
 
 # %%
-top_node = [node for node in information_arch_rm.all_nodes if node.label == 'f1'][0]
+top_node = [node for node in information_arch_rm.all_nodes if node.label == "f1"][0]
 
-information_rm_siap = SIAPMetrics(position_measure=Euclidean((0, 2)),
-                                  velocity_measure=Euclidean((1, 3)),
-                                  generator_name='information_rm_siap',
-                                  tracks_key='information_rm_tracks',
-                                  truths_key='truths'
-                                  )
+information_rm_siap = SIAPMetrics(
+    position_measure=Euclidean((0, 2)),
+    velocity_measure=Euclidean((1, 3)),
+    generator_name="information_rm_siap",
+    tracks_key="information_rm_tracks",
+    truths_key="truths",
+)
 
-information_rm_metric_manager = MultiManager([information_rm_siap],
-                                             associator)  # associator for generating SIAP metrics
-information_rm_metric_manager.add_data({'information_rm_tracks': top_node.tracks,
-                                        'truths': truths}, overwrite=False)
+information_rm_metric_manager = MultiManager(
+    [information_rm_siap], associator
+)  # associator for generating SIAP metrics
+information_rm_metric_manager.add_data(
+    {"information_rm_tracks": top_node.tracks, "truths": truths}, overwrite=False
+)
 information_rm_metrics = information_rm_metric_manager.generate_metrics()
 
-information_rm_siap_metrics = information_rm_metrics['information_rm_siap']
-information_rm_siap_averages = {information_rm_siap_metrics.get(metric) for
-                                metric in information_rm_siap_metrics
-                                if metric.startswith("SIAP") and not metric.endswith(" at times")}
+information_rm_siap_metrics = information_rm_metrics["information_rm_siap"]
+information_rm_siap_averages = {
+    information_rm_siap_metrics.get(metric)
+    for metric in information_rm_siap_metrics
+    if metric.startswith("SIAP") and not metric.endswith(" at times")
+}
 
 # %%
 # Plotting the metrics for the two original architectures, and the metrics for the copies with
 # edges removed, should display the result we predicted at the start of this section.
 
 # %%
-SIAPDiffTableGenerator([network_siap_averages,
-                        information_siap_averages,
-                        network_rm_siap_averages,
-                        information_rm_siap_averages],
-                       ['Network', 'Info', 'Network RM', 'Info RM'],
-                       rtol=1e-2, atol=1e-5).compute_metric()
+SIAPDiffTableGenerator(
+    [
+        network_siap_averages,
+        information_siap_averages,
+        network_rm_siap_averages,
+        information_rm_siap_averages,
+    ],
+    ["Network", "Info", "Network RM", "Info RM"],
+    rtol=1e-2,
+    atol=1e-5,
+).compute_metric()

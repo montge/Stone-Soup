@@ -81,13 +81,15 @@ Video processing, Object detection & Tracking
 # shown below will download the video and save it your working directory as ``sample1.mp4``.
 
 import os
+
 from pytube import YouTube
-VIDEO_FILENAME = 'sample1'
-VIDEO_EXTENTION = '.mp4'
-VIDEO_PATH = os.path.join(os.getcwd(), VIDEO_FILENAME+VIDEO_EXTENTION)
+
+VIDEO_FILENAME = "sample1"
+VIDEO_EXTENTION = ".mp4"
+VIDEO_PATH = os.path.join(os.getcwd(), VIDEO_FILENAME + VIDEO_EXTENTION)
 
 if not os.path.exists(VIDEO_PATH):
-    yt = YouTube('http://www.youtube.com/watch?v=MNn9qKG2UFI')
+    yt = YouTube("https://www.youtube.com/watch?v=MNn9qKG2UFI")
     yt.streams.get_by_itag(18).download(filename=VIDEO_PATH)
 
 # %%
@@ -100,7 +102,9 @@ if not os.path.exists(VIDEO_PATH):
 # configure the reader to only replay the clip for the a duration of 2 seconds between `00:10` and
 # `00:12`.
 import datetime
+
 from stonesoup.reader.video import VideoClipReader
+
 start_time = datetime.timedelta(minutes=0, seconds=10)
 end_time = datetime.timedelta(minutes=0, seconds=12)
 frame_reader = VideoClipReader(VIDEO_PATH, start_time, end_time)
@@ -112,6 +116,7 @@ frame_reader = VideoClipReader(VIDEO_PATH, start_time, end_time)
 # :attr:`~.VideoClipReader.clip` class property. For example, we can crop out 100 pixels from
 # the top and left of the frames, as they are read by the reader, as shown below.
 from moviepy.video.fx import all
+
 frame_reader.clip = all.crop(frame_reader.clip, 100, 100)
 num_frames = len(list(frame_reader.clip.iter_frames()))
 
@@ -147,17 +152,18 @@ num_frames = len(list(frame_reader.clip.iter_frames()))
 # read and visualise these frames using `matplotlib`.
 
 from copy import copy
-from PIL import Image
-from matplotlib import pyplot as plt
+
 from matplotlib import animation
+from matplotlib import pyplot as plt
+from PIL import Image
 
 fig, ax = plt.subplots(num="VideoClipReader output")
 artists = []
 
-print('Running FrameReader example...')
+print("Running FrameReader example...")
 for timestamp, frame in frame_reader:
-    if not (len(artists)+1) % 10:
-        print("Frame: {}/{}".format(len(artists)+1, num_frames))
+    if not (len(artists) + 1) % 10:
+        print(f"Frame: {len(artists) + 1}/{num_frames}")
 
     # Read the frame pixels
     pixels = copy(frame.pixels)
@@ -202,40 +208,42 @@ ani = animation.ArtistAnimation(fig, artists, interval=20, blit=True, repeat_del
 #   provided that ``PATH_TO_MODEL`` and ``PATH_TO_LABELS`` are valid paths.
 
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'    # Suppress TensorFlow logging (1)
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # Suppress TensorFlow logging (1)
 import pathlib
+
 import tensorflow as tf
 
-tf.get_logger().setLevel('ERROR')           # Suppress TensorFlow logging (2)
+tf.get_logger().setLevel("ERROR")  # Suppress TensorFlow logging (2)
 
 # Enable GPU dynamic memory allocation
-gpus = tf.config.experimental.list_physical_devices('GPU')
+gpus = tf.config.experimental.list_physical_devices("GPU")
 for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu, True)
 
+
 # Download and extract model
 def download_model(model_name):
-    base_url = 'http://download.tensorflow.org/models/object_detection/'
-    model_file = model_name + '.tar.gz'
-    model_dir = tf.keras.utils.get_file(fname=model_name,
-                                        origin=base_url + model_file,
-                                        untar=True)
-    model_dir = pathlib.Path(model_dir)/"saved_model"
+    base_url = "https://download.tensorflow.org/models/object_detection/"
+    model_file = model_name + ".tar.gz"
+    model_dir = tf.keras.utils.get_file(fname=model_name, origin=base_url + model_file, untar=True)
+    model_dir = pathlib.Path(model_dir) / "saved_model"
     return str(model_dir)
 
-MODEL_NAME = 'faster_rcnn_inception_resnet_v2_atrous_lowproposals_coco_2018_01_28'
+
+MODEL_NAME = "faster_rcnn_inception_resnet_v2_atrous_lowproposals_coco_2018_01_28"
 PATH_TO_MODEL = download_model(MODEL_NAME)
+
 
 # Download labels file
 def download_labels(filename):
-    base_url = 'https://raw.githubusercontent.com/tensorflow/models/master/research/object_detection/data/'
-    label_dir = tf.keras.utils.get_file(fname=filename,
-                                        origin=base_url + filename,
-                                        untar=False)
+    base_url = "https://raw.githubusercontent.com/tensorflow/models/master/research/object_detection/data/"
+    label_dir = tf.keras.utils.get_file(fname=filename, origin=base_url + filename, untar=False)
     label_dir = pathlib.Path(label_dir)
     return str(label_dir)
 
-LABEL_FILENAME = 'mscoco_label_map.pbtxt'
+
+LABEL_FILENAME = "mscoco_label_map.pbtxt"
 PATH_TO_LABELS = download_labels(LABEL_FILENAME)
 
 
@@ -255,9 +263,10 @@ PATH_TO_LABELS = download_labels(LABEL_FILENAME)
 # ``run_async=False``, which is also the default setting.
 from stonesoup.detector.tensorflow import TensorFlowBoxObjectDetector
 
-run_async = False                           # Configure the detector to run in synchronous mode
-detector = TensorFlowBoxObjectDetector(frame_reader, PATH_TO_MODEL, PATH_TO_LABELS,
-                                       run_async=run_async)
+run_async = False  # Configure the detector to run in synchronous mode
+detector = TensorFlowBoxObjectDetector(
+    frame_reader, PATH_TO_MODEL, PATH_TO_LABELS, run_async=run_async
+)
 
 # %%
 # Filtering-out unwanted detections
@@ -279,17 +288,18 @@ detector = TensorFlowBoxObjectDetector(frame_reader, PATH_TO_MODEL, PATH_TO_LABE
 # for a full list). Instead, as we discussed at the beginning of the tutorial, we wish to limit the
 # detections to only those classified as cars. This can be done as follows:
 from stonesoup.feeder.filter import MetadataValueFilter
-detector = MetadataValueFilter(detector, 'class', lambda x: x['name'] == 'car')
+
+detector = MetadataValueFilter(detector, "class", lambda x: x["name"] == "car")
 
 # %%
 # Continuing, we may want to filter out detections which have a low confidence score:
-detector = MetadataValueFilter(detector, 'score', lambda x: x > 0.1)
+detector = MetadataValueFilter(detector, "score", lambda x: x > 0.1)
 
 # %%
 # Finally, we observed that the detector tends to incorrectly generate detections which are much
 # larger the the size we expect for a car. Therefore, we can filter out those detections by only
 # allowing ones whose width is less the 20\% of the frame width (i.e. ``x_1-x_0 < 0.2``):
-detector = MetadataValueFilter(detector, 'raw_box', lambda x: x[3]-x[1] < 0.2)
+detector = MetadataValueFilter(detector, "raw_box", lambda x: x[3] - x[1] < 0.2)
 
 # %%
 # You are encouraged to comment out any/all of the above filter definitions and observe the
@@ -309,7 +319,7 @@ from PIL import ImageDraw
 
 
 def draw_detections(image, detections, show_class=False, show_score=False):
-    """ Draw detections on an image
+    """Draw detections on an image
 
     Parameters
     ----------
@@ -332,14 +342,14 @@ def draw_detections(image, detections, show_class=False, show_score=False):
         x0, y0, w, h = np.array(detection.state_vector).reshape(4)
         x1, y1 = (x0 + w, y0 + h)
         draw.rectangle([x0, y0, x1, y1], outline=(0, 255, 0), width=1)
-        class_ = detection.metadata['class']['name']
-        score = round(float(detection.metadata['score']),2)
+        class_ = detection.metadata["class"]["name"]
+        score = round(float(detection.metadata["score"]), 2)
         if show_class and show_score:
-            draw.text((x0,y1 + 2), '{}:{}'.format(class_, score), fill=(0, 255, 0))
+            draw.text((x0, y1 + 2), f"{class_}:{score}", fill=(0, 255, 0))
         elif show_class:
-            draw.text((x0, y1 + 2), '{}'.format(class_), fill=(0, 255, 0))
+            draw.text((x0, y1 + 2), f"{class_}", fill=(0, 255, 0))
         elif show_score:
-            draw.text((x0, y1 + 2), '{}'.format(score), fill=(0, 255, 0))
+            draw.text((x0, y1 + 2), f"{score}", fill=(0, 255, 0))
 
     del draw
     return image
@@ -349,8 +359,8 @@ fig2, ax2 = plt.subplots(num="TensorFlowBoxObjectDetector output")
 artists2 = []
 print("Running TensorFlowBoxObjectDetector example... Be patient...")
 for timestamp, detections in detector:
-    if not (len(artists2)+1) % 10:
-        print("Frame: {}/{}".format(len(artists2)+1, num_frames))
+    if not (len(artists2) + 1) % 10:
+        print(f"Frame: {len(artists2) + 1}/{num_frames}")
 
     # Read the frame pixels
     frame = frame_reader.frame
@@ -390,8 +400,12 @@ ani2 = animation.ArtistAnimation(fig2, artists2, interval=20, blit=True, repeat_
 # We assume that :math:`x_k` and :math:`y_k` move with nearly :class:`~.ConstantVelocity`, while
 # :math:`w_k` and :math:`h_k` evolve according to a :class:`~.RandomWalk`.Using these assumptions,
 # we proceed to construct our Stone Soup :class:`~.TransitionModel` as follows:
-from stonesoup.models.transition.linear import (CombinedLinearGaussianTransitionModel,
-                                                ConstantVelocity, RandomWalk)
+from stonesoup.models.transition.linear import (
+    CombinedLinearGaussianTransitionModel,
+    ConstantVelocity,
+    RandomWalk,
+)
+
 t_models = [ConstantVelocity(20**2), ConstantVelocity(20**2), RandomWalk(20**2), RandomWalk(20**2)]
 transition_model = CombinedLinearGaussianTransitionModel(t_models)
 
@@ -410,8 +424,10 @@ transition_model = CombinedLinearGaussianTransitionModel(t_models)
 # of the 6-dimensional state :math:`\mathrm{x}_k`:
 
 from stonesoup.models.measurement.linear import LinearGaussian
-measurement_model = LinearGaussian(ndim_state=6, mapping=[0, 2, 4, 5],
-                                   noise_covar=np.diag([1**2, 1**2, 3**2, 3**2]))
+
+measurement_model = LinearGaussian(
+    ndim_state=6, mapping=[0, 2, 4, 5], noise_covar=np.diag([1**2, 1**2, 3**2, 3**2])
+)
 
 # %%
 # Defining the tracker components
@@ -424,11 +440,13 @@ measurement_model = LinearGaussian(ndim_state=6, mapping=[0, 2, 4, 5],
 # filtering of the underlying single-target densities. This is done by making use of the
 # :class:`~.KalmanPredictor` and :class:`~.KalmanUpdater` classes, which we define below:
 from stonesoup.predictor.kalman import KalmanPredictor
+
 predictor = KalmanPredictor(transition_model)
 # %%
 from stonesoup.updater.kalman import KalmanUpdater
+
 updater = KalmanUpdater(measurement_model)
-#%%
+# %%
 # .. note::
 #
 #   For more information on the above classes and how they operate you can refer to the Stone
@@ -441,13 +459,15 @@ updater = KalmanUpdater(measurement_model)
 # measurements, where :class:`~.Mahalanobis` distance is used as a measure of quality:
 from stonesoup.hypothesiser.distance import DistanceHypothesiser
 from stonesoup.measures import Mahalanobis
+
 hypothesiser = DistanceHypothesiser(predictor, updater, Mahalanobis(), 10)
 # %%
 # Continuing the :class:`~.GNNWith2DAssigment` class is used to perform fast joint data association,
 # based on the Global Nearest Neighbour (GNN) algorithm:
 from stonesoup.dataassociator.neighbour import GNNWith2DAssignment
+
 data_associator = GNNWith2DAssignment(hypothesiser)
-#%%
+# %%
 # .. note::
 #   For more information on the above classes and how they operate you can refer to the
 #   `Data Association - clutter <https://stonesoup.readthedocs.io/en/latest/auto_tutorials/05_DataAssociation-Clutter.html>`_
@@ -462,15 +482,19 @@ data_associator = GNNWith2DAssignment(hypothesiser)
 # initiator until they have survived for at least 10 frames. We also define a
 # :class:`~.UpdateTimeStepsDeleter` deleter to be used by the initiator to delete tentative tracks
 # that have not been associated to a measurement in the last 3 frames.
-from stonesoup.types.state import GaussianState
-from stonesoup.types.array import CovarianceMatrix, StateVector
-from stonesoup.initiator.simple import MultiMeasurementInitiator
 from stonesoup.deleter.time import UpdateTimeStepsDeleter
-prior_state = GaussianState(StateVector(np.zeros((6,1))),
-                            CovarianceMatrix(np.diag([100**2, 30**2, 100**2, 30**2, 100**2, 100**2])))
+from stonesoup.initiator.simple import MultiMeasurementInitiator
+from stonesoup.types.array import CovarianceMatrix, StateVector
+from stonesoup.types.state import GaussianState
+
+prior_state = GaussianState(
+    StateVector(np.zeros((6, 1))),
+    CovarianceMatrix(np.diag([100**2, 30**2, 100**2, 30**2, 100**2, 100**2])),
+)
 deleter_init = UpdateTimeStepsDeleter(time_steps_since_update=3)
-initiator = MultiMeasurementInitiator(prior_state, deleter_init, data_associator, updater,
-                                      measurement_model, min_points=10)
+initiator = MultiMeasurementInitiator(
+    prior_state, deleter_init, data_associator, updater, measurement_model, min_points=10
+)
 
 # %%
 # Track Deletion
@@ -489,6 +513,7 @@ deleter = UpdateTimeStepsDeleter(time_steps_since_update=15)
 # ~~~~~~~~~~~~~~~~~~~~
 # Now that we have defined all our tracker components we proceed to build our multi-target tracker:
 from stonesoup.tracker.simple import MultiTargetTracker
+
 tracker = MultiTargetTracker(
     initiator=initiator,
     deleter=deleter,
@@ -502,7 +527,7 @@ tracker = MultiTargetTracker(
 # Running the tracker
 # ~~~~~~~~~~~~~~~~~~~
 def draw_tracks(image, tracks, show_history=True, show_class=True, show_score=True):
-    """ Draw tracks on an image
+    """Draw tracks on an image
 
     Parameters
     ----------
@@ -525,8 +550,9 @@ def draw_tracks(image, tracks, show_history=True, show_class=True, show_score=Tr
     """
     draw = ImageDraw.Draw(image)
     for track in tracks:
-        bboxes = np.array([np.array(state.state_vector[[0, 2, 4, 5]]).reshape(4)
-                           for state in track.states])
+        bboxes = np.array(
+            [np.array(state.state_vector[[0, 2, 4, 5]]).reshape(4) for state in track.states]
+        )
         x0, y0, w, h = bboxes[-1]
         x1 = x0 + w
         y1 = y0 + h
@@ -536,14 +562,14 @@ def draw_tracks(image, tracks, show_history=True, show_class=True, show_score=Tr
             pts = [(box[0] + box[2] / 2, box[1] + box[3] / 2) for box in bboxes]
             draw.line(pts, fill=(255, 0, 0), width=2)
 
-        class_ = track.metadata['class']['name']
-        score = round(float(track.metadata['score']), 2)
+        class_ = track.metadata["class"]["name"]
+        score = round(float(track.metadata["score"]), 2)
         if show_class and show_score:
-            draw.text((x0, y1 + 2), '{}:{}'.format(class_, score), fill=(255, 0, 0))
+            draw.text((x0, y1 + 2), f"{class_}:{score}", fill=(255, 0, 0))
         elif show_class:
-            draw.text((x0, y1 + 2), '{}'.format(class_), fill=(255, 0, 0))
+            draw.text((x0, y1 + 2), f"{class_}", fill=(255, 0, 0))
         elif show_score:
-            draw.text((x0, y1 + 2), '{}'.format(score), fill=(255, 0, 0))
+            draw.text((x0, y1 + 2), f"{score}", fill=(255, 0, 0))
     return image
 
 
@@ -553,7 +579,7 @@ artists3 = []
 print("Running MultiTargetTracker example... Be patient...")
 for timestamp, tracks in tracker:
     if not (len(artists3) + 1) % 10:
-        print("Frame: {}/{}".format(len(artists3) + 1, num_frames))
+        print(f"Frame: {len(artists3) + 1}/{num_frames}")
 
     # Read the detections
     detections = detector.detections

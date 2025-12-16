@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding: utf-8
 
 """
 ========================
@@ -41,12 +40,13 @@
 #    hierarchical alternative make?
 #
 
-import random
 import copy
 import math
-import numpy as np
-import matplotlib.pyplot as plt
+import random
 from datetime import datetime, timedelta
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 start_time = datetime.now().replace(microsecond=0)
 np.random.seed(1990)
@@ -63,20 +63,18 @@ from stonesoup.models.clutter import ClutterModel
 from stonesoup.models.measurement.linear import LinearGaussian
 from stonesoup.types.state import CovarianceMatrix
 
-mm = LinearGaussian(ndim_state=4,
-                    mapping=[0, 2],
-                    noise_covar=CovarianceMatrix(np.diag([0.5, 0.5])),
-                    seed=6)
+mm = LinearGaussian(
+    ndim_state=4, mapping=[0, 2], noise_covar=CovarianceMatrix(np.diag([0.5, 0.5])), seed=6
+)
 
-mm2 = LinearGaussian(ndim_state=4,
-                     mapping=[0, 2],
-                     noise_covar=CovarianceMatrix(np.diag([0.5, 0.5])),
-                     seed=6)
+mm2 = LinearGaussian(
+    ndim_state=4, mapping=[0, 2], noise_covar=CovarianceMatrix(np.diag([0.5, 0.5])), seed=6
+)
 
 # %%
-from stonesoup.sensor.sensor import SimpleSensor
-from stonesoup.models.measurement.base import MeasurementModel
 from stonesoup.base import Property
+from stonesoup.models.measurement.base import MeasurementModel
+from stonesoup.sensor.sensor import SimpleSensor
 
 
 class DummySensor(SimpleSensor):
@@ -89,29 +87,35 @@ class DummySensor(SimpleSensor):
         return True
 
 
-sensor1 = DummySensor(measurement_model=mm,
-                      position=np.array([[10], [-20]]),
-                      clutter_model=ClutterModel(clutter_rate=5,
-                                                 dist_params=((-100, 100), (-50, 60)), seed=6))
+sensor1 = DummySensor(
+    measurement_model=mm,
+    position=np.array([[10], [-20]]),
+    clutter_model=ClutterModel(clutter_rate=5, dist_params=((-100, 100), (-50, 60)), seed=6),
+)
 sensor1.clutter_model.distribution = sensor1.clutter_model.random_state.uniform
-sensor2 = DummySensor(measurement_model=mm2,
-                      position=np.array([[10], [20]]),
-                      clutter_model=ClutterModel(clutter_rate=5,
-                                                 dist_params=((-100, 100), (-50, 60)), seed=6))
+sensor2 = DummySensor(
+    measurement_model=mm2,
+    position=np.array([[10], [20]]),
+    clutter_model=ClutterModel(clutter_rate=5, dist_params=((-100, 100), (-50, 60)), seed=6),
+)
 sensor2.clutter_model.distribution = sensor2.clutter_model.random_state.uniform
 
 # %%
 # 2) Ground Truth
 # ^^^^^^^^^^^^^^^
 
-from stonesoup.models.transition.linear import CombinedLinearGaussianTransitionModel, \
-    ConstantVelocity
-from stonesoup.types.groundtruth import GroundTruthPath, GroundTruthState
 from ordered_set import OrderedSet
 
+from stonesoup.models.transition.linear import (
+    CombinedLinearGaussianTransitionModel,
+    ConstantVelocity,
+)
+from stonesoup.types.groundtruth import GroundTruthPath, GroundTruthState
+
 # Generate transition model
-transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.005),
-                                                          ConstantVelocity(0.005)])
+transition_model = CombinedLinearGaussianTransitionModel(
+    [ConstantVelocity(0.005), ConstantVelocity(0.005)]
+)
 
 yps = range(0, 100, 10)  # y value for prior state
 truths = OrderedSet()
@@ -124,14 +128,20 @@ ydirection = 1
 
 # Generate ground truths
 for j in range(0, ntruths):
-    truth = GroundTruthPath([GroundTruthState([0, xdirection, yps[j], ydirection],
-                                              timestamp=timesteps[0])], id=f"id{j}")
+    truth = GroundTruthPath(
+        [GroundTruthState([0, xdirection, yps[j], ydirection], timestamp=timesteps[0])],
+        id=f"id{j}",
+    )
 
     for k in range(1, time_max):
         truth.append(
-            GroundTruthState(transition_model.function(truth[k - 1], noise=True,
-                                                       time_interval=timedelta(seconds=1)),
-                             timestamp=timesteps[k]))
+            GroundTruthState(
+                transition_model.function(
+                    truth[k - 1], noise=True, time_interval=timedelta(seconds=1)
+                ),
+                timestamp=timesteps[k],
+            )
+        )
     truths.add(truth)
 
     xdirection *= -1
@@ -145,16 +155,16 @@ for j in range(0, ntruths):
 # previous tutorial.
 #
 
-from stonesoup.predictor.kalman import KalmanPredictor
-from stonesoup.updater.kalman import ExtendedKalmanUpdater
-from stonesoup.hypothesiser.distance import DistanceHypothesiser
-from stonesoup.measures import Mahalanobis
+from stonesoup.architecture.edge import FusionQueue
 from stonesoup.dataassociator.neighbour import GNNWith2DAssignment
 from stonesoup.deleter.error import CovarianceBasedDeleter
-from stonesoup.types.state import GaussianState
+from stonesoup.hypothesiser.distance import DistanceHypothesiser
 from stonesoup.initiator.simple import MultiMeasurementInitiator
+from stonesoup.measures import Mahalanobis
+from stonesoup.predictor.kalman import KalmanPredictor
 from stonesoup.tracker.simple import MultiTargetTracker
-from stonesoup.architecture.edge import FusionQueue
+from stonesoup.types.state import GaussianState
+from stonesoup.updater.kalman import ExtendedKalmanUpdater
 
 prior = GaussianState([[0], [1], [0], [1]], np.diag([1, 1, 1, 1]))
 predictor = KalmanPredictor(transition_model)
@@ -178,9 +188,9 @@ tracker = MultiTargetTracker(initiator, deleter, None, data_associator, updater)
 # ^^^^^^^^^^^^^
 #
 
-from stonesoup.updater.wrapper import DetectionAndTrackSwitchingUpdater
-from stonesoup.updater.chernoff import ChernoffUpdater
 from stonesoup.feeder.track import Tracks2GaussianDetectionFeeder
+from stonesoup.updater.chernoff import ChernoffUpdater
+from stonesoup.updater.wrapper import DetectionAndTrackSwitchingUpdater
 
 track_updater = ChernoffUpdater(None)
 detection_updater = ExtendedKalmanUpdater(None)
@@ -189,7 +199,8 @@ detection_track_updater = DetectionAndTrackSwitchingUpdater(None, detection_upda
 fq = FusionQueue()
 
 track_tracker = MultiTargetTracker(
-    initiator, deleter, None, data_associator, detection_track_updater)
+    initiator, deleter, None, data_associator, detection_track_updater
+)
 
 # %%
 # 4) Non-Hierarchical Architecture
@@ -199,25 +210,27 @@ track_tracker = MultiTargetTracker(
 # Nodes
 # ^^^^^
 
-from stonesoup.architecture.node import SensorNode, FusionNode
+from stonesoup.architecture.node import FusionNode, SensorNode
 
-sensornode1 = SensorNode(sensor=copy.deepcopy(sensor1), label='Sensor Node 1')
-sensornode1.sensor.clutter_model.distribution = \
+sensornode1 = SensorNode(sensor=copy.deepcopy(sensor1), label="Sensor Node 1")
+sensornode1.sensor.clutter_model.distribution = (
     sensornode1.sensor.clutter_model.random_state.uniform
+)
 
-sensornode2 = SensorNode(sensor=copy.deepcopy(sensor2), label='Sensor Node 2')
-sensornode2.sensor.clutter_model.distribution = \
+sensornode2 = SensorNode(sensor=copy.deepcopy(sensor2), label="Sensor Node 2")
+sensornode2.sensor.clutter_model.distribution = (
     sensornode2.sensor.clutter_model.random_state.uniform
+)
 
 f1_tracker = copy.deepcopy(track_tracker)
 f1_fq = FusionQueue()
 f1_tracker.detector = Tracks2GaussianDetectionFeeder(f1_fq)
-fusion_node1 = FusionNode(tracker=f1_tracker, fusion_queue=f1_fq, label='Fusion Node 1')
+fusion_node1 = FusionNode(tracker=f1_tracker, fusion_queue=f1_fq, label="Fusion Node 1")
 
 f2_tracker = copy.deepcopy(track_tracker)
 f2_fq = FusionQueue()
 f2_tracker.detector = Tracks2GaussianDetectionFeeder(f2_fq)
-fusion_node2 = FusionNode(tracker=f2_tracker, fusion_queue=f2_fq, label='Fusion Node 2')
+fusion_node2 = FusionNode(tracker=f2_tracker, fusion_queue=f2_fq, label="Fusion Node 2")
 
 # %%
 # Edges
@@ -227,10 +240,14 @@ fusion_node2 = FusionNode(tracker=f2_tracker, fusion_queue=f2_fq, label='Fusion 
 from stonesoup.architecture import InformationArchitecture
 from stonesoup.architecture.edge import Edge, Edges
 
-NH_edges = Edges([Edge((sensornode1, fusion_node1), edge_latency=0),
-                  Edge((sensornode1, fusion_node2), edge_latency=0),
-                  Edge((sensornode2, fusion_node2), edge_latency=0),
-                  Edge((fusion_node2, fusion_node1), edge_latency=0)])
+NH_edges = Edges(
+    [
+        Edge((sensornode1, fusion_node1), edge_latency=0),
+        Edge((sensornode1, fusion_node2), edge_latency=0),
+        Edge((sensornode2, fusion_node2), edge_latency=0),
+        Edge((fusion_node2, fusion_node1), edge_latency=0),
+    ]
+)
 
 # %%
 # Create the Non-Hierarchical Architecture
@@ -255,8 +272,7 @@ NH_edges = Edges([Edge((sensornode1, fusion_node1), edge_latency=0),
 # sphinx_gallery_thumbnail_path = '_static/sphinx_gallery/ArchTutorial_3.png'
 
 
-NH_architecture = InformationArchitecture(NH_edges, current_time=start_time,
-                                          use_arrival_time=True)
+NH_architecture = InformationArchitecture(NH_edges, current_time=start_time, use_arrival_time=True)
 NH_architecture
 
 # %%
@@ -277,8 +293,8 @@ NH_sensors = []
 NH_dets = set()
 for sn in NH_architecture.sensor_nodes:
     NH_sensors.append(sn.sensor)
-    for timestep in sn.data_held['created'].keys():
-        for datapiece in sn.data_held['created'][timestep]:
+    for timestep in sn.data_held["created"].keys():
+        for datapiece in sn.data_held["created"][timestep]:
             NH_dets.add(datapiece.data)
 
 # %%
@@ -290,18 +306,21 @@ from stonesoup.plotter import Plotterly
 
 
 def reduce_tracks(tracks):
-    return {
-        type(track)([s for s in track.last_timestamp_generator()])
-        for track in tracks}
+    return {type(track)([s for s in track.last_timestamp_generator()]) for track in tracks}
 
 
 plotter = Plotterly()
 plotter.plot_ground_truths(truths, [0, 2])
 plotter.plot_measurements(NH_dets, [0, 2])
 for node in NH_architecture.fusion_nodes:
-    hexcol = ["#" + ''.join([random.choice('ABCDEF0123456789') for i in range(6)])]
-    plotter.plot_tracks(reduce_tracks(node.tracks), [0, 2], track_label=str(node.label),
-                        line=dict(color=hexcol[0]), uncertainty=True)
+    hexcol = ["#" + "".join([random.choice("ABCDEF0123456789") for i in range(6)])]  # NOSONAR
+    plotter.plot_tracks(
+        reduce_tracks(node.tracks),
+        [0, 2],
+        track_label=str(node.label),
+        line=dict(color=hexcol[0]),
+        uncertainty=True,
+    )
 plotter.plot_sensors(NH_sensors)
 plotter.fig
 
@@ -321,34 +340,40 @@ plotter.fig
 # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 #
 
-from stonesoup.architecture.node import SensorNode, FusionNode
+from stonesoup.architecture.node import FusionNode, SensorNode
 
-sensornode1B = SensorNode(sensor=copy.deepcopy(sensor1), label='Sensor Node 1')
-sensornode1B.sensor.clutter_model.distribution = \
+sensornode1B = SensorNode(sensor=copy.deepcopy(sensor1), label="Sensor Node 1")
+sensornode1B.sensor.clutter_model.distribution = (
     sensornode1B.sensor.clutter_model.random_state.uniform
+)
 
-sensornode2B = SensorNode(sensor=copy.deepcopy(sensor2), label='Sensor Node 2')
-sensornode2B.sensor.clutter_model.distribution = \
+sensornode2B = SensorNode(sensor=copy.deepcopy(sensor2), label="Sensor Node 2")
+sensornode2B.sensor.clutter_model.distribution = (
     sensornode2B.sensor.clutter_model.random_state.uniform
+)
 
 f1_trackerB = copy.deepcopy(track_tracker)
 f1_fqB = FusionQueue()
 f1_trackerB.detector = Tracks2GaussianDetectionFeeder(f1_fqB)
-fusion_node1B = FusionNode(tracker=f1_trackerB, fusion_queue=f1_fqB, label='Fusion Node 1')
+fusion_node1B = FusionNode(tracker=f1_trackerB, fusion_queue=f1_fqB, label="Fusion Node 1")
 
 f2_trackerB = copy.deepcopy(track_tracker)
 f2_fqB = FusionQueue()
 f2_trackerB.detector = Tracks2GaussianDetectionFeeder(f2_fqB)
-fusion_node2B = FusionNode(tracker=f2_trackerB, fusion_queue=f2_fqB, label='Fusion Node 2')
+fusion_node2B = FusionNode(tracker=f2_trackerB, fusion_queue=f2_fqB, label="Fusion Node 2")
 
 # %%
 # Create Edges forming a Hierarchical Architecture
 # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 #
 
-H_edges = Edges([Edge((sensornode1B, fusion_node1B), edge_latency=0),
-                 Edge((sensornode2B, fusion_node2B), edge_latency=0),
-                 Edge((fusion_node2B, fusion_node1B), edge_latency=0)])
+H_edges = Edges(
+    [
+        Edge((sensornode1B, fusion_node1B), edge_latency=0),
+        Edge((sensornode2B, fusion_node2B), edge_latency=0),
+        Edge((fusion_node2B, fusion_node1B), edge_latency=0),
+    ]
+)
 
 # %%
 # Create the Hierarchical Architecture
@@ -358,8 +383,7 @@ H_edges = Edges([Edge((sensornode1B, fusion_node1B), edge_latency=0),
 # the second route for information to travel from Sensor Node 1 to
 # Fusion Node 1.
 
-H_architecture = InformationArchitecture(H_edges, current_time=start_time,
-                                         use_arrival_time=True)
+H_architecture = InformationArchitecture(H_edges, current_time=start_time, use_arrival_time=True)
 H_architecture
 
 # %%
@@ -380,8 +404,8 @@ H_sensors = []
 H_dets = set()
 for sn in H_architecture.sensor_nodes:
     H_sensors.append(sn.sensor)
-    for timestep in sn.data_held['created'].keys():
-        for datapiece in sn.data_held['created'][timestep]:
+    for timestep in sn.data_held["created"].keys():
+        for datapiece in sn.data_held["created"][timestep]:
             H_dets.add(datapiece.data)
 
 # %%
@@ -393,9 +417,14 @@ plotter = Plotterly()
 plotter.plot_ground_truths(truths, [0, 2])
 plotter.plot_measurements(H_dets, [0, 2])
 for node in H_architecture.fusion_nodes:
-    hexcol = ["#" + ''.join([random.choice('ABCDEF0123456789') for i in range(6)])]
-    plotter.plot_tracks(reduce_tracks(node.tracks), [0, 2], track_label=str(node.label),
-                        line=dict(color=hexcol[0]), uncertainty=True)
+    hexcol = ["#" + "".join([random.choice("ABCDEF0123456789") for i in range(6)])]  # NOSONAR
+    plotter.plot_tracks(
+        reduce_tracks(node.tracks),
+        [0, 2],
+        track_label=str(node.label),
+        line=dict(color=hexcol[0]),
+        uncertainty=True,
+    )
 plotter.plot_sensors(H_sensors)
 plotter.fig
 
@@ -421,19 +450,23 @@ plotter.fig
 # measurements.
 #
 
-NH_tracks = [node.tracks for node in
-             NH_architecture.fusion_nodes if node.label == 'Fusion Node 1'][0]
-H_tracks = [node.tracks for node in
-            H_architecture.fusion_nodes if node.label == 'Fusion Node 1'][0]
+NH_tracks = [
+    node.tracks for node in NH_architecture.fusion_nodes if node.label == "Fusion Node 1"
+][0]
+H_tracks = [node.tracks for node in H_architecture.fusion_nodes if node.label == "Fusion Node 1"][
+    0
+]
 
 NH_mean_covar_trace = []
 H_mean_covar_trace = []
 
 for t in timesteps:
-    NH_states = sum([[state for state in track.states if state.timestamp == t] for track in
-                     NH_tracks], [])
-    H_states = sum([[state for state in track.states if state.timestamp == t] for track in
-                    H_tracks], [])
+    NH_states = sum(
+        [[state for state in track.states if state.timestamp == t] for track in NH_tracks], []
+    )
+    H_states = sum(
+        [[state for state in track.states if state.timestamp == t] for track in H_tracks], []
+    )
 
     if NH_states:
         NH_trace_mean = np.mean([np.trace(s.covar) for s in NH_states])
