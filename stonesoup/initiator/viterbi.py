@@ -261,6 +261,239 @@ class ViterbiTrackInitiator(Initiator):
 
         return GaussianState(state_vector, covar, timestamp=detection.timestamp)
 
+    def _limit_detections(self, detection_sets):
+        """Limit detections per scan to max_detections_per_scan.
+
+        Parameters
+        ----------
+        detection_sets : sequence of sets of :class:`~.Detection`
+            Input detection sets
+
+        Returns
+        -------
+        list
+            List of detection lists, each limited to max_detections_per_scan
+        """
+        processed_detections = []
+        for det_set in detection_sets:
+            det_list = list(det_set)
+            if len(det_list) > self.max_detections_per_scan:
+                if det_list and hasattr(det_list[0], "metadata"):
+                    if "score" in det_list[0].metadata:
+                        det_list.sort(key=lambda d: d.metadata.get("score", 0), reverse=True)
+                det_list = det_list[: self.max_detections_per_scan]
+            processed_detections.append(det_list)
+        return processed_detections
+
+    def _initialize_trellis(self, first_scan_detections):
+        """Initialize trellis for first scan.
+
+        Parameters
+        ----------
+        first_scan_detections : list
+            Detections from the first scan
+
+        Returns
+        -------
+        delta_0 : np.ndarray
+            Initial scores for first scan
+        psi_0 : list
+            Initial backpointers (all -1 for first scan)
+        """
+        delta_0 = np.array([self._compute_detection_score(det) for det in first_scan_detections])
+        psi_0 = [-1] * len(first_scan_detections)
+        return delta_0, psi_0
+
+    def _find_best_predecessor(
+        self, state_curr, det_score, prev_detections, prev_delta, time_interval
+    ):
+        """Find the best predecessor detection for a current detection.
+
+        Parameters
+        ----------
+        state_curr : :class:`~.State`
+            Current state estimate
+        det_score : float
+            Detection score for current detection
+        prev_detections : list
+            Detections from previous scan
+        prev_delta : np.ndarray
+            Delta values from previous scan
+        time_interval : datetime.timedelta
+            Time between scans
+
+        Returns
+        -------
+        best_score : float
+            Best total score
+        best_prev : int
+            Index of best predecessor
+        """
+        best_score = -np.inf
+        best_prev = 0
+
+        for j, det_prev in enumerate(prev_detections):
+            state_prev = self._detection_to_state(det_prev)
+            trans_score = self._compute_transition_score(state_prev, state_curr, time_interval)
+            total_score = prev_delta[j] + trans_score + det_score
+
+            if total_score > best_score:
+                best_score = total_score
+                best_prev = j
+
+        return best_score, best_prev
+
+    def _forward_pass(self, processed_detections, timestamps):
+        """Perform forward pass of Viterbi algorithm.
+
+        Parameters
+        ----------
+        processed_detections : list
+            List of detection lists per scan
+        timestamps : list
+            Timestamps for each scan
+
+        Returns
+        -------
+        delta : list
+            Delta values for each scan
+        psi : list
+            Backpointers for each scan
+        """
+        delta_0, psi_0 = self._initialize_trellis(processed_detections[0])
+        delta = [delta_0]
+        psi = [psi_0]
+
+        for k in range(1, len(processed_detections)):
+            time_interval = timestamps[k] - timestamps[k - 1]
+            delta_k, psi_k = self._forward_step(
+                processed_detections[k], processed_detections[k - 1], delta[k - 1], time_interval
+            )
+            delta.append(delta_k)
+            psi.append(psi_k)
+
+        return delta, psi
+
+    def _forward_step(self, curr_detections, prev_detections, prev_delta, time_interval):
+        """Perform one forward step of Viterbi algorithm.
+
+        Parameters
+        ----------
+        curr_detections : list
+            Detections at current scan
+        prev_detections : list
+            Detections at previous scan
+        prev_delta : np.ndarray
+            Delta values from previous scan
+        time_interval : datetime.timedelta
+            Time between scans
+
+        Returns
+        -------
+        delta_k : np.ndarray
+            Delta values for current scan
+        psi_k : np.ndarray
+            Backpointers for current scan
+        """
+        num_curr = len(curr_detections)
+        delta_k = np.zeros(num_curr)
+        psi_k = np.zeros(num_curr, dtype=int)
+
+        for i, det_curr in enumerate(curr_detections):
+            state_curr = self._detection_to_state(det_curr)
+            det_score = self._compute_detection_score(det_curr)
+            best_score, best_prev = self._find_best_predecessor(
+                state_curr, det_score, prev_detections, prev_delta, time_interval
+            )
+            delta_k[i] = best_score
+            psi_k[i] = best_prev
+
+        return delta_k, psi_k
+
+    def _backtrack_path(self, candidate_idx, psi, processed_detections):
+        """Backtrack to extract a single path.
+
+        Parameters
+        ----------
+        candidate_idx : int
+            Index of terminal node
+        psi : list
+            Backpointers from forward pass
+        processed_detections : list
+            List of detection lists per scan
+
+        Returns
+        -------
+        path : list
+            List of detections forming the path
+        """
+        path = []
+        curr_idx = candidate_idx
+        num_scans = len(processed_detections)
+
+        for k in range(num_scans - 1, -1, -1):
+            det = processed_detections[k][curr_idx]
+            path.insert(0, det)
+            if k > 0:
+                curr_idx = psi[k][curr_idx]
+
+        return path
+
+    def _is_unique_path(self, path, extracted_paths, overlap_threshold=0.8):
+        """Check if a path is sufficiently unique from existing paths.
+
+        Parameters
+        ----------
+        path : list
+            Path to check
+        extracted_paths : list
+            Previously extracted paths
+        overlap_threshold : float
+            Maximum overlap ratio for paths to be considered duplicates
+
+        Returns
+        -------
+        bool
+            True if path is unique
+        """
+        for existing_path in extracted_paths:
+            shared = sum(1 for d1, d2 in zip(path, existing_path, strict=False) if d1 is d2)
+            if shared >= len(path) * overlap_threshold:
+                return False
+        return True
+
+    def _extract_tracks(self, delta, psi, processed_detections):
+        """Extract tracks from Viterbi results.
+
+        Parameters
+        ----------
+        delta : list
+            Delta values from forward pass
+        psi : list
+            Backpointers from forward pass
+        processed_detections : list
+            List of detection lists per scan
+
+        Returns
+        -------
+        tracks : set
+            Set of Track objects
+        """
+        tracks = set()
+        final_scores = delta[-1]
+        candidates = np.where(final_scores > self.detection_threshold)[0]
+        extracted_paths = []
+
+        for candidate_idx in candidates:
+            path = self._backtrack_path(candidate_idx, psi, processed_detections)
+
+            if self._is_unique_path(path, extracted_paths):
+                extracted_paths.append(path)
+                states = [self._detection_to_state(det) for det in path]
+                tracks.add(Track(states))
+
+        return tracks
+
     def initiate(self, detections, timestamp, **kwargs):
         """Initiate tracks from detections at a single time step.
 
@@ -322,123 +555,9 @@ class ViterbiTrackInitiator(Initiator):
         detection_sets = detection_sets[: self.num_scans]
         timestamps = timestamps[: self.num_scans]
 
-        # Limit detections per scan if needed
-        processed_detections = []
-        for det_set in detection_sets:
-            det_list = list(det_set)
-            if len(det_list) > self.max_detections_per_scan:
-                # Sort by detection score if available, otherwise keep first N
-                if (
-                    det_list
-                    and hasattr(det_list[0], "metadata")
-                    and "score" in det_list[0].metadata
-                ):
-                    det_list.sort(key=lambda d: d.metadata.get("score", 0), reverse=True)
-                det_list = det_list[: self.max_detections_per_scan]
-            processed_detections.append(det_list)
+        # Limit detections per scan and perform forward pass
+        processed_detections = self._limit_detections(detection_sets)
+        delta, psi = self._forward_pass(processed_detections, timestamps)
 
-        # Build trellis structure
-        # Each node is (scan_idx, detection_idx) or (scan_idx, -1) for missed detection
-        num_scans = len(processed_detections)
-
-        # Forward pass: compute max log-likelihood to reach each node
-        # delta[k][i] = max log-likelihood to reach detection i at scan k
-        delta = []
-        # psi[k][i] = index of best previous detection leading to detection i at scan k
-        psi = []
-
-        # Initialize first scan
-        delta_0 = []
-        for det in processed_detections[0]:
-            score = self._compute_detection_score(det)
-            delta_0.append(score)
-        delta.append(np.array(delta_0))
-        psi.append([-1] * len(processed_detections[0]))  # No previous
-
-        # Forward recursion
-        for k in range(1, num_scans):
-            len(processed_detections[k - 1])
-            num_curr = len(processed_detections[k])
-            delta_k = np.zeros(num_curr)
-            psi_k = np.zeros(num_curr, dtype=int)
-
-            time_interval = timestamps[k] - timestamps[k - 1]
-
-            for i, det_curr in enumerate(processed_detections[k]):
-                state_curr = self._detection_to_state(det_curr)
-                det_score = self._compute_detection_score(det_curr)
-
-                # Find best previous detection
-                best_score = -np.inf
-                best_prev = 0
-
-                for j, det_prev in enumerate(processed_detections[k - 1]):
-                    state_prev = self._detection_to_state(det_prev)
-
-                    # Transition score
-                    trans_score = self._compute_transition_score(
-                        state_prev, state_curr, time_interval
-                    )
-
-                    # Total score
-                    total_score = delta[k - 1][j] + trans_score + det_score
-
-                    if total_score > best_score:
-                        best_score = total_score
-                        best_prev = j
-
-                # Also consider missed detection at previous scan
-                # (would need to maintain separate missed detection states)
-                # For simplicity, we only consider detection-to-detection here
-
-                delta_k[i] = best_score
-                psi_k[i] = best_prev
-
-            delta.append(delta_k)
-            psi.append(psi_k)
-
-        # Backtracking: extract tracks exceeding threshold
-        tracks = set()
-
-        # Find all terminal nodes exceeding threshold
-        final_scores = delta[-1]
-        candidates = np.where(final_scores > self.detection_threshold)[0]
-
-        # Extract unique tracks (avoid duplicates from shared paths)
-        extracted_paths = []
-
-        for candidate_idx in candidates:
-            # Backtrack
-            path = []
-            curr_idx = candidate_idx
-
-            for k in range(num_scans - 1, -1, -1):
-                det = processed_detections[k][curr_idx]
-                path.insert(0, det)
-
-                if k > 0:
-                    curr_idx = psi[k][curr_idx]
-
-            # Check if this path is unique
-            is_unique = True
-            for existing_path in extracted_paths:
-                # Paths are considered duplicates if they share most detections
-                shared = sum(1 for d1, d2 in zip(path, existing_path, strict=False) if d1 is d2)
-                if shared >= len(path) * 0.8:  # 80% overlap threshold
-                    is_unique = False
-                    break
-
-            if is_unique:
-                extracted_paths.append(path)
-
-                # Create track from path
-                states = []
-                for det in path:
-                    state = self._detection_to_state(det)
-                    # Create an update-like state
-                    states.append(state)
-
-                track = Track(states)
-                tracks.add(track)
-
-        return tracks
+        # Extract and return tracks
+        return self._extract_tracks(delta, psi, processed_detections)

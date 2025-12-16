@@ -46,6 +46,44 @@ class Node(Base):
         self.data_held = {"fused": {}, "created": {}, "unfused": {}}
         self.messages_to_pass_on = []
 
+    def _validate_update_inputs(self, time_pertaining, time_arrived, data_piece, category, track):
+        """Validate inputs for the update method.
+
+        Parameters
+        ----------
+        time_pertaining : datetime
+            Time the data is relevant to
+        time_arrived : datetime
+            Time the data arrived
+        data_piece : DataPiece
+            The data piece to validate
+        category : str
+            The category string
+        track : Track or None
+            Optional track
+
+        Raises
+        ------
+        TypeError
+            If types are invalid
+        ValueError
+            If category is invalid
+        """
+        if not (isinstance(time_pertaining, datetime) and isinstance(time_arrived, datetime)):
+            raise TypeError("Times must be datetime objects")
+        if not isinstance(data_piece, DataPiece):
+            raise TypeError(f"data_piece must be a DataPiece. Provided type {type(data_piece)}")
+        if category not in self.data_held:
+            raise ValueError(f"category must be one of {self.data_held.keys()}")
+        if not track:
+            if not isinstance(data_piece.data, (Detection, Track)):
+                raise TypeError(
+                    f"Data provided without accompanying Track must be a Detection or "
+                    f"a Track, not a {type(data_piece.data).__name__}"
+                )
+        elif not isinstance(data_piece.data, Hypothesis):
+            raise TypeError("Data provided with Track must be a Hypothesis")
+
     def update(
         self,
         time_pertaining,
@@ -79,28 +117,14 @@ class Node(Base):
         bool
             True if new data has been added.
         """
-        if not (isinstance(time_pertaining, datetime) and isinstance(time_arrived, datetime)):
-            raise TypeError("Times must be datetime objects")
-        if not isinstance(data_piece, DataPiece):
-            raise TypeError(f"data_piece must be a DataPiece. Provided type {type(data_piece)}")
-        if category not in self.data_held:
-            raise ValueError(f"category must be one of {self.data_held.keys()}")
-        if not track:
-            if not isinstance(data_piece.data, Detection) and not isinstance(
-                data_piece.data, Track
-            ):
-                raise TypeError(
-                    f"Data provided without accompanying Track must be a Detection or "
-                    f"a Track, not a "
-                    f"{type(data_piece.data).__name__}"
-                )
-            new_data_piece = DataPiece(self, data_piece.originator, data_piece.data, time_arrived)
-        else:
-            if not isinstance(data_piece.data, Hypothesis):
-                raise TypeError("Data provided with Track must be a Hypothesis")
+        self._validate_update_inputs(time_pertaining, time_arrived, data_piece, category, track)
+
+        if track:
             new_data_piece = DataPiece(
                 self, data_piece.originator, data_piece.data, time_arrived, track
             )
+        else:
+            new_data_piece = DataPiece(self, data_piece.originator, data_piece.data, time_arrived)
 
         added, self.data_held[category] = _dict_set(
             self.data_held[category], new_data_piece, time_pertaining

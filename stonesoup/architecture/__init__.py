@@ -294,6 +294,89 @@ class Architecture(Base):
             node_kwargs["pos"] = f"{node.position[0]},{node.position[1]}!"
         return node_kwargs
 
+    def _compute_hierarchical_layers(self):
+        """Compute node layers for hierarchical graph layout.
+
+        Returns
+        -------
+        list
+            List of node layers, from top to bottom
+        """
+        top_nodes = self.top_level_nodes
+        if len(top_nodes) != 1:
+            raise ValueError("Graph with more than one top level node provided.")
+        top_node = top_nodes.pop()
+
+        node_layers = [[top_node]]
+        processed_nodes = {top_node}
+        while self.all_nodes - processed_nodes:
+            senders = [
+                sender
+                for node in node_layers[-1]
+                for sender in sorted(self.senders(node), key=attrgetter("label"))
+            ]
+            if not senders:
+                break
+            node_layers.append(senders)
+            processed_nodes.update(senders)
+
+        return node_layers
+
+    def _configure_plot_title(self, graph, plot_title):
+        """Configure the plot title on the graph.
+
+        Parameters
+        ----------
+        graph : pydot.Dot
+            The graph object to configure
+        plot_title : str or bool
+            Title configuration
+        """
+        if isinstance(plot_title, str):
+            graph.set_graph_defaults(label=plot_title, labelloc="t")
+        elif isinstance(plot_title, bool) and plot_title:
+            graph.set_graph_defaults(label=self.name, labelloc="t")
+        elif not isinstance(plot_title, bool):
+            raise ValueError("Plot title must be a string or bool")
+
+    def _add_hierarchical_nodes(self, graph, node_layers, use_positions):
+        """Add nodes to graph using hierarchical layout.
+
+        Parameters
+        ----------
+        graph : pydot.Dot
+            The graph object
+        node_layers : list
+            List of node layers from top to bottom
+        use_positions : bool
+            Whether to use node positions
+        """
+        for n, layer_nodes in enumerate(node_layers):
+            subgraph = pydot.Subgraph(rank="max" if n == 0 else "same")
+            for node in layer_nodes:
+                new_node = pydot.Node(
+                    node.label.replace("\n", " "), **self._node_kwargs(node, use_positions)
+                )
+                subgraph.add_node(new_node)
+            graph.add_subgraph(subgraph)
+
+    def _add_flat_nodes(self, graph, use_positions):
+        """Add nodes to graph using flat (non-hierarchical) layout.
+
+        Parameters
+        ----------
+        graph : pydot.Dot
+            The graph object
+        use_positions : bool
+            Whether to use node positions
+        """
+        graph.set_overlap("false")
+        for node in self.all_nodes:
+            new_node = pydot.Node(
+                node.label.replace("\n", " "), **self._node_kwargs(node, use_positions)
+            )
+            graph.add_node(new_node)
+
     def plot(
         self,
         use_positions=False,
@@ -329,56 +412,19 @@ class Architecture(Base):
             The graphviz Source object for the plot.
         """
         is_hierarchical = self.is_hierarchical or plot_style == "hierarchical"
-        if is_hierarchical:
-            # Find top node and assign location
-            top_nodes = self.top_level_nodes
-            if len(top_nodes) == 1:
-                top_node = top_nodes.pop()
-            else:
-                raise ValueError("Graph with more than one top level node provided.")
-
-            # Initialise a layer count
-            node_layers = [[top_node]]
-            processed_nodes = {top_node}
-            while self.all_nodes - processed_nodes:
-                senders = [
-                    sender
-                    for node in node_layers[-1]
-                    for sender in sorted(self.senders(node), key=attrgetter("label"))
-                ]
-                if not senders:
-                    break
-                else:
-                    node_layers.append(senders)
-                    processed_nodes.update(senders)
+        node_layers = self._compute_hierarchical_layers() if is_hierarchical else None
 
         strict = nx.number_of_selfloops(self.di_graph) == 0 and not self.di_graph.is_multigraph()
         graph = pydot.Dot(graph_name="", strict=strict, graph_type="digraph", rankdir="BT")
-        if isinstance(plot_title, str):
-            graph.set_graph_defaults(label=plot_title, labelloc="t")
-        elif isinstance(plot_title, bool) and plot_title:
-            graph.set_graph_defaults(label=self.name, labelloc="t")
-        elif not isinstance(plot_title, bool):
-            raise ValueError("Plot title must be a string or bool")
+
+        self._configure_plot_title(graph, plot_title)
         graph.set_graph_defaults(bgcolor=bgcolour)
         graph.set_node_defaults(fontname=font_name, style=node_style)
 
         if is_hierarchical:
-            for n, layer_nodes in enumerate(node_layers):
-                subgraph = pydot.Subgraph(rank="max" if n == 0 else "same")
-                for node in layer_nodes:
-                    new_node = pydot.Node(
-                        node.label.replace("\n", " "), **self._node_kwargs(node, use_positions)
-                    )
-                    subgraph.add_node(new_node)
-                graph.add_subgraph(subgraph)
+            self._add_hierarchical_nodes(graph, node_layers, use_positions)
         else:
-            graph.set_overlap("false")
-            for node in self.all_nodes:
-                new_node = pydot.Node(
-                    node.label.replace("\n", " "), **self._node_kwargs(node, use_positions)
-                )
-                graph.add_node(new_node)
+            self._add_flat_nodes(graph, use_positions)
 
         for edge in self.edges.edge_list:
             new_edge = pydot.Edge(
@@ -624,10 +670,8 @@ class NetworkArchitecture(Architecture):
 
         # Check whether an InformationArchitecture is provided, if not, see if one can be created
         if self.information_arch is None:
-
             # If info edges are provided, we can deduce an information architecture, otherwise:
             if self.information_architecture_edges is None:
-
                 # If repeater nodes are present in the Network architecture, we can deduce an
                 # Information architecture
                 if len(self.repeater_nodes) > 0:
@@ -649,6 +693,39 @@ class NetworkArchitecture(Architecture):
         for node in self.di_graph.nodes:
             self.di_graph.nodes[node].update(self._node_kwargs(node))
 
+    def _process_edge_messages(self, edge):
+        """Process messages for a single edge.
+
+        Parameters
+        ----------
+        edge : Edge
+            The edge to process messages for
+        """
+        to_network_node = edge.recipient not in self.information_arch.all_nodes
+
+        # Initial update of message categories
+        edge.update_messages(
+            self.current_time,
+            to_network_node=to_network_node,
+            use_arrival_time=self.use_arrival_time,
+        )
+
+        # Send available messages from nodes to the edges
+        if edge.sender in self.information_arch.all_nodes:
+            for data_piece, time_pertaining in edge.unsent_data:
+                edge.send_message(data_piece, time_pertaining, data_piece.time_arrived)
+        else:
+            for message in edge.sender.messages_to_pass_on:
+                if edge.recipient not in message.data_piece.sent_to:
+                    edge.pass_message(message)
+
+        # Need to re-run update messages so that messages aren't left as 'pending'
+        edge.update_messages(
+            self.current_time,
+            to_network_node=to_network_node,
+            use_arrival_time=self.use_arrival_time,
+        )
+
     def propagate(self, time_increment: float, failed_edges: Collection | None = None):
         """
         Performs the propagation of the measurements through the network.
@@ -663,38 +740,13 @@ class NetworkArchitecture(Architecture):
         # Update each edge with messages received/sent
         for edge in self.edges.edges:
             # TODO: Future work - Introduce failed edges functionality
-
-            to_network_node = edge.recipient not in self.information_arch.all_nodes
-
-            # Initial update of message categories
-            edge.update_messages(
-                self.current_time,
-                to_network_node=to_network_node,
-                use_arrival_time=self.use_arrival_time,
-            )
-
-            # Send available messages from nodes to the edges
-            if edge.sender in self.information_arch.all_nodes:
-                for data_piece, time_pertaining in edge.unsent_data:
-                    edge.send_message(data_piece, time_pertaining, data_piece.time_arrived)
-            else:
-                for message in edge.sender.messages_to_pass_on:
-                    if edge.recipient not in message.data_piece.sent_to:
-                        edge.pass_message(message)
-
-            # Need to re-run update messages so that messages aren't left as 'pending'
-            edge.update_messages(
-                self.current_time,
-                to_network_node=to_network_node,
-                use_arrival_time=self.use_arrival_time,
-            )
+            self._process_edge_messages(edge)
 
         for fuse_node in self.fusion_nodes:
             fuse_node.fuse()
 
         if self.fully_propagated:
             self.current_time += timedelta(seconds=time_increment)
-            return
         else:
             self.propagate(time_increment, failed_edges)
 
@@ -741,7 +793,6 @@ def inherit_edges(network_architecture):
         # Create a new edge from every sender to every recipient
         for sender in senders:
             for recipient in recipients:
-
                 # Could be possible edges from sender to node, choose path of minimum latency
                 poss_edges_to = temp_arch.edges.get((sender, repeaternode))
                 latency_to = np.inf
