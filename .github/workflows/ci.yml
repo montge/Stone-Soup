@@ -466,9 +466,9 @@ jobs:
           cd bindings/rust
           cargo clippy -- -D warnings
 
-  # Java Bindings Tests
+  # Java Bindings Tests and Coverage
   java-bindings:
-    name: Java Bindings Tests
+    name: Java Bindings & Coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -489,10 +489,10 @@ jobs:
           sudo make install
           sudo ldconfig
 
-      - name: Run Java tests
+      - name: Run Java tests with coverage
         run: |
           cd bindings/java
-          mvn test
+          mvn test jacoco:report
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -507,9 +507,17 @@ jobs:
           name: java-classes
           path: bindings/java/target/classes/
 
-  # Node.js Bindings Tests
+      - name: Upload Java coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-coverage
+          path: |
+            bindings/java/target/site/jacoco/jacoco.xml
+            bindings/java/target/jacoco.exec
+
+  # Node.js Bindings Tests and Coverage
   nodejs-bindings:
-    name: Node.js Bindings Tests
+    name: Node.js Bindings & Coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -533,14 +541,20 @@ jobs:
           cd bindings/nodejs
           npm ci
 
-      - name: Run Node.js tests
+      - name: Run Node.js tests with coverage
         run: |
           cd bindings/nodejs
-          npm test
+          npm run test:coverage
 
-  # Go Bindings Tests
+      - name: Upload Node.js coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: nodejs-coverage
+          path: bindings/nodejs/coverage/lcov.info
+
+  # Go Bindings Tests and Coverage
   go-bindings:
-    name: Go Bindings Tests
+    name: Go Bindings & Coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -559,14 +573,29 @@ jobs:
           sudo make install
           sudo ldconfig
 
-      - name: Run Go tests
+      - name: Run Go tests with coverage
         run: |
           cd bindings/go
-          go test -v ./...
+          go test -v -coverprofile=coverage.out -covermode=atomic ./...
+          go tool cover -func=coverage.out
 
-  # C++ Bindings Tests
+      - name: Convert Go coverage to LCOV
+        run: |
+          cd bindings/go
+          go install github.com/jandelgado/gcov2lcov@latest
+          gcov2lcov -infile=coverage.out -outfile=lcov.info || true
+
+      - name: Upload Go coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage
+          path: |
+            bindings/go/coverage.out
+            bindings/go/lcov.info
+
+  # C++ Bindings Tests and Coverage
   cpp-bindings:
-    name: C++ Bindings Tests
+    name: C++ Bindings & Coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -574,7 +603,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential libgtest-dev
+          sudo apt-get install -y cmake build-essential libgtest-dev lcov
 
       - name: Build GoogleTest
         run: |
@@ -592,13 +621,27 @@ jobs:
           sudo make install
           sudo ldconfig
 
-      - name: Build and test C++ bindings
+      - name: Build and test C++ bindings with coverage
         run: |
           cd bindings/cpp
           mkdir -p build && cd build
-          cmake .. -DBUILD_TESTS=ON
+          cmake .. -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="--coverage -fprofile-arcs -ftest-coverage"
           make -j$(nproc)
           ctest --output-on-failure
+
+      - name: Generate C++ coverage report
+        run: |
+          cd bindings/cpp/build
+          lcov --capture --directory . --output-file coverage.info
+          lcov --remove coverage.info '/usr/*' --output-file coverage.info --ignore-errors unused
+          lcov --list coverage.info
+
+      - name: Upload C++ coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpp-coverage
+          path: bindings/cpp/build/coverage.info
 
   # Ada Bindings Tests
   ada-bindings:
@@ -798,7 +841,7 @@ jobs:
   sonarcloud:
     name: SonarCloud Analysis
     runs-on: ubuntu-latest
-    needs: [test, libstonesoup, rust-bindings, java-bindings]
+    needs: [test, libstonesoup, rust-bindings, java-bindings, nodejs-bindings, go-bindings, cpp-bindings]
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@v4
@@ -833,6 +876,34 @@ jobs:
           path: java-classes
         continue-on-error: true
 
+      - name: Download Java coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: java-coverage
+          path: java-coverage
+        continue-on-error: true
+
+      - name: Download Node.js coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: nodejs-coverage
+          path: nodejs-coverage
+        continue-on-error: true
+
+      - name: Download Go coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: go-coverage
+          path: go-coverage
+        continue-on-error: true
+
+      - name: Download C++ coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: cpp-coverage
+          path: cpp-coverage
+        continue-on-error: true
+
       - name: Prepare coverage reports
         run: |
           # Python coverage
@@ -857,10 +928,29 @@ jobs:
             mkdir -p bindings/rust
             cp rust-coverage/lcov.info bindings/rust/lcov.info
           fi
-          # Java compiled classes for SonarCloud analysis
+          # Java compiled classes and coverage for SonarCloud analysis
           if [ -d java-classes ]; then
             mkdir -p bindings/java/target/classes
             cp -r java-classes/* bindings/java/target/classes/ 2>/dev/null || true
+          fi
+          if [ -f java-coverage/jacoco.xml ]; then
+            mkdir -p bindings/java/target/site/jacoco
+            cp java-coverage/jacoco.xml bindings/java/target/site/jacoco/jacoco.xml
+          fi
+          # Node.js coverage
+          if [ -f nodejs-coverage/lcov.info ]; then
+            mkdir -p bindings/nodejs/coverage
+            cp nodejs-coverage/lcov.info bindings/nodejs/coverage/lcov.info
+          fi
+          # Go coverage
+          if [ -f go-coverage/lcov.info ]; then
+            mkdir -p bindings/go
+            cp go-coverage/lcov.info bindings/go/lcov.info
+          fi
+          # C++ coverage
+          if [ -f cpp-coverage/coverage.info ]; then
+            mkdir -p bindings/cpp/build
+            cp cpp-coverage/coverage.info bindings/cpp/build/coverage.info
           fi
 
       - name: SonarCloud Scan
