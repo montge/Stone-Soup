@@ -211,6 +211,7 @@ def test_figsize():
     assert plotter_figsize_different.fig.get_figheight() == 15
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Tkinter not reliably available on Windows CI")
 def test_equal_3daxis():
     plotter_default = Plotter(dimension=Dimension.THREE)
     plotter_xy_default = Plotter(dimension=Dimension.THREE)

@@ -110,7 +110,6 @@ def isoplume_h(state_vector, translation_offset):
     ],
 )
 def test_isotropic_plume(state, mapping, translation_offset):
-
     missed_detection_probability = 0.1
     sensing_threshold = 1e-4
     standard_deviation_percentage = 0.5
@@ -166,8 +165,12 @@ def test_isotropic_plume(state, mapping, translation_offset):
     expected_log_likelihood = model.logpdf(conc, state)
     expected_likelihood = model.pdf(conc, state)
 
+    # Use view(np.ndarray) to ensure np.all works correctly with StateVectors subclass
     assert np.all(
-        np.isclose(expected_likelihood.astype(np.float64), np.exp(expected_log_likelihood))
+        np.isclose(
+            expected_likelihood.astype(np.float64).view(np.ndarray),
+            np.exp(expected_log_likelihood).view(np.ndarray),
+        )
     )
 
     pred_conc = isoplume_h(unmapped_state, translation_offset=translation_offset)
