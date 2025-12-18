@@ -5,8 +5,10 @@
 
 #include <gtest/gtest.h>
 #include <stonesoup/stonesoup.hpp>
+#include "test_common.hpp"
 
 using namespace stonesoup;
+using namespace stonesoup::testing;
 
 class GaussianStateTest : public ::testing::Test {
 protected:
@@ -45,12 +47,12 @@ TEST_F(GaussianStateTest, CopyConstructor) {
 
     GaussianState state2(state1);
 
-    EXPECT_EQ(state2.dim(), 2);
-    EXPECT_DOUBLE_EQ(state2.state(0), 1.0);
-    EXPECT_DOUBLE_EQ(state2.state(1), 2.0);
+    // Use helper function from test_common.hpp
+    EXPECT_TRUE(gaussian_states_equal(state1, state2));
 
     // Modify original, copy should be independent
     state1.state(0) = 100.0;
+    EXPECT_FALSE(gaussian_states_equal(state1, state2));
     EXPECT_DOUBLE_EQ(state2.state(0), 1.0);
 }
 
@@ -70,12 +72,13 @@ TEST_F(GaussianStateTest, CopyAssignment) {
     GaussianState state1(2);
     state1.state(0) = 1.0;
     state1.state(1) = 2.0;
+    state1.set_covariance_identity();
 
     GaussianState state2(3);
     state2 = state1;
 
-    EXPECT_EQ(state2.dim(), 2);
-    EXPECT_DOUBLE_EQ(state2.state(0), 1.0);
+    // Use helper function from test_common.hpp
+    EXPECT_TRUE(gaussian_states_equal(state1, state2));
 }
 
 TEST_F(GaussianStateTest, MoveAssignment) {

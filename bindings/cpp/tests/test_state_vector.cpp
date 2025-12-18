@@ -5,8 +5,10 @@
 
 #include <gtest/gtest.h>
 #include <stonesoup/stonesoup.hpp>
+#include "test_common.hpp"
 
 using namespace stonesoup;
+using namespace stonesoup::testing;
 
 class StateVectorTest : public ::testing::Test {
 protected:
@@ -46,13 +48,12 @@ TEST_F(StateVectorTest, CopyConstructor) {
     StateVector sv1{1.0, 2.0, 3.0};
     StateVector sv2(sv1);
 
-    EXPECT_EQ(sv2.size(), sv1.size());
-    for (std::size_t i = 0; i < sv1.size(); ++i) {
-        EXPECT_DOUBLE_EQ(sv2[i], sv1[i]);
-    }
+    // Use helper function from test_common.hpp
+    EXPECT_TRUE(state_vectors_equal(sv1, sv2));
 
     // Modify original, copy should be independent
     sv1[0] = 100.0;
+    EXPECT_FALSE(state_vectors_equal(sv1, sv2));
     EXPECT_DOUBLE_EQ(sv2[0], 1.0);
 }
 

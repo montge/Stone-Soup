@@ -6,8 +6,10 @@
 #include <gtest/gtest.h>
 #include <stonesoup/stonesoup.hpp>
 #include <cmath>
+#include "test_common.hpp"
 
 using namespace stonesoup;
+using namespace stonesoup::testing;
 
 class CovarianceMatrixTest : public ::testing::Test {
 protected:
@@ -62,15 +64,16 @@ TEST_F(CovarianceMatrixTest, Diagonal) {
 TEST_F(CovarianceMatrixTest, CopyConstructor) {
     CovarianceMatrix m1 = CovarianceMatrix::identity(3);
     m1(0, 1) = 0.5;  // Make it non-identity
+    m1(1, 0) = 0.5;  // Keep symmetric
 
     CovarianceMatrix m2(m1);
 
-    EXPECT_EQ(m2.rows(), m1.rows());
-    EXPECT_EQ(m2.cols(), m1.cols());
-    EXPECT_DOUBLE_EQ(m2(0, 1), 0.5);
+    // Use helper function from test_common.hpp
+    EXPECT_TRUE(covariance_matrices_equal(m1, m2));
 
     // Modify original, copy should be independent
     m1(0, 1) = 100.0;
+    EXPECT_FALSE(covariance_matrices_equal(m1, m2));
     EXPECT_DOUBLE_EQ(m2(0, 1), 0.5);
 }
 
@@ -89,8 +92,8 @@ TEST_F(CovarianceMatrixTest, CopyAssignment) {
 
     m2 = m1;
 
-    EXPECT_EQ(m2.rows(), 2);
-    EXPECT_EQ(m2.cols(), 2);
+    // Use helper function from test_common.hpp
+    EXPECT_TRUE(covariance_matrices_equal(m1, m2));
 }
 
 TEST_F(CovarianceMatrixTest, MoveAssignment) {

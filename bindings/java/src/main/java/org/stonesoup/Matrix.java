@@ -55,8 +55,11 @@ public class Matrix {
      * @param rows the number of rows
      * @param cols the number of columns
      * @return a zero matrix
+     * @throws IllegalArgumentException if rows or cols is less than 1
      */
     public static Matrix zeros(int rows, int cols) {
+        requirePositiveDimension(rows, "Rows");
+        requirePositiveDimension(cols, "Cols");
         return new Matrix(new double[rows * cols], rows, cols);
     }
 
@@ -65,11 +68,30 @@ public class Matrix {
      *
      * @param size the dimension
      * @return an identity matrix
+     * @throws IllegalArgumentException if size is less than 1
      */
     public static Matrix identity(int size) {
+        requirePositiveDimension(size, "Size");
         double[] data = new double[size * size];
         for (int i = 0; i < size; i++) {
             data[i * size + i] = 1.0;
+        }
+        return new Matrix(data, size, size);
+    }
+
+    /**
+     * Creates a diagonal matrix from the given diagonal values.
+     *
+     * @param diagonal the diagonal values
+     * @return a new diagonal matrix
+     * @throws IllegalArgumentException if diagonal is null or empty
+     */
+    public static Matrix diagonal(double[] diagonal) {
+        requireNonEmpty(diagonal, "Diagonal array");
+        int size = diagonal.length;
+        double[] data = new double[size * size];
+        for (int i = 0; i < size; i++) {
+            data[i * size + i] = diagonal[i];
         }
         return new Matrix(data, size, size);
     }

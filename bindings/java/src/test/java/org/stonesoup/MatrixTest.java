@@ -99,6 +99,43 @@ class MatrixTest {
                 }
             }
         }
+
+        @Test
+        @DisplayName("creates diagonal matrix")
+        void createsDiagonalMatrix() {
+            Matrix m = Matrix.diagonal(new double[]{1.0, 2.0, 3.0});
+
+            assertEquals(3, m.getRows());
+            assertEquals(3, m.getCols());
+            assertEquals(1.0, m.get(0, 0), EPSILON);
+            assertEquals(2.0, m.get(1, 1), EPSILON);
+            assertEquals(3.0, m.get(2, 2), EPSILON);
+            // Off-diagonal should be zero
+            assertEquals(0.0, m.get(0, 1), EPSILON);
+            assertEquals(0.0, m.get(1, 0), EPSILON);
+        }
+
+        @Test
+        @DisplayName("rejects invalid dimensions for zeros")
+        void rejectsInvalidDimensionsForZeros() {
+            assertThrows(IllegalArgumentException.class, () -> Matrix.zeros(0, 2));
+            assertThrows(IllegalArgumentException.class, () -> Matrix.zeros(2, 0));
+            assertThrows(IllegalArgumentException.class, () -> Matrix.zeros(-1, 2));
+        }
+
+        @Test
+        @DisplayName("rejects invalid size for identity")
+        void rejectsInvalidSizeForIdentity() {
+            assertThrows(IllegalArgumentException.class, () -> Matrix.identity(0));
+            assertThrows(IllegalArgumentException.class, () -> Matrix.identity(-1));
+        }
+
+        @Test
+        @DisplayName("rejects null or empty diagonal array")
+        void rejectsNullOrEmptyDiagonalArray() {
+            assertThrows(NullPointerException.class, () -> Matrix.diagonal(null));
+            assertThrows(IllegalArgumentException.class, () -> Matrix.diagonal(new double[0]));
+        }
     }
 
     @Nested
