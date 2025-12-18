@@ -40,5 +40,5 @@
 - [x] 6.1 All Java tests pass (278 tests)
 - [x] 6.2 All C++ tests pass (8 tests)
 - [x] 6.3 All Python tests pass (557+ tests with new validation/fixture tests)
-- [ ] 6.4 SonarCloud duplication metric improves (target: < 3%)
-- [ ] 6.5 No regression in test coverage
+- [ ] 6.4 SonarCloud duplication metric improves (target: < 3%) - requires CI pipeline
+- [x] 6.5 No regression in test coverage - Java at 79% (core classes 94-100%), Python validation at 96%
