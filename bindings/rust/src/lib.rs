@@ -485,6 +485,8 @@ mod tests {
     use super::*;
     use approx::assert_relative_eq;
 
+    // ==================== StateVector Tests ====================
+
     #[test]
     fn test_state_vector_creation() {
         let sv = StateVector::from_vec(vec![1.0, 2.0, 3.0, 4.0]);
@@ -495,6 +497,55 @@ mod tests {
     }
 
     #[test]
+    fn test_state_vector_zeros() {
+        let sv = StateVector::zeros(5);
+        assert_eq!(sv.dim(), 5);
+        for i in 0..5 {
+            assert_eq!(sv.get(i), Some(0.0));
+        }
+    }
+
+    #[test]
+    fn test_state_vector_new() {
+        let data = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        let sv = StateVector::new(data);
+        assert_eq!(sv.dim(), 3);
+        assert_eq!(sv.as_slice(), &[1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn test_state_vector_set() {
+        let mut sv = StateVector::from_vec(vec![1.0, 2.0, 3.0]);
+        assert!(sv.set(1, 5.0).is_ok());
+        assert_eq!(sv.get(1), Some(5.0));
+
+        // Test out of bounds
+        assert!(sv.set(10, 1.0).is_err());
+    }
+
+    #[test]
+    fn test_state_vector_as_mut_slice() {
+        let mut sv = StateVector::from_vec(vec![1.0, 2.0, 3.0]);
+        let slice = sv.as_mut_slice();
+        slice[0] = 10.0;
+        assert_eq!(sv.get(0), Some(10.0));
+    }
+
+    #[test]
+    fn test_state_vector_norm() {
+        let sv = StateVector::from_vec(vec![3.0, 4.0]);
+        assert_relative_eq!(sv.norm(), 5.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_state_vector_inner() {
+        let sv = StateVector::from_vec(vec![1.0, 2.0]);
+        let inner = sv.inner();
+        assert_eq!(inner.len(), 2);
+        assert_eq!(inner[0], 1.0);
+    }
+
+    #[test]
     fn test_state_vector_arithmetic() {
         let a = StateVector::from_vec(vec![1.0, 2.0]);
         let b = StateVector::from_vec(vec![3.0, 4.0]);
@@ -502,9 +553,14 @@ mod tests {
         let sum = a.clone() + b.clone();
         assert_eq!(sum.as_slice(), &[4.0, 6.0]);
 
-        let diff = b - a;
+        let diff = b - a.clone();
         assert_eq!(diff.as_slice(), &[2.0, 2.0]);
+
+        let scaled = a * 2.0;
+        assert_eq!(scaled.as_slice(), &[2.0, 4.0]);
     }
+
+    // ==================== CovarianceMatrix Tests ====================
 
     #[test]
     fn test_covariance_matrix_diagonal() {
@@ -516,6 +572,57 @@ mod tests {
     }
 
     #[test]
+    fn test_covariance_matrix_zeros() {
+        let cov = CovarianceMatrix::zeros(3);
+        assert_eq!(cov.dim(), 3);
+        for i in 0..3 {
+            for j in 0..3 {
+                assert_eq!(cov.get(i, j), Some(0.0));
+            }
+        }
+    }
+
+    #[test]
+    fn test_covariance_matrix_identity() {
+        let cov = CovarianceMatrix::identity(3);
+        assert_eq!(cov.dim(), 3);
+        assert_eq!(cov.get(0, 0), Some(1.0));
+        assert_eq!(cov.get(1, 1), Some(1.0));
+        assert_eq!(cov.get(0, 1), Some(0.0));
+    }
+
+    #[test]
+    fn test_covariance_matrix_new() {
+        let data = DMatrix::from_row_slice(2, 2, &[1.0, 0.5, 0.5, 1.0]);
+        let cov = CovarianceMatrix::new(data).unwrap();
+        assert_eq!(cov.dim(), 2);
+        assert_eq!(cov.get(0, 1), Some(0.5));
+    }
+
+    #[test]
+    fn test_covariance_matrix_new_non_square_fails() {
+        let data = DMatrix::from_row_slice(2, 3, &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        assert!(CovarianceMatrix::new(data).is_err());
+    }
+
+    #[test]
+    fn test_covariance_matrix_from_vec() {
+        let cov = CovarianceMatrix::from_vec(2, 2, vec![1.0, 0.0, 0.0, 1.0]).unwrap();
+        assert_eq!(cov.dim(), 2);
+    }
+
+    #[test]
+    fn test_covariance_matrix_from_vec_non_square_fails() {
+        assert!(CovarianceMatrix::from_vec(2, 3, vec![1.0; 6]).is_err());
+    }
+
+    #[test]
+    fn test_covariance_matrix_get_out_of_bounds() {
+        let cov = CovarianceMatrix::identity(2);
+        assert_eq!(cov.get(5, 5), None);
+    }
+
+    #[test]
     fn test_covariance_matrix_inverse() {
         let cov = CovarianceMatrix::diagonal(&[2.0, 4.0]);
         let inv = cov.inverse().unwrap();
@@ -524,12 +631,98 @@ mod tests {
     }
 
     #[test]
+    fn test_covariance_matrix_inverse_singular() {
+        let cov = CovarianceMatrix::zeros(2);
+        assert!(cov.inverse().is_err());
+    }
+
+    #[test]
+    fn test_covariance_matrix_cholesky() {
+        let cov = CovarianceMatrix::diagonal(&[4.0, 9.0]);
+        let chol = cov.cholesky().unwrap();
+        assert_relative_eq!(chol[(0, 0)], 2.0, epsilon = 1e-10);
+        assert_relative_eq!(chol[(1, 1)], 3.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_covariance_matrix_cholesky_fails_non_positive_definite() {
+        // Not positive definite (negative diagonal)
+        let data = DMatrix::from_row_slice(2, 2, &[-1.0, 0.0, 0.0, -1.0]);
+        let cov = CovarianceMatrix::new(data).unwrap();
+        assert!(cov.cholesky().is_err());
+    }
+
+    #[test]
+    fn test_covariance_matrix_determinant() {
+        let cov = CovarianceMatrix::diagonal(&[2.0, 3.0]);
+        assert_relative_eq!(cov.determinant(), 6.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_covariance_matrix_trace() {
+        let cov = CovarianceMatrix::diagonal(&[1.0, 2.0, 3.0]);
+        assert_relative_eq!(cov.trace(), 6.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_covariance_matrix_transpose() {
+        let data = DMatrix::from_row_slice(2, 2, &[1.0, 2.0, 3.0, 4.0]);
+        let cov = CovarianceMatrix::new(data).unwrap();
+        let trans = cov.transpose();
+        assert_eq!(trans.get(0, 1), Some(3.0));
+        assert_eq!(trans.get(1, 0), Some(2.0));
+    }
+
+    #[test]
+    fn test_covariance_matrix_inner() {
+        let cov = CovarianceMatrix::identity(2);
+        let inner = cov.inner();
+        assert_eq!(inner.nrows(), 2);
+        assert_eq!(inner.ncols(), 2);
+    }
+
+    #[test]
+    fn test_covariance_matrix_arithmetic() {
+        let a = CovarianceMatrix::identity(2);
+        let b = CovarianceMatrix::identity(2);
+
+        let sum = a.clone() + b.clone();
+        assert_eq!(sum.get(0, 0), Some(2.0));
+
+        let diff = a.clone() - b;
+        assert_eq!(diff.get(0, 0), Some(0.0));
+
+        let scaled = a * 3.0;
+        assert_eq!(scaled.get(0, 0), Some(3.0));
+    }
+
+    // ==================== GaussianState Tests ====================
+
+    #[test]
     fn test_gaussian_state() {
         let sv = StateVector::from_vec(vec![0.0, 1.0]);
         let cov = CovarianceMatrix::identity(2);
         let state = GaussianState::new(sv, cov).unwrap();
         assert_eq!(state.dim(), 2);
+        assert!(state.timestamp.is_none());
     }
+
+    #[test]
+    fn test_gaussian_state_dimension_mismatch() {
+        let sv = StateVector::from_vec(vec![0.0, 1.0, 2.0]);
+        let cov = CovarianceMatrix::identity(2);
+        assert!(GaussianState::new(sv, cov).is_err());
+    }
+
+    #[test]
+    fn test_gaussian_state_with_timestamp() {
+        let sv = StateVector::from_vec(vec![0.0, 1.0]);
+        let cov = CovarianceMatrix::identity(2);
+        let state = GaussianState::with_timestamp(sv, cov, 1.5).unwrap();
+        assert_eq!(state.timestamp, Some(1.5));
+    }
+
+    // ==================== Kalman Filter Tests ====================
 
     #[test]
     fn test_kalman_predict() {
@@ -554,6 +747,21 @@ mod tests {
     }
 
     #[test]
+    fn test_kalman_predict_dimension_mismatch() {
+        let prior = GaussianState::new(
+            StateVector::from_vec(vec![0.0, 1.0]),
+            CovarianceMatrix::identity(2),
+        )
+        .unwrap();
+
+        // Wrong dimension transition matrix
+        let f = DMatrix::from_row_slice(3, 3, &[1.0; 9]);
+        let q = CovarianceMatrix::diagonal(&[0.1, 0.1]);
+
+        assert!(kalman::predict(&prior, &f, &q).is_err());
+    }
+
+    #[test]
     fn test_kalman_update() {
         let predicted = GaussianState::new(
             StateVector::from_vec(vec![1.0, 1.0]),
@@ -571,5 +779,72 @@ mod tests {
         // Position should move towards measurement
         assert!(posterior.state_vector.get(0).unwrap() > 1.0);
         assert!(posterior.state_vector.get(0).unwrap() < 1.1);
+    }
+
+    #[test]
+    fn test_kalman_update_dimension_mismatch() {
+        let predicted = GaussianState::new(
+            StateVector::from_vec(vec![1.0, 1.0]),
+            CovarianceMatrix::identity(2),
+        )
+        .unwrap();
+
+        // Wrong dimension measurement matrix
+        let h = DMatrix::from_row_slice(2, 3, &[1.0; 6]);
+        let r = CovarianceMatrix::identity(2);
+        let z = StateVector::from_vec(vec![1.0, 1.0]);
+
+        assert!(kalman::update(&predicted, &z, &h, &r).is_err());
+    }
+
+    #[test]
+    fn test_kalman_innovation() {
+        let state = GaussianState::new(
+            StateVector::from_vec(vec![1.0, 2.0]),
+            CovarianceMatrix::identity(2),
+        )
+        .unwrap();
+
+        let z = StateVector::from_vec(vec![1.5]);
+        let h = DMatrix::from_row_slice(1, 2, &[1.0, 0.0]);
+
+        let innov = kalman::innovation(&state, &z, &h);
+        assert_relative_eq!(innov.get(0).unwrap(), 0.5, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_kalman_innovation_covariance() {
+        let state = GaussianState::new(
+            StateVector::from_vec(vec![1.0, 2.0]),
+            CovarianceMatrix::identity(2),
+        )
+        .unwrap();
+
+        let h = DMatrix::from_row_slice(1, 2, &[1.0, 0.0]);
+        let r = CovarianceMatrix::diagonal(&[0.5]);
+
+        let s = kalman::innovation_covariance(&state, &h, &r).unwrap();
+        // S = H * P * H^T + R = 1*1*1 + 0.5 = 1.5
+        assert_relative_eq!(s.get(0, 0).unwrap(), 1.5, epsilon = 1e-10);
+    }
+
+    // ==================== Error Type Tests ====================
+
+    #[test]
+    fn test_error_display() {
+        let e1 = Error::DimensionMismatch {
+            expected: 3,
+            got: 2,
+        };
+        assert!(format!("{}", e1).contains("Dimension mismatch"));
+
+        let e2 = Error::SingularMatrix;
+        assert!(format!("{}", e2).contains("Singular matrix"));
+
+        let e3 = Error::InvalidParameter("test".to_string());
+        assert!(format!("{}", e3).contains("Invalid parameter"));
+
+        let e4 = Error::FfiError("ffi error".to_string());
+        assert!(format!("{}", e4).contains("FFI error"));
     }
 }
