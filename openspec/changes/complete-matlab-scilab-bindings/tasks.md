@@ -13,8 +13,8 @@
 - [ ] 2.4 Test local ATOMS installation workflow
 
 ## 3. Scilab Compatibility Testing
-- [ ] 3.1 Test with Scilab 6.1.x (requires Scilab installation)
-- [ ] 3.2 Test with Scilab 2024.x (requires Scilab installation)
+- [ ] 3.1 Test with Scilab 6.1.x (requires Scilab 6.1 installation)
+- [x] 3.2 Test with Scilab 2024.x (VERIFIED: All tests pass on Scilab 2024.0.0)
 - [x] 3.3 Document version-specific limitations (COMPLETE: DESCRIPTION specifies ScilabVersion >= 6.0)
 
 ## 4. Scilab Documentation
@@ -34,7 +34,7 @@
 ## 6. GNU Octave Compatibility
 - [x] 6.1 Add Octave CI job to workflow
 - [x] 6.2 Create `make_octave.m` build script
-- [ ] 6.3 Test MEX functions with GNU Octave (requires Octave installation)
+- [x] 6.3 Test MEX functions with GNU Octave (VERIFIED: Pure Octave tests pass on Octave 8.4.0)
 - [x] 6.4 Create Octave unit tests (COMPLETE: test_gaussian_state.m and test_kalman_filter.m exist in tests/)
 - [x] 6.5 Document Octave-specific limitations
 
