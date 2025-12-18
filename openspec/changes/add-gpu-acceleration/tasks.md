@@ -18,7 +18,7 @@
 - [ ] 3.2 Update `CovarianceMatrix` to use backend abstraction
 - [ ] 3.3 Update `Matrix` to use backend abstraction
 - [ ] 3.4 Ensure CPU/GPU array interoperability (copy when needed)
-- [ ] 3.5 Add `.to_cpu()` and `.to_gpu()` methods for explicit transfers
+- [x] 3.5 Add `.to_cpu()` and `.to_gpu()` methods for explicit transfers
 
 ## 4. Accelerated Operations
 - [x] 4.1 GPU-accelerate particle filter resampling
@@ -46,7 +46,7 @@
 ## 7. Testing
 - [x] 7.1 Add unit tests for backend abstraction
 - [x] 7.2 Add integration tests for GPU operations (skip if no GPU)
-- [ ] 7.3 Add benchmark tests that verify no regression
+- [x] 7.3 Add benchmark tests that verify no regression
 - [x] 7.4 Test CPU/GPU result equivalence (numerical precision)
 - [x] 7.5 Add local GPU test runner script
 

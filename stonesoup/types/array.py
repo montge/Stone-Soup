@@ -18,6 +18,29 @@ class Matrix(np.ndarray):
         array = np.asarray(*args, **kwargs)
         return array.view(cls)
 
+    def to_numpy(self):
+        """Convert to NumPy array (CPU).
+
+        Returns:
+            numpy.ndarray: NumPy array on CPU
+        """
+        from stonesoup.backend import to_numpy
+
+        return to_numpy(self)
+
+    def to_gpu(self):
+        """Convert to CuPy array (GPU).
+
+        Returns:
+            cupy.ndarray: CuPy array on GPU
+
+        Raises:
+            ImportError: If CuPy is not available
+        """
+        from stonesoup.backend import to_gpu
+
+        return to_gpu(self)
+
     def __array_wrap__(self, array, context=None, return_scalar=False):
         return array[()] if return_scalar else self._cast(array)
 
