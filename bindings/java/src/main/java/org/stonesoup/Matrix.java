@@ -3,6 +3,8 @@
 
 package org.stonesoup;
 
+import static org.stonesoup.ValidationUtils.*;
+
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -25,20 +27,9 @@ public class Matrix {
      * @throws IllegalArgumentException if matrix is empty or has inconsistent row lengths
      */
     public Matrix(double[][] matrix) {
-        Objects.requireNonNull(matrix, "Matrix cannot be null");
-        if (matrix.length == 0) {
-            throw new IllegalArgumentException("Matrix cannot be empty");
-        }
+        requireNonEmpty(matrix, "Matrix");
         this.rows = matrix.length;
         this.cols = matrix[0].length;
-        if (cols == 0) {
-            throw new IllegalArgumentException("Matrix columns cannot be empty");
-        }
-        for (double[] row : matrix) {
-            if (row == null || row.length != cols) {
-                throw new IllegalArgumentException("All rows must have the same length");
-            }
-        }
         this.data = new double[rows * cols];
         for (int i = 0; i < rows; i++) {
             System.arraycopy(matrix[i], 0, data, i * cols, cols);
@@ -159,11 +150,7 @@ public class Matrix {
      * @throws IllegalArgumentException if dimensions don't match
      */
     public Matrix multiply(Matrix other) {
-        if (this.cols != other.rows) {
-            throw new IllegalArgumentException(
-                    "Matrix dimensions don't match for multiplication: " +
-                            this.rows + "x" + this.cols + " * " + other.rows + "x" + other.cols);
-        }
+        requireMultiplicationCompatible(this.rows, this.cols, other.rows, other.cols);
         double[] result = new double[this.rows * other.cols];
         for (int i = 0; i < this.rows; i++) {
             for (int j = 0; j < other.cols; j++) {
@@ -185,11 +172,7 @@ public class Matrix {
      * @throws IllegalArgumentException if dimensions don't match
      */
     public StateVector multiply(StateVector vector) {
-        if (this.cols != vector.getDim()) {
-            throw new IllegalArgumentException(
-                    "Matrix columns must match vector dimension: " +
-                            this.cols + " != " + vector.getDim());
-        }
+        requireMatchingDimensions(this.cols, vector.getDim(), "matrix columns", "vector dimension");
         double[] result = new double[this.rows];
         for (int i = 0; i < this.rows; i++) {
             double sum = 0;

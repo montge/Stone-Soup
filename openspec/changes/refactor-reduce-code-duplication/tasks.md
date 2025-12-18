@@ -3,7 +3,7 @@
 - [ ] 1.2 Create `AbstractMatrix.java` base class for matrix types
 - [x] 1.3 Refactor `StateVector.java` to use `ValidationUtils`
 - [x] 1.4 Refactor `CovarianceMatrix.java` to use `ValidationUtils`
-- [ ] 1.5 Refactor `Matrix.java` to use `ValidationUtils`
+- [x] 1.5 Refactor `Matrix.java` to use `ValidationUtils`
 - [ ] 1.6 Extract common `equals()`/`hashCode()` patterns to utility class
 - [ ] 1.7 Consolidate factory method patterns (`zeros`, `identity`, `diagonal`)
 
