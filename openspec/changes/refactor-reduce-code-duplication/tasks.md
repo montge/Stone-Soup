@@ -1,14 +1,14 @@
 ## 1. Java Bindings Consolidation
-- [ ] 1.1 Create `AbstractVector.java` base class with common validation and operations
+- [x] 1.1 Create `ValidationUtils.java` with common validation utilities (alternative to abstract base)
 - [ ] 1.2 Create `AbstractMatrix.java` base class for matrix types
-- [ ] 1.3 Refactor `StateVector.java` to extend `AbstractVector`
-- [ ] 1.4 Refactor `CovarianceMatrix.java` to extend `AbstractMatrix`
-- [ ] 1.5 Refactor `Matrix.java` to extend `AbstractMatrix`
+- [ ] 1.3 Refactor `StateVector.java` to use `ValidationUtils`
+- [ ] 1.4 Refactor `CovarianceMatrix.java` to use `ValidationUtils`
+- [ ] 1.5 Refactor `Matrix.java` to use `ValidationUtils`
 - [ ] 1.6 Extract common `equals()`/`hashCode()` patterns to utility class
 - [ ] 1.7 Consolidate factory method patterns (`zeros`, `identity`, `diagonal`)
 
 ## 2. Java Test Refactoring
-- [ ] 2.1 Create `AbstractStoneSoupTest.java` with common test utilities
+- [x] 2.1 Create `ValidationUtilsTest.java` with comprehensive validation tests
 - [ ] 2.2 Create parameterized test fixtures for null rejection tests
 - [ ] 2.3 Create parameterized test fixtures for dimension validation tests
 - [ ] 2.4 Refactor `StateVectorTest.java` to use common patterns
