@@ -1,5 +1,7 @@
 package org.stonesoup;
 
+import static org.stonesoup.ValidationUtils.*;
+
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -43,16 +45,8 @@ public class CovarianceMatrix {
      * @throws IllegalArgumentException if matrix is null, empty, or not square
      */
     public CovarianceMatrix(double[][] matrix) {
-        Objects.requireNonNull(matrix, "Matrix cannot be null");
-        if (matrix.length == 0) {
-            throw new IllegalArgumentException("Matrix cannot be empty");
-        }
+        requireSquare(matrix, "Matrix");
         this.dim = matrix.length;
-        for (double[] row : matrix) {
-            if (row == null || row.length != dim) {
-                throw new IllegalArgumentException("Matrix must be square");
-            }
-        }
         this.data = new double[dim * dim];
         for (int i = 0; i < dim; i++) {
             System.arraycopy(matrix[i], 0, data, i * dim, dim);
@@ -78,9 +72,7 @@ public class CovarianceMatrix {
      * @throws IllegalArgumentException if dim is less than 1
      */
     public static CovarianceMatrix identity(int dim) {
-        if (dim < 1) {
-            throw new IllegalArgumentException("Dimension must be at least 1");
-        }
+        requirePositiveDimension(dim, "Dimension");
         double[] data = new double[dim * dim];
         for (int i = 0; i < dim; i++) {
             data[i * dim + i] = 1.0;
@@ -96,9 +88,7 @@ public class CovarianceMatrix {
      * @throws IllegalArgumentException if dim is less than 1
      */
     public static CovarianceMatrix zeros(int dim) {
-        if (dim < 1) {
-            throw new IllegalArgumentException("Dimension must be at least 1");
-        }
+        requirePositiveDimension(dim, "Dimension");
         return new CovarianceMatrix(new double[dim * dim], dim);
     }
 
@@ -110,10 +100,7 @@ public class CovarianceMatrix {
      * @throws IllegalArgumentException if diagonal is null or empty
      */
     public static CovarianceMatrix diagonal(double[] diagonal) {
-        Objects.requireNonNull(diagonal, "Diagonal array cannot be null");
-        if (diagonal.length == 0) {
-            throw new IllegalArgumentException("Diagonal cannot be empty");
-        }
+        requireNonEmpty(diagonal, "Diagonal array");
         int dim = diagonal.length;
         double[] data = new double[dim * dim];
         for (int i = 0; i < dim; i++) {
@@ -140,10 +127,7 @@ public class CovarianceMatrix {
      * @throws IndexOutOfBoundsException if indices are out of range
      */
     public double get(int row, int col) {
-        if (row < 0 || row >= dim || col < 0 || col >= dim) {
-            throw new IndexOutOfBoundsException(
-                    "Index (" + row + ", " + col + ") out of bounds for dimension " + dim);
-        }
+        requireInBounds(row, col, dim, dim);
         return data[row * dim + col];
     }
 
@@ -156,10 +140,7 @@ public class CovarianceMatrix {
      * @throws IndexOutOfBoundsException if indices are out of range
      */
     public void set(int row, int col, double value) {
-        if (row < 0 || row >= dim || col < 0 || col >= dim) {
-            throw new IndexOutOfBoundsException(
-                    "Index (" + row + ", " + col + ") out of bounds for dimension " + dim);
-        }
+        requireInBounds(row, col, dim, dim);
         data[row * dim + col] = value;
     }
 
@@ -198,10 +179,7 @@ public class CovarianceMatrix {
      */
     public CovarianceMatrix add(CovarianceMatrix other) {
         Objects.requireNonNull(other, "Other matrix cannot be null");
-        if (this.dim != other.dim) {
-            throw new IllegalArgumentException(
-                    "Dimension mismatch: " + this.dim + " vs " + other.dim);
-        }
+        requireMatchingDimensions(this.dim, other.dim, "this", "other");
         double[] result = new double[dim * dim];
         for (int i = 0; i < data.length; i++) {
             result[i] = this.data[i] + other.data[i];
@@ -218,10 +196,7 @@ public class CovarianceMatrix {
      */
     public CovarianceMatrix subtract(CovarianceMatrix other) {
         Objects.requireNonNull(other, "Other matrix cannot be null");
-        if (this.dim != other.dim) {
-            throw new IllegalArgumentException(
-                    "Dimension mismatch: " + this.dim + " vs " + other.dim);
-        }
+        requireMatchingDimensions(this.dim, other.dim, "this", "other");
         double[] result = new double[dim * dim];
         for (int i = 0; i < data.length; i++) {
             result[i] = this.data[i] - other.data[i];
@@ -252,10 +227,7 @@ public class CovarianceMatrix {
      */
     public CovarianceMatrix multiply(CovarianceMatrix other) {
         Objects.requireNonNull(other, "Other matrix cannot be null");
-        if (this.dim != other.dim) {
-            throw new IllegalArgumentException(
-                    "Dimension mismatch: " + this.dim + " vs " + other.dim);
-        }
+        requireMatchingDimensions(this.dim, other.dim, "this", "other");
         double[] result = new double[dim * dim];
         for (int i = 0; i < dim; i++) {
             for (int j = 0; j < dim; j++) {
@@ -278,10 +250,7 @@ public class CovarianceMatrix {
      */
     public StateVector multiply(StateVector x) {
         Objects.requireNonNull(x, "Vector cannot be null");
-        if (this.dim != x.getDim()) {
-            throw new IllegalArgumentException(
-                    "Dimension mismatch: matrix " + this.dim + " vs vector " + x.getDim());
-        }
+        requireMatchingDimensions(this.dim, x.getDim(), "matrix", "vector");
         double[] result = new double[dim];
         for (int i = 0; i < dim; i++) {
             double sum = 0.0;
@@ -317,10 +286,7 @@ public class CovarianceMatrix {
      */
     public CovarianceMatrix multiplyTranspose(CovarianceMatrix other) {
         Objects.requireNonNull(other, "Other matrix cannot be null");
-        if (this.dim != other.dim) {
-            throw new IllegalArgumentException(
-                    "Dimension mismatch: " + this.dim + " vs " + other.dim);
-        }
+        requireMatchingDimensions(this.dim, other.dim, "this", "other");
         double[] result = new double[dim * dim];
         for (int i = 0; i < dim; i++) {
             for (int j = 0; j < dim; j++) {

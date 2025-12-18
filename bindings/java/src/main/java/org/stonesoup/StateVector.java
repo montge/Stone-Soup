@@ -1,5 +1,7 @@
 package org.stonesoup;
 
+import static org.stonesoup.ValidationUtils.*;
+
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -39,10 +41,7 @@ public class StateVector {
      * @throws IllegalArgumentException if data is null or empty
      */
     public StateVector(double[] data) {
-        Objects.requireNonNull(data, "Data array cannot be null");
-        if (data.length == 0) {
-            throw new IllegalArgumentException("State vector cannot be empty");
-        }
+        requireNonEmpty(data, "Data array");
         this.data = data.clone();
     }
 
@@ -54,9 +53,7 @@ public class StateVector {
      * @throws IllegalArgumentException if dim is less than 1
      */
     public static StateVector zeros(int dim) {
-        if (dim < 1) {
-            throw new IllegalArgumentException("Dimension must be at least 1");
-        }
+        requirePositiveDimension(dim, "Dimension");
         return new StateVector(new double[dim]);
     }
 
@@ -69,9 +66,7 @@ public class StateVector {
      * @throws IllegalArgumentException if dim is less than 1
      */
     public static StateVector fill(int dim, double value) {
-        if (dim < 1) {
-            throw new IllegalArgumentException("Dimension must be at least 1");
-        }
+        requirePositiveDimension(dim, "Dimension");
         double[] data = new double[dim];
         Arrays.fill(data, value);
         return new StateVector(data);
@@ -139,10 +134,7 @@ public class StateVector {
      */
     public StateVector add(StateVector other) {
         Objects.requireNonNull(other, "Other vector cannot be null");
-        if (this.data.length != other.data.length) {
-            throw new IllegalArgumentException(
-                    "Dimension mismatch: " + this.data.length + " vs " + other.data.length);
-        }
+        requireMatchingDimensions(this.data.length, other.data.length, "this", "other");
         double[] result = new double[data.length];
         for (int i = 0; i < data.length; i++) {
             result[i] = this.data[i] + other.data[i];
@@ -159,10 +151,7 @@ public class StateVector {
      */
     public StateVector subtract(StateVector other) {
         Objects.requireNonNull(other, "Other vector cannot be null");
-        if (this.data.length != other.data.length) {
-            throw new IllegalArgumentException(
-                    "Dimension mismatch: " + this.data.length + " vs " + other.data.length);
-        }
+        requireMatchingDimensions(this.data.length, other.data.length, "this", "other");
         double[] result = new double[data.length];
         for (int i = 0; i < data.length; i++) {
             result[i] = this.data[i] - other.data[i];
@@ -193,10 +182,7 @@ public class StateVector {
      */
     public double dot(StateVector other) {
         Objects.requireNonNull(other, "Other vector cannot be null");
-        if (this.data.length != other.data.length) {
-            throw new IllegalArgumentException(
-                    "Dimension mismatch: " + this.data.length + " vs " + other.data.length);
-        }
+        requireMatchingDimensions(this.data.length, other.data.length, "this", "other");
         double sum = 0.0;
         for (int i = 0; i < data.length; i++) {
             sum += this.data[i] * other.data[i];
