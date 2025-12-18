@@ -559,3 +559,111 @@ def test_ensure_gpu_memory_no_fallback(require_gpu):
 
     with pytest.raises(MemoryError):
         ensure_gpu_memory(1024 * 1024 * 1024 * 1024, fallback_to_cpu=False)
+
+
+# ============================================================================
+# BackendConfiguration Tests
+# ============================================================================
+
+
+def test_backend_config_init():
+    """Test BackendConfiguration initialization."""
+    from stonesoup.config import BackendConfiguration
+
+    config = BackendConfiguration()
+    assert config.auto_transfer is True
+    assert config.gpu_memory_threshold == 0.9
+
+
+def test_backend_config_set_backend():
+    """Test setting backend via BackendConfiguration."""
+    from stonesoup.config import BackendConfiguration
+
+    config = BackendConfiguration()
+    config.set_backend("numpy")
+    assert config.backend == "numpy"
+
+
+def test_backend_config_invalid_backend():
+    """Test invalid backend raises ValueError."""
+    from stonesoup.config import BackendConfiguration
+
+    config = BackendConfiguration()
+    with pytest.raises(ValueError, match="Invalid backend"):
+        config.set_backend("invalid")
+
+
+def test_backend_config_auto_transfer():
+    """Test auto_transfer property."""
+    from stonesoup.config import BackendConfiguration
+
+    config = BackendConfiguration()
+    assert config.auto_transfer is True
+
+    config.auto_transfer = False
+    assert config.auto_transfer is False
+
+
+def test_backend_config_gpu_memory_threshold():
+    """Test gpu_memory_threshold property."""
+    from stonesoup.config import BackendConfiguration
+
+    config = BackendConfiguration()
+    assert config.gpu_memory_threshold == 0.9
+
+    config.gpu_memory_threshold = 0.5
+    assert config.gpu_memory_threshold == 0.5
+
+    with pytest.raises(ValueError):
+        config.gpu_memory_threshold = 1.5
+
+
+def test_backend_config_is_gpu_available():
+    """Test is_gpu_available property."""
+    from stonesoup.config import BackendConfiguration
+
+    config = BackendConfiguration()
+    # Should match the backend module's is_gpu_available
+    assert config.is_gpu_available == is_gpu_available()
+
+
+def test_backend_config_get_info():
+    """Test get_info method."""
+    from stonesoup.config import BackendConfiguration
+
+    config = BackendConfiguration()
+    config.set_backend("numpy")
+    info = config.get_info()
+
+    assert "backend" in info
+    assert "gpu_available" in info
+    assert "auto_transfer" in info
+    assert "gpu_memory_threshold" in info
+
+
+def test_backend_config_from_env():
+    """Test creating configuration from environment variables."""
+    from stonesoup.config import BackendConfiguration
+
+    os.environ["STONESOUP_BACKEND"] = "numpy"
+    os.environ["STONESOUP_AUTO_TRANSFER"] = "false"
+    os.environ["STONESOUP_GPU_MEMORY_THRESHOLD"] = "0.75"
+
+    config = BackendConfiguration.from_env()
+
+    assert config.backend == "numpy"
+    assert config.auto_transfer is False
+    assert config.gpu_memory_threshold == 0.75
+
+    # Cleanup
+    del os.environ["STONESOUP_AUTO_TRANSFER"]
+    del os.environ["STONESOUP_GPU_MEMORY_THRESHOLD"]
+
+
+def test_global_backend_config():
+    """Test global backend_config instance exists."""
+    from stonesoup.config import backend_config
+
+    assert backend_config is not None
+    assert hasattr(backend_config, "backend")
+    assert hasattr(backend_config, "set_backend")

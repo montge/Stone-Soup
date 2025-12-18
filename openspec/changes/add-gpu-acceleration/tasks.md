@@ -4,7 +4,7 @@
 - [x] 1.3 Create `stonesoup/backend/cupy_backend.py` wrapping CuPy operations
 - [x] 1.4 Implement `get_backend()` function with auto-detection
 - [x] 1.5 Add `STONESOUP_BACKEND` environment variable override
-- [ ] 1.6 Add backend configuration to `stonesoup/config.py`
+- [x] 1.6 Add backend configuration to `stonesoup/config.py`
 
 ## 2. GPU Detection and Initialization
 - [x] 2.1 Implement GPU availability detection (CUDA/ROCm)
