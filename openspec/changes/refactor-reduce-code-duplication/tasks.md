@@ -9,8 +9,8 @@
 
 ## 2. Java Test Refactoring
 - [x] 2.1 Create `ValidationUtilsTest.java` with comprehensive validation tests
-- [ ] 2.2 Create parameterized test fixtures for null rejection tests
-- [ ] 2.3 Create parameterized test fixtures for dimension validation tests
+- [x] 2.2 Create parameterized test fixtures for null rejection tests (NullRejectionTest.java)
+- [x] 2.3 Create parameterized test fixtures for dimension validation tests (DimensionValidationTest.java)
 - [ ] 2.4 Refactor `StateVectorTest.java` to use common patterns
 - [ ] 2.5 Refactor `CovarianceMatrixTest.java` to use common patterns
 - [ ] 2.6 Refactor `GaussianStateTest.java` to use common patterns
