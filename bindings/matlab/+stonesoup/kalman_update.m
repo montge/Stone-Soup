@@ -47,9 +47,20 @@ if size(R, 1) ~= meas_dim || size(R, 2) ~= meas_dim
     error('stonesoup:dimensionMismatch', 'R must be %d x %d', meas_dim, meas_dim);
 end
 
-% Call MEX function
-[x_post, P_post] = stonesoup_mex('kalman_update', ...
-    gs_pred.state_vector, gs_pred.covariance, measurement, H, R);
+% Kalman update computation (pure MATLAB/Octave implementation)
+% y = z - H * x_pred  (innovation)
+% S = H * P_pred * H' + R  (innovation covariance)
+% K = P_pred * H' * inv(S)  (Kalman gain)
+% x_post = x_pred + K * y
+% P_post = (I - K * H) * P_pred
+x_pred = gs_pred.state_vector;
+P_pred = gs_pred.covariance;
+
+y = measurement - H * x_pred;            % Innovation
+S = H * P_pred * H' + R;                 % Innovation covariance
+K = P_pred * H' / S;                     % Kalman gain (using / instead of inv)
+x_post = x_pred + K * y;                 % Posterior state
+P_post = (eye(state_dim) - K * H) * P_pred;  % Posterior covariance
 
 % Create output GaussianState
 gs_post = stonesoup.GaussianState(x_post, P_post, gs_pred.timestamp);

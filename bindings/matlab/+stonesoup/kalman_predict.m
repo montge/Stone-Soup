@@ -44,9 +44,14 @@ if size(Q, 1) ~= dim || size(Q, 2) ~= dim
     error('stonesoup:dimensionMismatch', 'Q must be %d x %d', dim, dim);
 end
 
-% Call MEX function
-[x_pred, P_pred] = stonesoup_mex('kalman_predict', ...
-    gs_prior.state_vector, gs_prior.covariance, F, Q);
+% Kalman predict computation (pure MATLAB/Octave implementation)
+% x_pred = F * x
+% P_pred = F * P * F' + Q
+x = gs_prior.state_vector;
+P = gs_prior.covariance;
+
+x_pred = F * x;
+P_pred = F * P * F' + Q;
 
 % Create output GaussianState
 gs_pred = stonesoup.GaussianState(x_pred, P_pred, gs_prior.timestamp);

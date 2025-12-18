@@ -38,8 +38,11 @@ function gs_pred = kalman_predict(gs_prior, F, Q)
     P = gs_prior.covar;
     dim = length(sv);
 
-    // Call gateway function
-    [x_pred, P_pred] = stonesoup_kalman_predict(sv, P, F, Q);
+    // Pure Scilab implementation
+    // x_pred = F * x
+    // P_pred = F * P * F' + Q
+    x_pred = F * sv;
+    P_pred = F * P * F' + Q;
 
     // Create output Gaussian state
     gs_pred = GaussianState(x_pred, P_pred, gs_prior.ts);
@@ -83,8 +86,18 @@ function gs_post = kalman_update(gs_pred, measurement, H, R)
     P = gs_pred.covar;
     z = measurement(:);  // Ensure column vector
 
-    // Call gateway function
-    [x_post, P_post] = stonesoup_kalman_update(sv, P, z, H, R);
+    // Pure Scilab implementation
+    // y = z - H * x_pred  (innovation)
+    // S = H * P_pred * H' + R  (innovation covariance)
+    // K = P_pred * H' * inv(S)  (Kalman gain)
+    // x_post = x_pred + K * y
+    // P_post = (I - K * H) * P_pred
+    state_dim = length(sv);
+    y = z - H * sv;
+    S = H * P * H' + R;
+    K = P * H' / S;
+    x_post = sv + K * y;
+    P_post = (eye(state_dim, state_dim) - K * H) * P;
 
     // Create output Gaussian state
     gs_post = GaussianState(x_post, P_post, gs_pred.ts);

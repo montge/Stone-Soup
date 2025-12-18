@@ -28,7 +28,9 @@ classdef GaussianState < handle
     end
 
     properties (Dependent)
-        dim  % State dimension
+        dim    % State dimension
+        mean   % Alias for state_vector
+        covar  % Alias for covariance
     end
 
     methods
@@ -65,6 +67,16 @@ classdef GaussianState < handle
         function d = get.dim(obj)
             % Get state dimension
             d = length(obj.state_vector);
+        end
+
+        function m = get.mean(obj)
+            % Get mean (alias for state_vector)
+            m = obj.state_vector;
+        end
+
+        function c = get.covar(obj)
+            % Get covariance (alias)
+            c = obj.covariance;
         end
 
         function disp(obj)
