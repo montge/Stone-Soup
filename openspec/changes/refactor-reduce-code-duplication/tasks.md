@@ -37,8 +37,8 @@
 - [x] 5.4 Refactor Kalman filter tests to use shared fixtures (fixtures registered in conftest.py)
 
 ## 6. Verification
-- [x] 6.1 All Java tests pass (206 tests)
+- [x] 6.1 All Java tests pass (274 tests)
 - [x] 6.2 All C++ tests pass (8 tests)
-- [x] 6.3 All Python tests pass (536 types tests)
+- [x] 6.3 All Python tests pass (557+ tests with new validation/fixture tests)
 - [ ] 6.4 SonarCloud duplication metric improves (target: < 3%)
 - [ ] 6.5 No regression in test coverage
