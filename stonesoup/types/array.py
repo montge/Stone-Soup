@@ -7,14 +7,36 @@ from .validation import validate_shape
 _no_value = object()
 
 
+def _ensure_numpy(array):
+    """Ensure array is a NumPy array, converting from CuPy if needed.
+
+    Args:
+        array: NumPy array, CuPy array, or array-like
+
+    Returns:
+        numpy.ndarray or array-like that np.asarray can handle
+    """
+    # Check if it's a CuPy array (has .get() method)
+    if hasattr(array, "get") and hasattr(array, "__cuda_array_interface__"):
+        return array.get()
+    return array
+
+
 class Matrix(np.ndarray):
     """Matrix wrapper for :class:`numpy.ndarray`
 
     This class returns a view to a :class:`numpy.ndarray` It's called same as
     to :func:`numpy.asarray`.
+
+    This class supports automatic conversion from GPU arrays (CuPy) to CPU.
+    When initialized with a CuPy array, it will be automatically transferred
+    to CPU memory.
     """
 
     def __new__(cls, *args, **kwargs):
+        # Handle CuPy arrays by converting to NumPy
+        if args:
+            args = (_ensure_numpy(args[0]),) + args[1:]
         array = np.asarray(*args, **kwargs)
         return array.view(cls)
 
@@ -109,6 +131,9 @@ class StateVector(Matrix):
     """
 
     def __new__(cls, *args, **kwargs):
+        # Handle CuPy arrays by converting to NumPy
+        if args:
+            args = (_ensure_numpy(args[0]),) + args[1:]
         array = np.asarray(*args, **kwargs)
         # For convenience handle shapes that can be easily converted in a
         # Nx1 shape
@@ -156,6 +181,8 @@ class StateVectors(Matrix):
     """
 
     def __new__(cls, states, *args, **kwargs):
+        # Handle CuPy arrays by converting to NumPy
+        states = _ensure_numpy(states)
         if isinstance(states, Sequence) and not isinstance(states, np.ndarray):
             if isinstance(states[0], StateVector):
                 return np.hstack(states).view(cls)
@@ -268,9 +295,14 @@ class CovarianceMatrix(Matrix):
     This class returns a view to a :class:`numpy.ndarray`, but ensures that
     it is initialised as a *NxN* matrix. It's called similar to
     :func:`numpy.asarray`.
+
+    This class supports automatic conversion from GPU arrays (CuPy) to CPU.
     """
 
     def __new__(cls, *args, **kwargs):
+        # Handle CuPy arrays by converting to NumPy
+        if args:
+            args = (_ensure_numpy(args[0]),) + args[1:]
         array = np.asarray(*args, **kwargs)
         if not array.ndim == 2:
             raise ValueError(f"Covariance should have ndim of 2: got {array.ndim}")
@@ -283,9 +315,14 @@ class PrecisionMatrix(Matrix):
     This class returns a view to a :class:`numpy.ndarray`, but ensures that
     its initialised as an *NxN* matrix. It's called similar to
     :func:`numpy.asarray`.
+
+    This class supports automatic conversion from GPU arrays (CuPy) to CPU.
     """
 
     def __new__(cls, *args, **kwargs):
+        # Handle CuPy arrays by converting to NumPy
+        if args:
+            args = (_ensure_numpy(args[0]),) + args[1:]
         array = np.asarray(*args, **kwargs)
         if not array.ndim == 2:
             raise ValueError(f"Information matrix should have ndim of 2: got {array.ndim}")

@@ -14,10 +14,10 @@
 - [x] 2.5 Add `stonesoup.backend.is_gpu_available()` utility function
 
 ## 3. Core Type Updates
-- [ ] 3.1 Update `StateVector` to use backend abstraction
-- [ ] 3.2 Update `CovarianceMatrix` to use backend abstraction
-- [ ] 3.3 Update `Matrix` to use backend abstraction
-- [ ] 3.4 Ensure CPU/GPU array interoperability (copy when needed)
+- [x] 3.1 Update `StateVector` to use backend abstraction
+- [x] 3.2 Update `CovarianceMatrix` to use backend abstraction
+- [x] 3.3 Update `Matrix` to use backend abstraction
+- [x] 3.4 Ensure CPU/GPU array interoperability (copy when needed)
 - [x] 3.5 Add `.to_cpu()` and `.to_gpu()` methods for explicit transfers
 
 ## 4. Accelerated Operations
