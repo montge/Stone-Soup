@@ -5,6 +5,19 @@ from hypothesis import Phase, Verbosity, settings
 
 from ..base import Base, Property
 
+# Import fixtures to make them available globally
+# ruff: noqa: F401
+from .fixtures import (
+    cv_model_matrices,
+    gaussian_state_2d,
+    gaussian_state_4d,
+    identity_covar_2d,
+    identity_covar_4d,
+    state_vector_2d,
+    state_vector_4d,
+    state_vector_6d,
+)
+
 # Hypothesis profile configuration
 # CI profile: deterministic, stricter settings for reproducibility
 settings.register_profile(

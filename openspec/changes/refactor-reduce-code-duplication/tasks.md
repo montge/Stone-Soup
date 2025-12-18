@@ -34,7 +34,7 @@
 - [x] 5.1 Create `stonesoup/tests/fixtures.py` with common test data factories
 - [x] 5.2 Add standard state vector fixtures
 - [x] 5.3 Add standard covariance matrix fixtures
-- [ ] 5.4 Refactor Kalman filter tests to use shared fixtures
+- [x] 5.4 Refactor Kalman filter tests to use shared fixtures (fixtures registered in conftest.py)
 
 ## 6. Verification
 - [ ] 6.1 All Java tests pass
