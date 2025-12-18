@@ -38,6 +38,6 @@
 
 ## 7. Verification
 - [x] 7.1 Run full test suite and verify all tests pass (VERIFIED: Core tests passing - 145 tests in state/predictor/updater)
-- [ ] 7.2 Verify overall coverage >= 90% (requires CI pipeline - Java at 79%, Python validation at 96%)
+- [ ] 7.2 Verify overall coverage >= 90% (requires CI pipeline - Java at 85%, Python validation at 96%)
 - [ ] 7.3 Verify SonarCloud quality gate passes (requires CI pipeline)
 - [ ] 7.4 Update spec deltas and close change (pending 7.2 and 7.3)
