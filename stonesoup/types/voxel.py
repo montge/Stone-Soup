@@ -16,6 +16,7 @@ from scipy.stats import multivariate_normal
 from ..base import Property
 from .array import CovarianceMatrix, StateVector
 from .base import Type
+from .validation import check_index_bounds, validate_bounds, validate_shape
 
 if TYPE_CHECKING:
     from .state import GaussianState
@@ -61,8 +62,7 @@ class VoxelGrid(Type):
     def __init__(self, bounds, *args, **kwargs):
         if not isinstance(bounds, np.ndarray):
             bounds = np.array(bounds)
-        if bounds.shape != (6,):
-            raise ValueError(f"bounds must be a 6-element array, got shape {bounds.shape}")
+        validate_bounds(bounds, expected_size=6, name="bounds")
         if not (bounds[0] < bounds[1] and bounds[2] < bounds[3] and bounds[4] < bounds[5]):
             raise ValueError("bounds must satisfy x_min < x_max, y_min < y_max, z_min < z_max")
         super().__init__(bounds, *args, **kwargs)
@@ -150,8 +150,7 @@ class VoxelGrid(Type):
         >>> grid.contains(np.array([15, 5, 5]))
         False
         """
-        if point.shape != (3,):
-            raise ValueError(f"point must be 3D, got shape {point.shape}")
+        validate_shape(point, (3,), "point")
 
         return (
             self.bounds[0] <= point[0] <= self.bounds[1]
@@ -196,9 +195,7 @@ class VoxelGrid(Type):
         """
         i, j, k = indices
         shape = self.shape
-
-        if not (0 <= i < shape[0] and 0 <= j < shape[1] and 0 <= k < shape[2]):
-            raise ValueError(f"Invalid voxel indices {indices} for grid shape {shape}")
+        check_index_bounds(indices, shape, "voxel indices")
 
         # Center is at (index + 0.5) * resolution from min bound
         x = self.bounds[0] + (i + 0.5) * self.resolution
@@ -246,8 +243,7 @@ class OctreeNode(Type):
     def __init__(self, bounds, *args, **kwargs):
         if not isinstance(bounds, np.ndarray):
             bounds = np.array(bounds)
-        if bounds.shape != (6,):
-            raise ValueError(f"bounds must be a 6-element array, got shape {bounds.shape}")
+        validate_bounds(bounds, expected_size=6, name="bounds")
         super().__init__(bounds, *args, **kwargs)
 
     @property
@@ -331,8 +327,7 @@ class OctreeNode(Type):
         bool
             True if point is within bounds, False otherwise.
         """
-        if point.shape != (3,):
-            raise ValueError(f"point must be 3D, got shape {point.shape}")
+        validate_shape(point, (3,), "point")
 
         return (
             self.bounds[0] <= point[0] <= self.bounds[1]

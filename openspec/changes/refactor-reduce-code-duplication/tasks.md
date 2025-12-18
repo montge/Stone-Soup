@@ -27,8 +27,8 @@
 - [x] 4.2 Add `validate_shape()` function
 - [x] 4.3 Add `validate_bounds()` function
 - [x] 4.4 Add `check_index_bounds()` function
-- [ ] 4.5 Refactor `stonesoup/types/voxel.py` to use validation module
-- [ ] 4.6 Refactor `stonesoup/types/array.py` to use validation module
+- [x] 4.5 Refactor `stonesoup/types/voxel.py` to use validation module
+- [x] 4.6 Refactor `stonesoup/types/array.py` to use validation module
 
 ## 5. Python Test Fixtures
 - [x] 5.1 Create `stonesoup/tests/fixtures.py` with common test data factories

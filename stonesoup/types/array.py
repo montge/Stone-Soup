@@ -2,6 +2,8 @@ from collections.abc import Sequence
 
 import numpy as np
 
+from .validation import validate_shape
+
 _no_value = object()
 
 
@@ -92,8 +94,7 @@ class StateVector(Matrix):
         elif array.ndim == 2 and array.shape[0] == 1:
             array = array.T
 
-        if not (array.ndim == 2 and array.shape[1] == 1):
-            raise ValueError(f"state vector shape should be Nx1 dimensions: got {array.shape}")
+        validate_shape(array, (None, 1), "state vector")
         return array.view(cls)
 
     def __getitem__(self, item):
@@ -222,7 +223,6 @@ class StateVectors(Matrix):
     def _cov(
         state_vectors, y=None, rowvar=True, bias=False, ddof=None, fweights=None, aweights=None
     ):
-
         if state_vectors.dtype != np.object_:
             # Can just use standard numpy averaging if not using custom objects
             cov = np.cov(np.asarray(state_vectors), y, rowvar, bias, ddof, fweights, aweights)

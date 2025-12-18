@@ -74,10 +74,10 @@ def test_voxelgrid_contains():
     assert not grid.contains(np.array([5, 5, 10.001]))
 
     # Invalid shape
-    with pytest.raises(ValueError, match="point must be 3D"):
+    with pytest.raises(ValueError, match="point shape should be"):
         grid.contains(np.array([5, 5]))
 
-    with pytest.raises(ValueError, match="point must be 3D"):
+    with pytest.raises(ValueError, match="point shape should be"):
         grid.contains(np.array([5, 5, 5, 5]))
 
 
@@ -241,7 +241,7 @@ def test_octreenode_contains():
     assert not node.contains(np.array([10.1, 5, 5]))
 
     # Invalid shape
-    with pytest.raises(ValueError, match="point must be 3D"):
+    with pytest.raises(ValueError, match="point shape should be"):
         node.contains(np.array([5, 5]))
 
 
