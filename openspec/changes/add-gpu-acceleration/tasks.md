@@ -28,11 +28,11 @@
 - [x] 4.5 Add batch operation APIs for GPU efficiency
 
 ## 5. C Library GPU Support (Optional)
-- [ ] 5.1 Add `ENABLE_CUDA` CMake option to libstonesoup
-- [ ] 5.2 Create `libstonesoup/src/cuda/` directory structure
-- [ ] 5.3 Implement CUDA kernel for matrix multiplication
-- [ ] 5.4 Implement CUDA kernel for Kalman predict/update
-- [ ] 5.5 Add runtime GPU detection in C library
+- [x] 5.1 Add `ENABLE_CUDA` CMake option to libstonesoup
+- [x] 5.2 Create `libstonesoup/src/cuda/` directory structure
+- [x] 5.3 Implement CUDA kernel for matrix multiplication
+- [x] 5.4 Implement CUDA kernel for Kalman predict/update
+- [x] 5.5 Add runtime GPU detection in C library
 - [ ] 5.6 Update Python bindings to expose GPU functions
 
 ## 6. Benchmark Improvements

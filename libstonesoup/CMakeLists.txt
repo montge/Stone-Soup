@@ -16,6 +16,7 @@ option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 option(BUILD_TESTS "Build tests" ON)
 option(BUILD_DOCS "Build documentation" OFF)
 option(ENABLE_FUZZING "Enable fuzzing targets with libFuzzer" OFF)
+option(ENABLE_CUDA "Enable CUDA GPU acceleration" OFF)
 
 # Position independent code
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -96,6 +97,58 @@ endif()
 # Fuzzing with libFuzzer
 if(ENABLE_FUZZING)
     add_subdirectory(fuzz)
+endif()
+
+# CUDA GPU Acceleration
+if(ENABLE_CUDA)
+    include(CheckLanguage)
+    check_language(CUDA)
+    if(CMAKE_CUDA_COMPILER)
+        enable_language(CUDA)
+        message(STATUS "CUDA enabled: ${CMAKE_CUDA_COMPILER}")
+        message(STATUS "CUDA version: ${CMAKE_CUDA_COMPILER_VERSION}")
+
+        # Find CUDA toolkit
+        find_package(CUDAToolkit REQUIRED)
+
+        # CUDA source files
+        set(STONESOUP_CUDA_SOURCES
+            src/cuda/cuda_matrix.cu
+            src/cuda/cuda_kalman.cu
+            src/cuda/cuda_utils.cu
+        )
+
+        # CUDA library
+        add_library(stonesoup_cuda SHARED ${STONESOUP_CUDA_SOURCES})
+        set_target_properties(stonesoup_cuda PROPERTIES
+            OUTPUT_NAME stonesoup_cuda
+            CUDA_SEPARABLE_COMPILATION ON
+            CUDA_ARCHITECTURES "60;70;75;80;86;89;90"
+        )
+        target_link_libraries(stonesoup_cuda
+            PUBLIC stonesoup_shared
+            PRIVATE CUDA::cudart CUDA::cublas
+        )
+        target_include_directories(stonesoup_cuda PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:include>
+        )
+
+        # Add CUDA define
+        target_compile_definitions(stonesoup_shared PUBLIC STONESOUP_HAS_CUDA)
+        target_compile_definitions(stonesoup_static PUBLIC STONESOUP_HAS_CUDA)
+        target_compile_definitions(stonesoup_cuda PRIVATE STONESOUP_BUILD_CUDA)
+
+        # Install CUDA library
+        install(TARGETS stonesoup_cuda
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        )
+    else()
+        message(WARNING "CUDA compiler not found, CUDA support disabled")
+        set(ENABLE_CUDA OFF)
+    endif()
 endif()
 
 # Static Analysis with cppcheck (MISRA C:2012 compliance)
