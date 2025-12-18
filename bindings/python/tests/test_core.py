@@ -20,10 +20,12 @@ try:
         kalman_predict,
         kalman_update,
     )
+    from stonesoup_core._core import gpu
 
     HAS_CORE = True
 except ImportError:
     HAS_CORE = False
+    gpu = None
 
 pytestmark = pytest.mark.skipif(not HAS_CORE, reason="stonesoup_core not built")
 
@@ -544,3 +546,60 @@ class TestIntegration:
         # Final position should be close to (3, 3)
         assert 2.5 <= final_state[0] <= 3.5
         assert 2.5 <= final_state[2] <= 3.5
+
+
+class TestGPU:
+    """Tests for GPU acceleration module."""
+
+    def test_gpu_module_exists(self):
+        """Test that GPU module is accessible."""
+        assert gpu is not None
+
+    def test_gpu_is_available(self):
+        """Test checking GPU availability."""
+        # Should return a boolean without error
+        result = gpu.gpu_is_available()
+        assert isinstance(result, bool)
+
+    def test_gpu_device_count(self):
+        """Test getting GPU device count."""
+        count = gpu.gpu_device_count()
+        assert isinstance(count, int)
+        assert count >= 0
+
+    def test_gpu_device_name_no_gpu(self):
+        """Test getting device name when no GPU available."""
+        if gpu.gpu_device_count() == 0:
+            with pytest.raises(RuntimeError):
+                gpu.gpu_device_name(0)
+        else:
+            name = gpu.gpu_device_name(0)
+            assert isinstance(name, str)
+
+    def test_gpu_memory_info_no_gpu(self):
+        """Test getting memory info when no GPU available."""
+        if gpu.gpu_device_count() == 0:
+            with pytest.raises(RuntimeError):
+                gpu.gpu_memory_info(0)
+        else:
+            info = gpu.gpu_memory_info(0)
+            assert "total" in info
+            assert "free" in info
+
+    def test_gpu_matrix_multiply_not_available(self):
+        """Test GPU matrix multiply raises error when GPU not available."""
+        if not gpu.gpu_is_available():
+            a = np.eye(3)
+            b = np.eye(3)
+            with pytest.raises(RuntimeError):
+                gpu.gpu_matrix_multiply(a, b)
+
+    def test_gpu_batch_kalman_predict_not_available(self):
+        """Test GPU batch Kalman predict raises error when GPU not available."""
+        if not gpu.gpu_is_available():
+            states = np.zeros((10, 4))
+            covars = np.zeros((10, 4))  # Placeholder
+            F = np.eye(4)
+            Q = np.eye(4) * 0.01
+            with pytest.raises(RuntimeError):
+                gpu.gpu_batch_kalman_predict(states, covars, F, Q)

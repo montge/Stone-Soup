@@ -19,3 +19,7 @@ ndarray = "0.16"
 [dev-dependencies]
 # For testing without Python
 approx = "0.5"
+
+[features]
+default = []
+cuda = []  # Enable CUDA GPU acceleration (requires libstonesoup with CUDA)

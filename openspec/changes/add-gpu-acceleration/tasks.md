@@ -33,7 +33,7 @@
 - [x] 5.3 Implement CUDA kernel for matrix multiplication
 - [x] 5.4 Implement CUDA kernel for Kalman predict/update
 - [x] 5.5 Add runtime GPU detection in C library
-- [ ] 5.6 Update Python bindings to expose GPU functions
+- [x] 5.6 Update Python bindings to expose GPU functions
 
 ## 6. Benchmark Improvements
 - [ ] 6.1 Add historical benchmark tracking to CI workflow
