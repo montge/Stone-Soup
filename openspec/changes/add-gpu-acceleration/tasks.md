@@ -1,17 +1,17 @@
 ## 1. Array Backend Abstraction
-- [ ] 1.1 Create `stonesoup/backend/__init__.py` with backend selection logic
-- [ ] 1.2 Create `stonesoup/backend/numpy_backend.py` wrapping NumPy operations
-- [ ] 1.3 Create `stonesoup/backend/cupy_backend.py` wrapping CuPy operations
-- [ ] 1.4 Implement `get_backend()` function with auto-detection
-- [ ] 1.5 Add `STONESOUP_BACKEND` environment variable override
+- [x] 1.1 Create `stonesoup/backend/__init__.py` with backend selection logic
+- [x] 1.2 Create `stonesoup/backend/numpy_backend.py` wrapping NumPy operations
+- [x] 1.3 Create `stonesoup/backend/cupy_backend.py` wrapping CuPy operations
+- [x] 1.4 Implement `get_backend()` function with auto-detection
+- [x] 1.5 Add `STONESOUP_BACKEND` environment variable override
 - [ ] 1.6 Add backend configuration to `stonesoup/config.py`
 
 ## 2. GPU Detection and Initialization
-- [ ] 2.1 Implement GPU availability detection (CUDA/ROCm)
+- [x] 2.1 Implement GPU availability detection (CUDA/ROCm)
 - [ ] 2.2 Implement GPU memory checking before large allocations
 - [ ] 2.3 Add graceful fallback when GPU out of memory
-- [ ] 2.4 Log backend selection at initialization
-- [ ] 2.5 Add `stonesoup.backend.is_gpu_available()` utility function
+- [x] 2.4 Log backend selection at initialization
+- [x] 2.5 Add `stonesoup.backend.is_gpu_available()` utility function
 
 ## 3. Core Type Updates
 - [ ] 3.1 Update `StateVector` to use backend abstraction
@@ -21,11 +21,11 @@
 - [ ] 3.5 Add `.to_cpu()` and `.to_gpu()` methods for explicit transfers
 
 ## 4. Accelerated Operations
-- [ ] 4.1 GPU-accelerate particle filter resampling
-- [ ] 4.2 GPU-accelerate batch Kalman predictions
-- [ ] 4.3 GPU-accelerate large matrix inversions
-- [ ] 4.4 GPU-accelerate Cholesky decomposition
-- [ ] 4.5 Add batch operation APIs for GPU efficiency
+- [x] 4.1 GPU-accelerate particle filter resampling
+- [x] 4.2 GPU-accelerate batch Kalman predictions
+- [x] 4.3 GPU-accelerate large matrix inversions
+- [x] 4.4 GPU-accelerate Cholesky decomposition
+- [x] 4.5 Add batch operation APIs for GPU efficiency
 
 ## 5. C Library GPU Support (Optional)
 - [ ] 5.1 Add `ENABLE_CUDA` CMake option to libstonesoup
@@ -44,7 +44,7 @@
 - [ ] 6.6 Create benchmark visualization dashboard
 
 ## 7. Testing
-- [ ] 7.1 Add unit tests for backend abstraction
+- [x] 7.1 Add unit tests for backend abstraction
 - [ ] 7.2 Add integration tests for GPU operations (skip if no GPU)
 - [ ] 7.3 Add benchmark tests that verify no regression
 - [ ] 7.4 Test CPU/GPU result equivalence (numerical precision)
