@@ -17,7 +17,7 @@
 - [ ] 2.7 Refactor `KalmanFilterTest.java` to use common patterns
 
 ## 3. C++ Test Consolidation
-- [ ] 3.1 Create `test_common.hpp` with TYPED_TEST macros for copy/move semantics
+- [x] 3.1 Create `test_common.hpp` with TYPED_TEST macros for copy/move semantics
 - [ ] 3.2 Refactor `test_state_vector.cpp` to use typed tests
 - [ ] 3.3 Refactor `test_gaussian_state.cpp` to use typed tests
 - [ ] 3.4 Refactor `test_covariance_matrix.cpp` to use typed tests
