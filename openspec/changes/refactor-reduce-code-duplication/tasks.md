@@ -23,17 +23,17 @@
 - [ ] 3.4 Refactor `test_covariance_matrix.cpp` to use typed tests
 
 ## 4. Python Validation Utilities
-- [ ] 4.1 Create `stonesoup/types/validation.py` with common validation functions
-- [ ] 4.2 Add `validate_shape()` function
-- [ ] 4.3 Add `validate_bounds()` function
-- [ ] 4.4 Add `check_index_bounds()` function
+- [x] 4.1 Create `stonesoup/types/validation.py` with common validation functions
+- [x] 4.2 Add `validate_shape()` function
+- [x] 4.3 Add `validate_bounds()` function
+- [x] 4.4 Add `check_index_bounds()` function
 - [ ] 4.5 Refactor `stonesoup/types/voxel.py` to use validation module
 - [ ] 4.6 Refactor `stonesoup/types/array.py` to use validation module
 
 ## 5. Python Test Fixtures
-- [ ] 5.1 Create `stonesoup/tests/fixtures.py` with common test data factories
-- [ ] 5.2 Add standard state vector fixtures
-- [ ] 5.3 Add standard covariance matrix fixtures
+- [x] 5.1 Create `stonesoup/tests/fixtures.py` with common test data factories
+- [x] 5.2 Add standard state vector fixtures
+- [x] 5.3 Add standard covariance matrix fixtures
 - [ ] 5.4 Refactor Kalman filter tests to use shared fixtures
 
 ## 6. Verification
