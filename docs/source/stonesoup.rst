@@ -6,6 +6,7 @@ Stone Soup Framework
 .. toctree::
     interface
     types
+    stonesoup.backend
     stonesoup.base
     stonesoup.config
     stonesoup.functions
@@ -64,5 +65,3 @@ These are built upon the :doc:`types`.
 .. toctree::
 
     stonesoup.types
-
-

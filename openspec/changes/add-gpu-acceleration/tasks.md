@@ -48,14 +48,14 @@
 - [x] 7.2 Add integration tests for GPU operations (skip if no GPU)
 - [ ] 7.3 Add benchmark tests that verify no regression
 - [x] 7.4 Test CPU/GPU result equivalence (numerical precision)
-- [ ] 7.5 Add local GPU test runner script
+- [x] 7.5 Add local GPU test runner script
 
 ## 8. Documentation
-- [ ] 8.1 Document GPU installation requirements
-- [ ] 8.2 Document backend configuration options
-- [ ] 8.3 Add GPU acceleration to performance guide
-- [ ] 8.4 Document benchmark interpretation
-- [ ] 8.5 Add troubleshooting guide for GPU issues
+- [x] 8.1 Document GPU installation requirements
+- [x] 8.2 Document backend configuration options
+- [x] 8.3 Add GPU acceleration to performance guide
+- [x] 8.4 Document benchmark interpretation
+- [x] 8.5 Add troubleshooting guide for GPU issues
 
 ## 9. CI/CD Updates
 - [ ] 9.1 Add optional GPU runner for benchmarks (self-hosted or cloud)
