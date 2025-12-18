@@ -223,3 +223,77 @@ def get_device_info() -> dict:
                 )
 
     return info
+
+
+def get_gpu_memory_info() -> dict:
+    """Get GPU memory information.
+
+    Returns:
+        dict: Memory info with 'total', 'used', 'free' in bytes, or empty if no GPU
+    """
+    if not is_gpu_available():
+        return {}
+
+    import cupy
+
+    mempool = cupy.get_default_memory_pool()
+    total = cupy.cuda.runtime.getDeviceProperties(0)["totalGlobalMem"]
+    used = mempool.used_bytes()
+    free = total - used
+
+    return {
+        "total": total,
+        "used": used,
+        "free": free,
+        "total_mb": total // (1024 * 1024),
+        "used_mb": used // (1024 * 1024),
+        "free_mb": free // (1024 * 1024),
+    }
+
+
+def check_gpu_memory(required_bytes: int) -> bool:
+    """Check if GPU has enough free memory.
+
+    Args:
+        required_bytes: Number of bytes needed
+
+    Returns:
+        bool: True if enough memory available, False otherwise
+    """
+    if not is_gpu_available():
+        return False
+
+    info = get_gpu_memory_info()
+    return info.get("free", 0) >= required_bytes
+
+
+def ensure_gpu_memory(required_bytes: int, fallback_to_cpu: bool = True):
+    """Ensure GPU has enough memory, optionally falling back to CPU.
+
+    Args:
+        required_bytes: Number of bytes needed
+        fallback_to_cpu: If True, switch to NumPy backend if not enough GPU memory
+
+    Returns:
+        str: Backend that will be used ('numpy' or 'cupy')
+
+    Raises:
+        MemoryError: If not enough memory and fallback_to_cpu is False
+    """
+    if get_backend() != "cupy":
+        return "numpy"
+
+    if check_gpu_memory(required_bytes):
+        return "cupy"
+
+    if fallback_to_cpu:
+        logger.warning(
+            f"GPU memory insufficient ({required_bytes / 1024 / 1024:.1f} MB needed). "
+            "Falling back to CPU."
+        )
+        return "numpy"
+
+    raise MemoryError(
+        f"GPU memory insufficient. Need {required_bytes / 1024 / 1024:.1f} MB, "
+        f"have {get_gpu_memory_info().get('free_mb', 0)} MB free."
+    )

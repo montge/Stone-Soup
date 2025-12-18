@@ -8,8 +8,8 @@
 
 ## 2. GPU Detection and Initialization
 - [x] 2.1 Implement GPU availability detection (CUDA/ROCm)
-- [ ] 2.2 Implement GPU memory checking before large allocations
-- [ ] 2.3 Add graceful fallback when GPU out of memory
+- [x] 2.2 Implement GPU memory checking before large allocations
+- [x] 2.3 Add graceful fallback when GPU out of memory
 - [x] 2.4 Log backend selection at initialization
 - [x] 2.5 Add `stonesoup.backend.is_gpu_available()` utility function
 

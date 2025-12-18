@@ -497,3 +497,65 @@ def test_set_backend_cupy_with_gpu(require_gpu):
 
     xp = get_array_module()
     assert xp is cp
+
+
+# ============================================================================
+# GPU Memory Tests
+# ============================================================================
+
+
+def test_get_gpu_memory_info_no_gpu():
+    """Test get_gpu_memory_info returns empty dict without GPU."""
+    from stonesoup.backend import get_gpu_memory_info
+
+    if not is_gpu_available():
+        info = get_gpu_memory_info()
+        assert info == {}
+
+
+def test_get_gpu_memory_info_with_gpu(require_gpu):
+    """Test get_gpu_memory_info returns memory info with GPU."""
+    from stonesoup.backend import get_gpu_memory_info
+
+    info = get_gpu_memory_info()
+    assert "total" in info
+    assert "used" in info
+    assert "free" in info
+    assert info["total"] > 0
+    assert info["free"] >= 0
+
+
+def test_check_gpu_memory(require_gpu):
+    """Test check_gpu_memory function."""
+    from stonesoup.backend import check_gpu_memory
+
+    # Should have at least 1MB free
+    assert check_gpu_memory(1024 * 1024) is True
+
+    # Should not have 1TB free
+    assert check_gpu_memory(1024 * 1024 * 1024 * 1024) is False
+
+
+def test_ensure_gpu_memory_fallback(require_gpu):
+    """Test ensure_gpu_memory falls back to CPU when insufficient memory."""
+    from stonesoup.backend import ensure_gpu_memory
+
+    set_backend("cupy")
+
+    # Should use GPU for small allocation
+    backend = ensure_gpu_memory(1024 * 1024)
+    assert backend == "cupy"
+
+    # Should fall back to CPU for huge allocation
+    backend = ensure_gpu_memory(1024 * 1024 * 1024 * 1024, fallback_to_cpu=True)
+    assert backend == "numpy"
+
+
+def test_ensure_gpu_memory_no_fallback(require_gpu):
+    """Test ensure_gpu_memory raises MemoryError when no fallback."""
+    from stonesoup.backend import ensure_gpu_memory
+
+    set_backend("cupy")
+
+    with pytest.raises(MemoryError):
+        ensure_gpu_memory(1024 * 1024 * 1024 * 1024, fallback_to_cpu=False)
