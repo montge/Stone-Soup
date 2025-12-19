@@ -4,8 +4,11 @@ import pytest
 from ...predictor import Predictor
 from ...predictor.categorical import HMMPredictor
 from ...types.prediction import (
-    MeasurementPrediction, Prediction, CategoricalStatePrediction,
-    CategoricalMeasurementPrediction)
+    CategoricalMeasurementPrediction,
+    CategoricalStatePrediction,
+    MeasurementPrediction,
+    Prediction,
+)
 from ...types.update import Update
 from ...updater import Updater
 from ...updater.categorical import HMMUpdater
@@ -19,7 +22,8 @@ def predictor():
                 prior,
                 state_vector=prior.state_vector + 1,
                 covar=prior.covar * 2,
-                timestamp=timestamp)
+                timestamp=timestamp,
+            )
 
         @property
         def transition_model(self):
@@ -31,8 +35,7 @@ def predictor():
 @pytest.fixture()
 def updater():
     class TestGaussianUpdater(Updater):
-        def predict_measurement(self, state_prediction,
-                                measurement_model=None, **kwargs):
+        def predict_measurement(self, state_prediction, measurement_model=None, **kwargs):
             return MeasurementPrediction.from_state(state_prediction)
 
         def update(self, hypothesis, **kwargs):
@@ -72,7 +75,6 @@ def dummy_category_updater():
             """Return the first two state vector elements, normalised."""
             vector = predicted_state.state_vector[:2]
             vector = vector / np.sum(vector)
-            return CategoricalMeasurementPrediction(vector,
-                                                    timestamp=predicted_state.timestamp)
+            return CategoricalMeasurementPrediction(vector, timestamp=predicted_state.timestamp)
 
     return DummyCategoricalUpdater()

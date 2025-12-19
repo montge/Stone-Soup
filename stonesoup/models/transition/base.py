@@ -5,9 +5,9 @@ from collections.abc import Sequence
 import numpy as np
 from scipy.linalg import block_diag
 
-from ..base import Model, GaussianModel
 from ...base import Property
 from ...types.array import StateVector, StateVectors
+from ..base import GaussianModel, Model
 
 
 class TransitionModel(Model):
@@ -32,6 +32,7 @@ class CombinedGaussianTransitionModel(TransitionModel, GaussianModel):
     If any of the models are time variant the keyword argument "time_interval"
     must be supplied to all methods
     """
+
     model_list: Sequence[GaussianModel] = Property(doc="List of Transition Models.")
 
     def __init__(self, *args, **kwargs):
@@ -66,15 +67,14 @@ class CombinedGaussianTransitionModel(TransitionModel, GaussianModel):
         # to False and add the noise later. When noise is Boolean, we just pass in that value.
         if noise is None:
             noise = False
-        if isinstance(noise, bool):
-            noise_loop = noise
-        else:
-            noise_loop = False
+        noise_loop = noise if isinstance(noise, bool) else False
         for model in self.model_list:
-            temp_state.state_vector =\
-                state.state_vector[ndim_count:model.ndim_state + ndim_count, :]
-            state_vector[ndim_count:model.ndim_state + ndim_count, :] += \
-                model.function(temp_state, noise=noise_loop, **kwargs)
+            temp_state.state_vector = state.state_vector[
+                ndim_count : model.ndim_state + ndim_count, :
+            ]
+            state_vector[ndim_count : model.ndim_state + ndim_count, :] += model.function(
+                temp_state, noise=noise_loop, **kwargs
+            )
             ndim_count += model.ndim_state
         if isinstance(noise, bool):
             noise = 0
@@ -98,8 +98,9 @@ class CombinedGaussianTransitionModel(TransitionModel, GaussianModel):
         ndim_count = 0
         J_list = []
         for model in self.model_list:
-            temp_state.state_vector =\
-                state.state_vector[ndim_count:model.ndim_state + ndim_count, :]
+            temp_state.state_vector = state.state_vector[
+                ndim_count : model.ndim_state + ndim_count, :
+            ]
             J_list.append(model.jacobian(temp_state, **kwargs))
 
             ndim_count += model.ndim_state

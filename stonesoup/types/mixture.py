@@ -6,8 +6,8 @@ import numpy as np
 
 from ..base import Property
 from ..functions import gm_reduce_single
-from .base import Type
 from .array import StateVectors
+from .base import Type
 from .numeric import Probability
 from .state import GaussianState, TaggedWeightedGaussianState, WeightedGaussianState
 
@@ -24,16 +24,20 @@ class GaussianMixture(Type, MutableSequence):
     components: MutableSequence[WeightedGaussianState] = Property(
         default_factory=list,
         doc="""The initial list of :class:`WeightedGaussianState` components.
-        Default `None` which initialises with empty list.""")
+        Default `None` which initialises with empty list.""",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if any(not isinstance(component, (WeightedGaussianState, TaggedWeightedGaussianState))
-                for component in self.components):
-            raise ValueError("Cannot form GaussianMixtureState out of "
-                             "non-WeightedGaussianState inputs!")
+        if any(
+            not isinstance(component, (WeightedGaussianState, TaggedWeightedGaussianState))
+            for component in self.components
+        ):
+            raise ValueError(
+                "Cannot form GaussianMixtureState out of non-WeightedGaussianState inputs!"
+            )
         if len({component.timestamp for component in self.components}) > 1:
-            warnings.warn("All components should have the same timestamp")
+            warnings.warn("All components should have the same timestamp", stacklevel=2)
 
     def __contains__(self, index):
         # check if 'components' contains any WeightedGaussianState
@@ -49,8 +53,9 @@ class GaussianMixture(Type, MutableSequence):
 
     def __setitem__(self, index, value):
         if not isinstance(value, (WeightedGaussianState, TaggedWeightedGaussianState)):
-            raise ValueError("Cannot form GaussianMixtureState out of "
-                             "non-WeightedGaussianState inputs!")
+            raise ValueError(
+                "Cannot form GaussianMixtureState out of non-WeightedGaussianState inputs!"
+            )
         return self.components.__setitem__(index, value)
 
     def __delitem__(self, value):
@@ -68,8 +73,9 @@ class GaussianMixture(Type, MutableSequence):
 
     def insert(self, index, value):
         if not isinstance(value, (WeightedGaussianState, TaggedWeightedGaussianState)):
-            raise ValueError("Cannot form GaussianMixtureState out of "
-                             "non-WeightedGaussianState inputs!")
+            raise ValueError(
+                "Cannot form GaussianMixtureState out of non-WeightedGaussianState inputs!"
+            )
         return self.components.insert(index, value)
 
     @property
@@ -102,8 +108,7 @@ class GaussianMixture(Type, MutableSequence):
 
     @property
     def covar(self):
-        _, covar = gm_reduce_single(self.means, self.covars,
-                                    self.weights)
+        _, covar = gm_reduce_single(self.means, self.covars, self.weights)
         return covar
 
     @property
@@ -114,13 +119,13 @@ class GaussianMixture(Type, MutableSequence):
     @property
     def component_tags(self):
         component_tags = set()
-        if all(isinstance(component, TaggedWeightedGaussianState)
-               for component in self.components):
+        if all(
+            isinstance(component, TaggedWeightedGaussianState) for component in self.components
+        ):
             for component in self.components:
                 component_tags.add(component.tag)
         else:
-            raise ValueError("All components must be "
-                             "TaggedWeightedGaussianState!")
+            raise ValueError("All components must be TaggedWeightedGaussianState!")
         return component_tags
 
 

@@ -1,14 +1,18 @@
+import datetime
+
+import pytest
+
 from ...types.association import AssociationSet, TimeRangeAssociation
-from ...types.time import TimeRange, CompoundTimeRange
+from ...types.time import CompoundTimeRange, TimeRange
 from ...types.track import Track
 from .._assignment import multidimensional_deconfliction
-import datetime
-import pytest
 
 
 def is_assoc_in_assoc_set(assoc, assoc_set):
-    return any(assoc.time_range == set_assoc.time_range and
-               assoc.objects == set_assoc.objects for set_assoc in assoc_set)
+    return any(
+        assoc.time_range == set_assoc.time_range and assoc.objects == set_assoc.objects
+        for set_assoc in assoc_set
+    )
 
 
 def test_multi_deconfliction():
@@ -16,25 +20,32 @@ def test_multi_deconfliction():
     tested = multidimensional_deconfliction(test)
     assert test.associations == tested.associations
     tracks = [Track(id=0), Track(id=1), Track(id=2), Track(id=3)]
-    times = [datetime.datetime(year=2022, month=6, day=1, hour=0),
-             datetime.datetime(year=2022, month=6, day=1, hour=1),
-             datetime.datetime(year=2022, month=6, day=1, hour=5),
-             datetime.datetime(year=2022, month=6, day=2, hour=5),
-             datetime.datetime(year=2022, month=6, day=1, hour=9)]
-    ranges = [TimeRange(times[0], times[1]),
-              TimeRange(times[1], times[2]),
-              TimeRange(times[2], times[3]),
-              TimeRange(times[0], times[4]),
-              TimeRange(times[2], times[4])]
+    times = [
+        datetime.datetime(year=2022, month=6, day=1, hour=0),
+        datetime.datetime(year=2022, month=6, day=1, hour=1),
+        datetime.datetime(year=2022, month=6, day=1, hour=5),
+        datetime.datetime(year=2022, month=6, day=2, hour=5),
+        datetime.datetime(year=2022, month=6, day=1, hour=9),
+    ]
+    ranges = [
+        TimeRange(times[0], times[1]),
+        TimeRange(times[1], times[2]),
+        TimeRange(times[2], times[3]),
+        TimeRange(times[0], times[4]),
+        TimeRange(times[2], times[4]),
+    ]
 
     assoc1 = TimeRangeAssociation({tracks[0], tracks[1]}, time_range=ranges[0])
     assoc2 = TimeRangeAssociation({tracks[2], tracks[3]}, time_range=ranges[0])
-    assoc3 = TimeRangeAssociation({tracks[0], tracks[3]},
-                                  time_range=CompoundTimeRange([ranges[0], ranges[4]]))
-    assoc4 = TimeRangeAssociation({tracks[0], tracks[1]},
-                                  time_range=CompoundTimeRange([ranges[1], ranges[4]]))
-    a4_clone = TimeRangeAssociation({tracks[0], tracks[1]},
-                                    time_range=CompoundTimeRange([ranges[1], ranges[4]]))
+    assoc3 = TimeRangeAssociation(
+        {tracks[0], tracks[3]}, time_range=CompoundTimeRange([ranges[0], ranges[4]])
+    )
+    assoc4 = TimeRangeAssociation(
+        {tracks[0], tracks[1]}, time_range=CompoundTimeRange([ranges[1], ranges[4]])
+    )
+    a4_clone = TimeRangeAssociation(
+        {tracks[0], tracks[1]}, time_range=CompoundTimeRange([ranges[1], ranges[4]])
+    )
     # Will fail as there is only one track, rather than two
     assoc_fail = TimeRangeAssociation({tracks[0]}, time_range=ranges[0])
     with pytest.raises(ValueError):

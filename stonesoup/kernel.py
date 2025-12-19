@@ -34,7 +34,7 @@ class Kernel(Base):
 
     def update_parameters(self, kwargs):
         for parameter in type(self).properties:
-            if parameter in kwargs.keys():
+            if parameter in kwargs:
                 setattr(self, parameter, kwargs[parameter])
 
     @property
@@ -43,17 +43,11 @@ class Kernel(Base):
 
     @staticmethod
     def _get_state_vectors(state1, state2):
-        if isinstance(state1, State):
-            state_vector1 = state1.state_vector
-        else:
-            state_vector1 = state1
+        state_vector1 = state1.state_vector if isinstance(state1, State) else state1
         if state2 is None:
             state_vector2 = state_vector1
         else:
-            if isinstance(state2, State):
-                state_vector2 = state2.state_vector
-            else:
-                state_vector2 = state2
+            state_vector2 = state2.state_vector if isinstance(state2, State) else state2
         return state_vector1, state_vector2
 
 
@@ -96,9 +90,11 @@ class PolynomialKernel(Kernel):
     """
 
     power: int = Property(doc="The polynomial power :math:`p`.")
-    c: float = Property(default=1,
-                        doc="Free parameter trading off the influence of higher-order versus "
-                            "lower-order terms in the polynomial. Default is 1.")
+    c: float = Property(
+        default=1,
+        doc="Free parameter trading off the influence of higher-order versus "
+        "lower-order terms in the polynomial. Default is 1.",
+    )
     ialpha: float = Property(default=1e1, doc="Slope. Range is [1e0, 1e4]. Default is 1e1.")
 
     def __call__(self, state1, state2=None, **kwargs):
@@ -110,19 +106,19 @@ class PolynomialKernel(Kernel):
 class LinearKernel(PolynomialKernel):
     r"""Linear Kernel
 
-   This kernel returns the linear kernel state vector from a pair of :class:`~.State`
-   objects.
+    This kernel returns the linear kernel state vector from a pair of :class:`~.State`
+    objects.
 
-   The linear kernel of state vectors :math:`\mathbf{x}` and :math:`\mathbf{x}^\prime` is
-   defined as:
+    The linear kernel of state vectors :math:`\mathbf{x}` and :math:`\mathbf{x}^\prime` is
+    defined as:
 
-   .. math::
-        \mathtt{k}\left(\mathbf{x}, \mathbf{x}^\prime\right) =
-        \mathbf{x}^T\mathbf{x}^\prime
+    .. math::
+         \mathtt{k}\left(\mathbf{x}, \mathbf{x}^\prime\right) =
+         \mathbf{x}^T\mathbf{x}^\prime
 
-   The linear kernel can capture the first-order moments of a distribution, such as the mean
-   and covariance.
-   """
+    The linear kernel can capture the first-order moments of a distribution, such as the mean
+    and covariance.
+    """
 
     @property
     def power(self):
@@ -155,6 +151,7 @@ class QuadraticKernel(PolynomialKernel):
     covariance and correlations between pairs of variables.
     The quadratic kernel is appropriate when the data is nonlinear but still relatively simple.
     """
+
     @property
     def power(self):
         r"""The quadratic polynomial power, :math:`p=2`"""
@@ -177,6 +174,7 @@ class QuarticKernel(PolynomialKernel):
     skewness and kurtosis.
     THe quartic kernel can be used when the data is highly nonlinear and complex.
     """
+
     @property
     def power(self):
         r"""The quartic polynomial power, :math:`p=4`"""
@@ -196,10 +194,12 @@ class GaussianKernel(Kernel):
          \mathtt{k}(\mathbf{x}, \mathbf{x}^\prime) =
          \mathrm{exp}\left(-\frac{||\mathbf{x} - \mathbf{x}^\prime||^{2}}{2\pi\sigma^2}\right)
     """
+
     variance: float = Property(
         default=1e1,
         doc=r"Denoted as :math:`\sigma^2` in the equation above. Determines the width of the "
-            r"Gaussian kernel. Range is [1e0, 1e2].")
+        r"Gaussian kernel. Range is [1e0, 1e2].",
+    )
 
     def __call__(self, state1, state2=None, **kwargs):
         r"""Calculate the Gaussian Kernel transformation for a pair of :class:`~.State` objects.
@@ -220,15 +220,20 @@ class GaussianKernel(Kernel):
         diff_tilde_x = (state_vector1[:, :, None] - state_vector2[:, None, :]) ** 2
         diff_tilde_x_sum = np.sum(diff_tilde_x, axis=0)
 
-        k_tilde_x = np.exp(-diff_tilde_x_sum/(2*self.variance)) / np.sqrt(2*np.pi*self.variance)
+        k_tilde_x = np.exp(-diff_tilde_x_sum / (2 * self.variance)) / np.sqrt(
+            2 * np.pi * self.variance
+        )
 
         return StateVectors(k_tilde_x)
 
 
 class _StateKernel(Kernel):
     kernel: Kernel = Property(doc="Base Kernel class")
-    mapping: list = Property(default=None, doc="List of mappings of the components to be used in "
-                                               "the kernel from the state vector.")
+    mapping: list = Property(
+        default=None,
+        doc="List of mappings of the components to be used in "
+        "the kernel from the state vector.",
+    )
 
     @property
     def parameters(self):

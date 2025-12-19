@@ -1,5 +1,6 @@
-from datetime import datetime, timedelta
 import copy
+from datetime import datetime, timedelta
+
 import numpy as np
 
 from ...models.transition.categorical import MarkovianTransitionModel
@@ -9,9 +10,7 @@ from ...types.state import CategoricalState
 
 
 def test_hmm_predictor():
-    F = np.array([[50, 5, 30],
-                  [25, 90, 30],
-                  [25, 5, 30]])
+    F = np.array([[50, 5, 30], [25, 90, 30], [25, 5, 30]])
     model = MarkovianTransitionModel(F)
 
     predictor = HMMPredictor(model)

@@ -55,9 +55,23 @@ dev = [
     "pytest-cov",
     "pytest-remotedata",
     "pytest-skip-slow",
+    "pytest-xdist",
+    "hypothesis>=6.0",
     "Sphinx",
     "sphinx-gallery>=0.17",
     "sphinx_rtd_theme>=1.2",
+    "sphinx-needs>=2.0",
+    # Linting and formatting
+    "ruff>=0.8.0",
+    "black>=24.0",
+    # Security scanning
+    "bandit[toml]>=1.7",
+    "safety>=3.0",
+    # Pre-commit hooks
+    "pre-commit>=3.0",
+    # Benchmarking
+    "pytest-benchmark>=4.0",
+    "asv>=0.6",
 ]
 video = [
     "ffmpeg-python",
@@ -104,6 +118,22 @@ namespaces = false
 
 [tool.pytest.ini_options]
 python_classes = []
+testpaths = ["stonesoup"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "benchmark: marks tests as benchmarks",
+    "integration: marks tests as integration tests",
+    "e2e: marks tests as end-to-end tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
 
 [tool.coverage.run]
 branch = true
@@ -116,6 +146,11 @@ omit = [
 ]
 
 [tool.coverage.report]
+# Coverage enforcement thresholds
+fail_under = 90
+precision = 2
+show_missing = true
+
 # Regexes for lines to exclude from consideration
 exclude_also = [
     # Don't complain if tests don't hit defensive assertion code
@@ -126,4 +161,105 @@ exclude_also = [
 
     # Ignore type checking
     "if TYPE_CHECKING:",
+
+    # Ignore abstract methods
+    "@abstractmethod",
+
+    # Ignore protocol definitions
+    "class.*\\(.*Protocol.*\\):",
 ]
+
+[tool.coverage.html]
+directory = "coverage_html_report"
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+# Ruff configuration - fast Python linter
+[tool.ruff]
+line-length = 99
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "S",      # flake8-bandit (security)
+    "SIM",    # flake8-simplify
+    "TCH",    # flake8-type-checking
+    "PTH",    # flake8-use-pathlib
+    "RUF",    # Ruff-specific rules
+]
+ignore = [
+    "E402",   # Module level import not at top (needed for some examples)
+    "E501",   # Line too long (handled by formatter)
+    "S101",   # Use of assert (needed for tests)
+    "B008",   # Function call in default argument (Property pattern)
+    "B019",   # lru_cache on methods - existing pattern in codebase
+    "B007",   # Loop variable not used - often intentional for unpacking
+    "B904",   # Raise from in except - existing pattern
+    "RUF002", # Ambiguous unicode (en-dash) in docstrings - bibliographic references
+    "RUF003", # Ambiguous unicode (curly quotes) in docstrings - bibliographic references
+    "RUF012", # Mutable class attributes - existing pattern with Property system
+    "SIM102", # Nested if statements - sometimes clearer separately
+    "SIM105", # Use contextlib.suppress - existing try/except pattern
+    "SIM108", # Ternary operator - existing if/else pattern
+    "SIM113", # Enumerate - existing pattern
+    "SIM115", # Use context manager - existing pattern
+    "PTH109", # os.getcwd - existing pattern
+    "PTH112", # os.path.isdir - existing pattern
+    "PTH122", # os.path.splitext - existing pattern
+    "PTH123", # open() - existing pattern
+    "S301",   # pickle usage - existing serialization pattern
+    "S311",   # random usage - pseudorandom ok for simulations
+    "B017",   # assertRaises - existing test pattern
+    "B020",   # Loop variable overwritten - sometimes intentional
+    "B024",   # Abstract class without abstract methods - existing pattern
+    "B026",   # Star-arg unpacking - existing pattern
+    "TC003",  # Type checking imports - existing pattern
+    "SIM300", # Yoda conditions - assertion order matters for non-symmetric comparisons
+    "C416",   # Unnecessary list comprehension - sometimes clearer
+    "B028",   # stacklevel in warnings - existing pattern
+    "B905",   # zip without strict - existing pattern
+    "RUF100", # Unused noqa directives - may be needed for other linters
+    "UP038",  # Use X | Y in isinstance - existing codebase pattern
+]
+
+[tool.ruff.lint.per-file-ignores]
+"stonesoup/**/tests/**" = ["S101", "S311", "B015", "B018", "F811"]  # Allow assert, random, comparisons, fixture redefs
+"docs/**" = ["E402", "B018"]  # Allow import order issues in docs
+"stonesoup/functions/coordinates.py" = ["E741"]  # Allow standard astronomical variable names (l)
+"stonesoup/serialise.py" = ["I001"]  # Keep original import order for clarity
+"stonesoup/tests/test_serialise.py" = ["I001"]  # Keep original import order for clarity
+
+[tool.ruff.lint.isort]
+known-first-party = ["stonesoup"]
+
+# Black configuration - Python formatter
+[tool.black]
+line-length = 99
+target-version = ["py310", "py311", "py312", "py313"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+    | \.venv
+    | venv
+    | build
+    | dist
+    | \.eggs
+)/
+'''
+
+# Bandit configuration - security scanning
+[tool.bandit]
+exclude_dirs = ["tests", "stonesoup/**/tests", "docs"]
+skips = ["B101"]  # Skip assert_used (needed for tests)
+
+[tool.bandit.assert_used]
+skips = ["**/test_*.py", "**/tests/**"]

@@ -1,0 +1,38 @@
+-- Stone Soup Ada Tests GPRbuild Project File
+--
+-- Build with: gprbuild -P stonesoup_tests.gpr
+-- Run with: ./obj/test_runner
+
+with "stonesoup.gpr";
+with "aunit";
+
+project StoneSoup_Tests is
+
+   for Languages use ("Ada");
+   for Source_Dirs use ("tests");
+   for Object_Dir use "obj";
+   for Main use ("test_runner.adb");
+
+   package Compiler is
+      for Default_Switches ("Ada") use
+         ("-g",
+          "-O0",
+          "-gnatwa",
+          "-gnatVa",
+          "-gnata",
+          "-gnat2022");
+   end Compiler;
+
+   package Binder is
+      for Default_Switches ("Ada") use ("-Es");
+   end Binder;
+
+   package Linker is
+      for Default_Switches ("Ada") use ("-g");
+   end Linker;
+
+   package Builder is
+      for Default_Switches ("Ada") use ("-j0", "-g");
+   end Builder;
+
+end StoneSoup_Tests;

@@ -1,0 +1,25 @@
+[package]
+name = "stonesoup-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Stone Soup Contributors"]
+description = "High-performance Python bindings for Stone Soup tracking framework"
+license = "MIT"
+repository = "https://github.com/dstl/Stone-Soup"
+
+[lib]
+name = "_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["extension-module"] }
+numpy = "0.22"
+ndarray = "0.16"
+
+[dev-dependencies]
+# For testing without Python
+approx = "0.5"
+
+[features]
+default = []
+cuda = []  # Enable CUDA GPU acceleration (requires libstonesoup with CUDA)

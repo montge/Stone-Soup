@@ -4,10 +4,17 @@ import numpy as np
 import pytest
 
 from ..detection import Detection, MissedDetection
-from ..hypothesis import (SingleHypothesis, SingleDistanceHypothesis, SingleProbabilityHypothesis,
-                          JointHypothesis, ProbabilityJointHypothesis, DistanceJointHypothesis,
-                          CompositeHypothesis, CompositeProbabilityHypothesis)
-from ..prediction import StatePrediction, StateMeasurementPrediction
+from ..hypothesis import (
+    CompositeHypothesis,
+    CompositeProbabilityHypothesis,
+    DistanceJointHypothesis,
+    JointHypothesis,
+    ProbabilityJointHypothesis,
+    SingleDistanceHypothesis,
+    SingleHypothesis,
+    SingleProbabilityHypothesis,
+)
+from ..prediction import StateMeasurementPrediction, StatePrediction
 from ..track import Track
 
 prediction = StatePrediction(np.array([[1], [0]]))
@@ -25,8 +32,7 @@ def test_single_hypothesis():
     assert hypothesis.measurement_prediction is None
     assert hypothesis
 
-    hypothesis = SingleHypothesis(prediction, detection,
-                                  measurement_prediction)
+    hypothesis = SingleHypothesis(prediction, detection, measurement_prediction)
     assert hypothesis.prediction is prediction
     assert hypothesis.measurement is detection
     assert hypothesis.measurement_prediction is measurement_prediction
@@ -42,26 +48,23 @@ def test_single_hypothesis():
 def test_single_distance_hypothesis():
     """Single Measurement Distance Hypothesis type test"""
 
-    hypothesis = SingleDistanceHypothesis(
-        prediction, detection, distance, measurement_prediction)
+    hypothesis = SingleDistanceHypothesis(prediction, detection, distance, measurement_prediction)
 
     assert hypothesis.prediction is prediction
     assert hypothesis.measurement is detection
     assert hypothesis.distance is distance
     assert hypothesis.measurement_prediction is measurement_prediction
-    assert hypothesis.weight == 1/distance
+    assert hypothesis.weight == 1 / distance
 
     hypothesis.distance = 0
-    assert hypothesis.weight == float('inf')
+    assert hypothesis.weight == float("inf")
 
 
 def test_single_distance_hypothesis_comparison():
     """Single Measurement Distance Hypothesis comparison test"""
 
-    h1 = SingleDistanceHypothesis(
-        prediction, detection, distance, measurement_prediction)
-    h2 = SingleDistanceHypothesis(
-        prediction, detection, distance + 1, measurement_prediction)
+    h1 = SingleDistanceHypothesis(prediction, detection, distance, measurement_prediction)
+    h2 = SingleDistanceHypothesis(prediction, detection, distance + 1, measurement_prediction)
 
     assert h1 > h2
     assert h2 < h1
@@ -73,10 +76,8 @@ def test_single_distance_hypothesis_comparison():
 def test_single_probability_hypothesis_comparison():
     """Single Measurement Probability Hypothesis comparison test"""
 
-    h1 = SingleProbabilityHypothesis(
-        prediction, detection, 0.9, measurement_prediction)
-    h2 = SingleProbabilityHypothesis(
-        prediction, detection, 0.1, measurement_prediction)
+    h1 = SingleProbabilityHypothesis(prediction, detection, 0.9, measurement_prediction)
+    h2 = SingleProbabilityHypothesis(prediction, detection, 0.1, measurement_prediction)
     h3 = SingleHypothesis(prediction, detection, measurement_prediction)
 
     assert h1 > h2
@@ -92,16 +93,13 @@ def test_probability_joint_hypothesis():
 
     t1 = Track()
     t2 = Track()
-    h1 = SingleProbabilityHypothesis(
-        prediction, detection, 0.9, measurement_prediction)
-    h2 = SingleProbabilityHypothesis(
-        prediction, detection, 0.1, measurement_prediction)
+    h1 = SingleProbabilityHypothesis(prediction, detection, 0.9, measurement_prediction)
+    h2 = SingleProbabilityHypothesis(prediction, detection, 0.1, measurement_prediction)
 
     hypotheses = {t1: h1, t2: h2}
     joint_hypothesis = JointHypothesis(hypotheses)
 
-    assert isinstance(joint_hypothesis,
-                      ProbabilityJointHypothesis)
+    assert isinstance(joint_hypothesis, ProbabilityJointHypothesis)
     assert joint_hypothesis[t1] is h1
     assert joint_hypothesis[t2] is h2
     assert joint_hypothesis.probability == h1.probability * h2.probability
@@ -112,12 +110,9 @@ def test_probability_joint_hypothesis_comparison():
 
     t1 = Track()
     t2 = Track()
-    h1 = SingleProbabilityHypothesis(
-        prediction, detection, 0.75, measurement_prediction)
-    h2 = SingleProbabilityHypothesis(
-        prediction, detection, 0.75, measurement_prediction)
-    h3 = SingleProbabilityHypothesis(
-        prediction, detection, 0.25, measurement_prediction)
+    h1 = SingleProbabilityHypothesis(prediction, detection, 0.75, measurement_prediction)
+    h2 = SingleProbabilityHypothesis(prediction, detection, 0.75, measurement_prediction)
+    h3 = SingleProbabilityHypothesis(prediction, detection, 0.25, measurement_prediction)
 
     hypotheses1 = {t1: h1, t2: h2}
     hypotheses2 = {t1: h1, t2: h3}
@@ -138,16 +133,13 @@ def test_distance_joint_hypothesis():
 
     t1 = Track()
     t2 = Track()
-    h1 = SingleDistanceHypothesis(
-        prediction, detection, distance, measurement_prediction)
-    h2 = SingleDistanceHypothesis(
-        prediction, detection, distance, measurement_prediction)
+    h1 = SingleDistanceHypothesis(prediction, detection, distance, measurement_prediction)
+    h2 = SingleDistanceHypothesis(prediction, detection, distance, measurement_prediction)
 
     hypotheses = {t1: h1, t2: h2}
     joint_hypothesis = JointHypothesis(hypotheses)
 
-    assert isinstance(joint_hypothesis,
-                      DistanceJointHypothesis)
+    assert isinstance(joint_hypothesis, DistanceJointHypothesis)
     assert joint_hypothesis[t1] is h1
     assert joint_hypothesis[t2] is h2
     assert joint_hypothesis.distance == distance * 2
@@ -158,12 +150,9 @@ def test_distance_joint_hypothesis_comparison():
 
     t1 = Track()
     t2 = Track()
-    h1 = SingleDistanceHypothesis(
-        prediction, detection, distance, measurement_prediction)
-    h2 = SingleDistanceHypothesis(
-        prediction, detection, distance, measurement_prediction)
-    h3 = SingleDistanceHypothesis(
-        prediction, detection, distance + 1, measurement_prediction)
+    h1 = SingleDistanceHypothesis(prediction, detection, distance, measurement_prediction)
+    h2 = SingleDistanceHypothesis(prediction, detection, distance, measurement_prediction)
+    h3 = SingleDistanceHypothesis(prediction, detection, distance + 1, measurement_prediction)
 
     hypotheses1 = {t1: h1, t2: h2}
     hypotheses2 = {t1: h1, t2: h3}
@@ -192,28 +181,40 @@ def test_invalid_single_joint_hypothesis():
         JointHypothesis(hypotheses)
 
 
-def test_composite_hypothesis(sub_predictions1, composite_prediction1,
-                              sub_measurements1, composite_measurement1,
-                              sub_hypotheses1, composite_hypothesis1,
-                              sub_predictions2, sub_measurements2, sub_hypotheses2):
+def test_composite_hypothesis(
+    sub_predictions1,
+    composite_prediction1,
+    sub_measurements1,
+    composite_measurement1,
+    sub_hypotheses1,
+    composite_hypothesis1,
+    sub_predictions2,
+    sub_measurements2,
+    sub_hypotheses2,
+):
     # Test empty composite
     with pytest.raises(ValueError, match="Cannot create an empty composite hypothesis"):
-        CompositeHypothesis(prediction=composite_prediction1, measurement=composite_measurement1,
-                            sub_hypotheses=list())
+        CompositeHypothesis(
+            prediction=composite_prediction1, measurement=composite_measurement1, sub_hypotheses=[]
+        )
 
     # Test bool
     assert composite_hypothesis1
     temp_sub_hypotheses = deepcopy(sub_hypotheses1)
     temp_sub_hypotheses[0].measurement = MissedDetection()
     # not null as second sub-hypothesis is not null
-    assert CompositeHypothesis(prediction=composite_prediction1,
-                               measurement=composite_measurement1,
-                               sub_hypotheses=temp_sub_hypotheses)
+    assert CompositeHypothesis(
+        prediction=composite_prediction1,
+        measurement=composite_measurement1,
+        sub_hypotheses=temp_sub_hypotheses,
+    )
     temp_sub_hypotheses[1].measurement = MissedDetection()
     # null as all sub-hypotheses are null
-    assert not CompositeHypothesis(prediction=composite_prediction1,
-                                   measurement=composite_measurement1,
-                                   sub_hypotheses=temp_sub_hypotheses)
+    assert not CompositeHypothesis(
+        prediction=composite_prediction1,
+        measurement=composite_measurement1,
+        sub_hypotheses=temp_sub_hypotheses,
+    )
     # in the above, sub-hypotheses and sub-measurements don't have correct correspondence
     # which is not the intended use of CompositeHypothesis, but serves the purpose of testing null
     # instances
@@ -247,41 +248,61 @@ def test_composite_hypothesis(sub_predictions1, composite_prediction1,
     assert len(composite_hypothesis1) == 2
 
 
-def test_composite_probability_hypothesis(composite_prediction1,
-                                          composite_measurement1,
-                                          sub_hypotheses1,
-                                          sub_probability_hypotheses1,
-                                          composite_probability_hypothesis1):
+def test_composite_probability_hypothesis(
+    composite_prediction1,
+    composite_measurement1,
+    sub_hypotheses1,
+    sub_probability_hypotheses1,
+    composite_probability_hypothesis1,
+):
     # Test non-probability sub-hypotheses
-    with pytest.raises(ValueError, match="CompositeProbabilityHypothesis must be composed of "
-                                         "SingleProbabilityHypothesis types"):
+    with pytest.raises(
+        ValueError,
+        match="CompositeProbabilityHypothesis must be composed of "
+        "SingleProbabilityHypothesis types",
+    ):
         # sub_hypotheses1 contains non-probability hypotheses
-        CompositeProbabilityHypothesis(prediction=composite_prediction1,
-                                       measurement=composite_measurement1,
-                                       sub_hypotheses=sub_hypotheses1)
+        CompositeProbabilityHypothesis(
+            prediction=composite_prediction1,
+            measurement=composite_measurement1,
+            sub_hypotheses=sub_hypotheses1,
+        )
 
     # Test probability
 
     # product of sub-hypotheses' probabilities
-    assert composite_probability_hypothesis1.probability == 0.5 ** 2
+    assert composite_probability_hypothesis1.probability == 0.5**2
 
     # sub-null-hypotheses
     sub_probability_hypotheses1[0].measurement = MissedDetection()
     # ignore sub-null-hypotheses for non-null-composite-hypothesis
-    assert CompositeProbabilityHypothesis(
-        prediction=composite_prediction1,
-        measurement=composite_measurement1,
-        sub_hypotheses=sub_probability_hypotheses1).probability == 0.5
+    assert (
+        CompositeProbabilityHypothesis(
+            prediction=composite_prediction1,
+            measurement=composite_measurement1,
+            sub_hypotheses=sub_probability_hypotheses1,
+        ).probability
+        == 0.5
+    )
 
     # null-composite-hypothesis
     sub_probability_hypotheses1[1].measurement = MissedDetection()
     # consider all sub-hypotheses' probabilities if null
-    assert CompositeProbabilityHypothesis(
-        prediction=composite_prediction1,
-        measurement=composite_measurement1,
-        sub_hypotheses=sub_probability_hypotheses1).probability == 0.5 ** 2
+    assert (
+        CompositeProbabilityHypothesis(
+            prediction=composite_prediction1,
+            measurement=composite_measurement1,
+            sub_hypotheses=sub_probability_hypotheses1,
+        ).probability
+        == 0.5**2
+    )
     # takes argument value if not `None`
-    assert CompositeProbabilityHypothesis(
-        prediction=composite_prediction1,
-        measurement=composite_measurement1,
-        sub_hypotheses=sub_probability_hypotheses1, probability=0.4).probability == 0.4
+    assert (
+        CompositeProbabilityHypothesis(
+            prediction=composite_prediction1,
+            measurement=composite_measurement1,
+            sub_hypotheses=sub_probability_hypotheses1,
+            probability=0.4,
+        ).probability
+        == 0.4
+    )

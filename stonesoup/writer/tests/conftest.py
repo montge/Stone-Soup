@@ -7,7 +7,7 @@ from ...reader import DetectionReader, GroundTruthReader
 from ...tracker import Tracker
 from ...types.array import StateVector
 from ...types.detection import Detection
-from ...types.groundtruth import GroundTruthState, GroundTruthPath
+from ...types.groundtruth import GroundTruthPath, GroundTruthState
 from ...types.state import State
 from ...types.track import Track
 
@@ -20,11 +20,10 @@ def detection_reader():
             time = datetime.datetime(2018, 1, 1, 14)
             state_vector = StateVector([[0]])
             for i in range(3):
-                detections = {
-                    Detection(state_vector + i,  timestamp=time)
-                    for _ in range(i)}
+                detections = {Detection(state_vector + i, timestamp=time) for _ in range(i)}
                 yield time, detections
                 time += datetime.timedelta(minutes=1)
+
     return TestDetectionReader()
 
 
@@ -38,13 +37,17 @@ def groundtruth_reader():
             for i in range(2):
                 groundtruth_paths = {
                     GroundTruthPath(
-                        [GroundTruthState(
-                            state_vector + i + 10*j, timestamp=time)
-                         for j in range(i)],
-                        str(k))
-                    for k in range(i)}
+                        [
+                            GroundTruthState(state_vector + i + 10 * j, timestamp=time)
+                            for j in range(i)
+                        ],
+                        str(k),
+                    )
+                    for k in range(i)
+                }
                 yield time, groundtruth_paths
                 time += datetime.timedelta(minutes=1)
+
     return TestGroundTruthReader()
 
 
@@ -66,10 +69,11 @@ def tracker():
             self.time += datetime.timedelta(minutes=1)
             self._tracks = {
                 Track(
-                    [State(
-                        state_vector + i + 10*j, timestamp=self.time)
-                        for j in range(i)],
-                    str(k))
-                for k in range(i)}
+                    [State(state_vector + i + 10 * j, timestamp=self.time) for j in range(i)],
+                    str(k),
+                )
+                for k in range(i)
+            }
             return self.time, self.tracks
+
     return TestTracker()

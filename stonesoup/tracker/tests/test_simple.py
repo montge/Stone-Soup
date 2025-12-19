@@ -1,12 +1,15 @@
 import datetime
-from ..simple import SingleTargetTracker, MultiTargetTracker, \
-    MultiTargetMixtureTracker, SingleTargetMixtureTracker
+
+from ..simple import (
+    MultiTargetMixtureTracker,
+    MultiTargetTracker,
+    SingleTargetMixtureTracker,
+    SingleTargetTracker,
+)
 
 
-def test_single_target_tracker(
-        initiator, deleter, detector, data_associator, updater):
-    tracker = SingleTargetTracker(
-        initiator, deleter, detector, data_associator, updater)
+def test_single_target_tracker(initiator, deleter, detector, data_associator, updater):
+    tracker = SingleTargetTracker(initiator, deleter, detector, data_associator, updater)
 
     previous_time = datetime.datetime(2018, 1, 1, 13, 59)
     total_tracks = set()
@@ -23,9 +26,11 @@ def test_single_target_tracker(
 
 
 def test_single_target_mixture_tracker(
-        initiator, deleter, detector, data_mixture_associator, updater):
+    initiator, deleter, detector, data_mixture_associator, updater
+):
     tracker = SingleTargetMixtureTracker(
-        initiator, deleter, detector, data_mixture_associator, updater)
+        initiator, deleter, detector, data_mixture_associator, updater
+    )
 
     previous_time = datetime.datetime(2018, 1, 1, 13, 59)
     total_tracks = set()
@@ -40,10 +45,8 @@ def test_single_target_mixture_tracker(
     assert len(total_tracks) >= 2
 
 
-def test_multi_target_tracker(
-        initiator, deleter, detector, data_associator, updater):
-    tracker = MultiTargetTracker(
-        initiator, deleter, detector, data_associator, updater)
+def test_multi_target_tracker(initiator, deleter, detector, data_associator, updater):
+    tracker = MultiTargetTracker(initiator, deleter, detector, data_associator, updater)
 
     previous_time = datetime.datetime(2018, 1, 1, 13, 59)
     max_tracks = 0
@@ -68,9 +71,11 @@ def test_multi_target_tracker(
 
 
 def test_multi_target_mixture_tracker(
-        initiator, deleter, detector, data_mixture_associator, updater):
+    initiator, deleter, detector, data_mixture_associator, updater
+):
     tracker = MultiTargetMixtureTracker(
-        initiator, deleter, detector, data_mixture_associator, updater)
+        initiator, deleter, detector, data_mixture_associator, updater
+    )
 
     previous_time = datetime.datetime(2018, 1, 1, 13, 59)
     max_tracks = 0

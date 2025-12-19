@@ -1,9 +1,13 @@
 import pytest
 
-from ..detection import Detection, CompositeDetection
-from ..hypothesis import SingleHypothesis, CompositeHypothesis, \
-    CompositeProbabilityHypothesis, SingleProbabilityHypothesis
-from ..prediction import StatePrediction, CompositePrediction
+from ..detection import CompositeDetection, Detection
+from ..hypothesis import (
+    CompositeHypothesis,
+    CompositeProbabilityHypothesis,
+    SingleHypothesis,
+    SingleProbabilityHypothesis,
+)
+from ..prediction import CompositePrediction, StatePrediction
 
 
 @pytest.fixture()
@@ -50,7 +54,9 @@ def composite_measurement2(sub_measurements2):
 def sub_hypotheses1(sub_predictions1, sub_measurements1):
     return [
         SingleHypothesis(prediction=sub_prediction, measurement=sub_measurement)
-        for sub_prediction, sub_measurement in zip(sub_predictions1, sub_measurements1)
+        for sub_prediction, sub_measurement in zip(
+            sub_predictions1, sub_measurements1, strict=False
+        )
     ]
 
 
@@ -58,53 +64,71 @@ def sub_hypotheses1(sub_predictions1, sub_measurements1):
 def sub_hypotheses2(sub_predictions2, sub_measurements2):
     return [
         SingleHypothesis(prediction=sub_prediction, measurement=sub_measurement)
-        for sub_prediction, sub_measurement in zip(sub_predictions2, sub_measurements2)
+        for sub_prediction, sub_measurement in zip(
+            sub_predictions2, sub_measurements2, strict=False
+        )
     ]
 
 
 @pytest.fixture()
 def composite_hypothesis1(composite_prediction1, composite_measurement1, sub_hypotheses1):
-    return CompositeHypothesis(sub_hypotheses=sub_hypotheses1,
-                               prediction=composite_prediction1,
-                               measurement=composite_measurement1)
+    return CompositeHypothesis(
+        sub_hypotheses=sub_hypotheses1,
+        prediction=composite_prediction1,
+        measurement=composite_measurement1,
+    )
 
 
 @pytest.fixture()
 def composite_hypothesis2(composite_prediction2, composite_measurement2, sub_hypotheses2):
-    return CompositeHypothesis(sub_hypotheses=sub_hypotheses2,
-                               prediction=composite_prediction2,
-                               measurement=composite_measurement2)
+    return CompositeHypothesis(
+        sub_hypotheses=sub_hypotheses2,
+        prediction=composite_prediction2,
+        measurement=composite_measurement2,
+    )
 
 
 @pytest.fixture()
 def sub_probability_hypotheses1(sub_predictions1, sub_measurements1):
     return [
-        SingleProbabilityHypothesis(prediction=sub_prediction, measurement=sub_measurement,
-                                    probability=0.5)
-        for sub_prediction, sub_measurement in zip(sub_predictions1, sub_measurements1)
+        SingleProbabilityHypothesis(
+            prediction=sub_prediction, measurement=sub_measurement, probability=0.5
+        )
+        for sub_prediction, sub_measurement in zip(
+            sub_predictions1, sub_measurements1, strict=False
+        )
     ]
 
 
 @pytest.fixture()
 def sub_probability_hypotheses2(sub_predictions2, sub_measurements2):
     return [
-        SingleProbabilityHypothesis(prediction=sub_prediction, measurement=sub_measurement,
-                                    probability=0.2)
-        for sub_prediction, sub_measurement in zip(sub_predictions2, sub_measurements2)
+        SingleProbabilityHypothesis(
+            prediction=sub_prediction, measurement=sub_measurement, probability=0.2
+        )
+        for sub_prediction, sub_measurement in zip(
+            sub_predictions2, sub_measurements2, strict=False
+        )
     ]
 
 
 @pytest.fixture()
-def composite_probability_hypothesis1(composite_prediction1, composite_measurement1,
-                                      sub_probability_hypotheses1):
-    return CompositeProbabilityHypothesis(sub_hypotheses=sub_probability_hypotheses1,
-                                          prediction=composite_prediction1,
-                                          measurement=composite_measurement1)
+def composite_probability_hypothesis1(
+    composite_prediction1, composite_measurement1, sub_probability_hypotheses1
+):
+    return CompositeProbabilityHypothesis(
+        sub_hypotheses=sub_probability_hypotheses1,
+        prediction=composite_prediction1,
+        measurement=composite_measurement1,
+    )
 
 
 @pytest.fixture()
-def composite_probability_hypothesis2(composite_prediction2, composite_measurement2,
-                                      sub_probability_hypotheses2):
-    return CompositeProbabilityHypothesis(sub_hypotheses=sub_probability_hypotheses2,
-                                          prediction=composite_prediction2,
-                                          measurement=composite_measurement2)
+def composite_probability_hypothesis2(
+    composite_prediction2, composite_measurement2, sub_probability_hypotheses2
+):
+    return CompositeProbabilityHypothesis(
+        sub_hypotheses=sub_probability_hypotheses2,
+        prediction=composite_prediction2,
+        measurement=composite_measurement2,
+    )

@@ -2,7 +2,24 @@ from collections.abc import Sequence
 
 import numpy as np
 
+from .validation import validate_shape
+
 _no_value = object()
+
+
+def _ensure_numpy(array):
+    """Ensure array is a NumPy array, converting from CuPy if needed.
+
+    Args:
+        array: NumPy array, CuPy array, or array-like
+
+    Returns:
+        numpy.ndarray or array-like that np.asarray can handle
+    """
+    # Check if it's a CuPy array (has .get() method)
+    if hasattr(array, "get") and hasattr(array, "__cuda_array_interface__"):
+        return array.get()
+    return array
 
 
 class Matrix(np.ndarray):
@@ -10,11 +27,41 @@ class Matrix(np.ndarray):
 
     This class returns a view to a :class:`numpy.ndarray` It's called same as
     to :func:`numpy.asarray`.
+
+    This class supports automatic conversion from GPU arrays (CuPy) to CPU.
+    When initialized with a CuPy array, it will be automatically transferred
+    to CPU memory.
     """
 
     def __new__(cls, *args, **kwargs):
+        # Handle CuPy arrays by converting to NumPy
+        if args:
+            args = (_ensure_numpy(args[0]),) + args[1:]
         array = np.asarray(*args, **kwargs)
         return array.view(cls)
+
+    def to_numpy(self):
+        """Convert to NumPy array (CPU).
+
+        Returns:
+            numpy.ndarray: NumPy array on CPU
+        """
+        from stonesoup.backend import to_numpy
+
+        return to_numpy(self)
+
+    def to_gpu(self):
+        """Convert to CuPy array (GPU).
+
+        Returns:
+            cupy.ndarray: CuPy array on GPU
+
+        Raises:
+            ImportError: If CuPy is not available
+        """
+        from stonesoup.backend import to_gpu
+
+        return to_gpu(self)
 
     def __array_wrap__(self, array, context=None, return_scalar=False):
         return array[()] if return_scalar else self._cast(array)
@@ -35,14 +82,17 @@ class Matrix(np.ndarray):
             # Custom types break here, so simply convert to floats.
             inputs = [
                 np.asarray(input_, dtype=np.float64) if isinstance(input_, Matrix) else input_
-                for input_ in inputs]
+                for input_ in inputs
+            ]
         else:
             # Change to standard ndarray
-            inputs = [np.asarray(input_) if isinstance(input_, Matrix) else input_
-                      for input_ in inputs]
-        if 'out' in kwargs:
-            kwargs['out'] = tuple(np.asarray(out) if isinstance(out, Matrix) else out
-                                  for out in kwargs['out'])
+            inputs = [
+                np.asarray(input_) if isinstance(input_, Matrix) else input_ for input_ in inputs
+            ]
+        if "out" in kwargs:
+            kwargs["out"] = tuple(
+                np.asarray(out) if isinstance(out, Matrix) else out for out in kwargs["out"]
+            )
 
         result = super().__array_ufunc__(ufunc, method, *inputs, **kwargs)
         if result is NotImplemented:
@@ -81,6 +131,9 @@ class StateVector(Matrix):
     """
 
     def __new__(cls, *args, **kwargs):
+        # Handle CuPy arrays by converting to NumPy
+        if args:
+            args = (_ensure_numpy(args[0]),) + args[1:]
         array = np.asarray(*args, **kwargs)
         # For convenience handle shapes that can be easily converted in a
         # Nx1 shape
@@ -89,10 +142,7 @@ class StateVector(Matrix):
         elif array.ndim == 2 and array.shape[0] == 1:
             array = array.T
 
-        if not (array.ndim == 2 and array.shape[1] == 1):
-            raise ValueError(
-                "state vector shape should be Nx1 dimensions: got {}".format(
-                    array.shape))
+        validate_shape(array, (None, 1), "state vector")
         return array.view(cls)
 
     def __getitem__(self, item):
@@ -131,6 +181,8 @@ class StateVectors(Matrix):
     """
 
     def __new__(cls, states, *args, **kwargs):
+        # Handle CuPy arrays by converting to NumPy
+        states = _ensure_numpy(states)
         if isinstance(states, Sequence) and not isinstance(states, np.ndarray):
             if isinstance(states[0], StateVector):
                 return np.hstack(states).view(cls)
@@ -167,20 +219,15 @@ class StateVectors(Matrix):
             return super().__array_function__(func, types, args, kwargs)
 
     @staticmethod
-    def _mean(state_vectors, axis=None, dtype=None, out=None, keepdims=_no_value,
-              *, where=_no_value):
-        if keepdims is not _no_value:
-            keepdims_kw = {'keepdims': keepdims}
-        else:
-            keepdims_kw = {}
-        if where is not _no_value:
-            where_kw = {'where': where}
-        else:
-            where_kw = {}
+    def _mean(
+        state_vectors, axis=None, dtype=None, out=None, keepdims=_no_value, *, where=_no_value
+    ):
+        keepdims_kw = {"keepdims": keepdims} if keepdims is not _no_value else {}
+        where_kw = {"where": where} if where is not _no_value else {}
         if state_vectors.dtype != np.object_:
             # Can just use standard numpy mean if not using custom objects
             return np.mean(np.asarray(state_vectors), axis, dtype, out, **keepdims_kw, **where_kw)
-        elif axis == 1 and out is None and where_kw.get('where', True) is True:
+        elif axis == 1 and out is None and where_kw.get("where", True) is True:
             state_vector = np.average(state_vectors, axis, **keepdims_kw)
             if dtype:
                 return state_vector.astype(dtype)
@@ -191,29 +238,29 @@ class StateVectors(Matrix):
 
     @staticmethod
     def _average(state_vectors, axis=None, weights=None, returned=False, *, keepdims=_no_value):
-        if keepdims is not _no_value:
-            keepdims_kw = {'keepdims': keepdims}
-        else:
-            keepdims_kw = {}
-        if state_vectors.dtype != np.object_ and keepdims_kw.get('keepdims', True):
+        keepdims_kw = {"keepdims": keepdims} if keepdims is not _no_value else {}
+        if state_vectors.dtype != np.object_ and keepdims_kw.get("keepdims", True):
             # Can just use standard numpy averaging if not using custom objects
             state_vector = np.average(
-                np.asarray(state_vectors), axis=axis, weights=weights, **keepdims_kw)
+                np.asarray(state_vectors), axis=axis, weights=weights, **keepdims_kw
+            )
             # Convert type as may have type of weights
             state_vector = StateVector(state_vector.astype(np.float64, copy=False))
         # Need to handle special cases of averaging potentially
-        elif axis == 1 and keepdims_kw.get('keepdims', True):
+        elif axis == 1 and keepdims_kw.get("keepdims", True):
             state_vector = StateVector(
-                np.empty((state_vectors.shape[0], 1), dtype=state_vectors.dtype))
+                np.empty((state_vectors.shape[0], 1), dtype=state_vectors.dtype)
+            )
             for dim, row in enumerate(np.asarray(state_vectors)):
                 type_ = type(row[0])  # Assume all the same type
-                if hasattr(type_, 'average'):
+                if hasattr(type_, "average"):
                     # Check if type has custom average method
                     state_vector[dim, 0] = type_.average(row, weights=weights)
                 else:
                     # Else use numpy built in, converting to float array
                     state_vector[dim, 0] = type_(
-                        np.average(np.asarray(row, dtype=np.float64), weights=weights))
+                        np.average(np.asarray(row, dtype=np.float64), weights=weights)
+                    )
         else:
             return NotImplemented
 
@@ -223,9 +270,9 @@ class StateVectors(Matrix):
             return state_vector
 
     @staticmethod
-    def _cov(state_vectors, y=None, rowvar=True, bias=False, ddof=None, fweights=None,
-             aweights=None):
-
+    def _cov(
+        state_vectors, y=None, rowvar=True, bias=False, ddof=None, fweights=None, aweights=None
+    ):
         if state_vectors.dtype != np.object_:
             # Can just use standard numpy averaging if not using custom objects
             cov = np.cov(np.asarray(state_vectors), y, rowvar, bias, ddof, fweights, aweights)
@@ -234,10 +281,7 @@ class StateVectors(Matrix):
             avg, w_sum = np.average(state_vectors, axis=1, weights=aweights, returned=True)
 
             X = np.asarray(state_vectors - avg, dtype=np.float64)
-            if aweights is None:
-                X_T = X.T
-            else:
-                X_T = (X*np.asarray(aweights, dtype=np.float64)).T
+            X_T = X.T if aweights is None else (X * np.asarray(aweights, dtype=np.float64)).T
             cov = X @ X_T.conj()
             cov *= np.true_divide(1, float(w_sum))
         else:
@@ -251,13 +295,17 @@ class CovarianceMatrix(Matrix):
     This class returns a view to a :class:`numpy.ndarray`, but ensures that
     it is initialised as a *NxN* matrix. It's called similar to
     :func:`numpy.asarray`.
+
+    This class supports automatic conversion from GPU arrays (CuPy) to CPU.
     """
 
     def __new__(cls, *args, **kwargs):
+        # Handle CuPy arrays by converting to NumPy
+        if args:
+            args = (_ensure_numpy(args[0]),) + args[1:]
         array = np.asarray(*args, **kwargs)
         if not array.ndim == 2:
-            raise ValueError("Covariance should have ndim of 2: got {}"
-                             "".format(array.ndim))
+            raise ValueError(f"Covariance should have ndim of 2: got {array.ndim}")
         return array.view(cls)
 
 
@@ -267,13 +315,17 @@ class PrecisionMatrix(Matrix):
     This class returns a view to a :class:`numpy.ndarray`, but ensures that
     its initialised as an *NxN* matrix. It's called similar to
     :func:`numpy.asarray`.
+
+    This class supports automatic conversion from GPU arrays (CuPy) to CPU.
     """
 
     def __new__(cls, *args, **kwargs):
+        # Handle CuPy arrays by converting to NumPy
+        if args:
+            args = (_ensure_numpy(args[0]),) + args[1:]
         array = np.asarray(*args, **kwargs)
         if not array.ndim == 2:
-            raise ValueError("Information matrix should have ndim of 2: got {}"
-                             "".format(array.ndim))
+            raise ValueError(f"Information matrix should have ndim of 2: got {array.ndim}")
         return array.view(cls)
 
     # TODO: ensure positive definiteness on initiation?

@@ -1,17 +1,17 @@
 import uuid
 from collections.abc import MutableSequence
 from datetime import datetime
-from functools import lru_cache
+from functools import cache
 
 import numpy as np
 
-from .shape import Shape
-from ..base import Property, Base
+from ..base import Base, Property
 from ..functions import build_rotation_matrix
 from ..functions.interpolate import interpolate_state_mutable_sequence
-from ..movable import Movable, FixedMovable, MovingMovable, MultiTransitionMovable
+from ..movable import FixedMovable, Movable, MovingMovable, MultiTransitionMovable
 from ..sensor.sensor import Sensor
 from ..types.groundtruth import GroundTruthPath
+from .shape import Shape
 
 
 class Platform(Base):
@@ -44,18 +44,23 @@ class Platform(Base):
     movement_controller: Movable = Property(
         default=None,
         doc=":class:`~.Movable` object to control the Platform's movement. Default is None, but "
-            "it can be constructed transparently by passing Movable's constructor parameters to "
-            "the Platform constructor.")
+        "it can be constructed transparently by passing Movable's constructor parameters to "
+        "the Platform constructor.",
+    )
     sensors: MutableSequence[Sensor] = Property(
-        default_factory=list, readonly=True,
-        doc="A list of N mounted sensors. Defaults to an empty list.")
+        default_factory=list,
+        readonly=True,
+        doc="A list of N mounted sensors. Defaults to an empty list.",
+    )
     id: str = Property(
         default_factory=lambda: str(uuid.uuid4()),
-        doc="The unique platform ID. Default `None` where random UUID is generated.")
+        doc="The unique platform ID. Default `None` where random UUID is generated.",
+    )
 
     shape: Shape = Property(
         default=None,
-        doc="Optional :class:`~.Shape` object defining the :class:`~.Platform` shape.")
+        doc="Optional :class:`~.Shape` object defining the :class:`~.Platform` shape.",
+    )
 
     _default_movable_class = None  # Will be overridden by subclasses
 
@@ -80,7 +85,7 @@ class Platform(Base):
                 # For non _ attributes, try to get the attribute from self.movement_controller
                 # instead of self.
                 try:
-                    controller = Base.__getattribute__(self, 'movement_controller')
+                    controller = Base.__getattribute__(self, "movement_controller")
                     return getattr(controller, name)
                 except AttributeError:
                     # If we get the error about 'Movable' not having the attribute, then we want to
@@ -113,7 +118,7 @@ class Platform(Base):
         return self._tuple_or_none(self._property_sensors)
 
     def add_sensor(self, sensor: Sensor) -> None:
-        """ Add a sensor to the platform.
+        """Add a sensor to the platform.
 
         Parameters
         ----------
@@ -124,7 +129,7 @@ class Platform(Base):
         sensor.movement_controller = self.movement_controller
 
     def remove_sensor(self, sensor: Sensor) -> None:
-        """ Remove a sensor from the platform.
+        """Remove a sensor from the platform.
 
         Parameters
         ----------
@@ -176,7 +181,7 @@ class Platform(Base):
 
     @property
     def ground_truth_path(self) -> GroundTruthPath:
-        """ Produce a :class:`.GroundTruthPath` with the same `id` and `states` as the platform.
+        """Produce a :class:`.GroundTruthPath` with the same `id` and `states` as the platform.
 
         The `states` property for the platform and `ground_truth_path` are dynamically linked:
         ``self.ground_truth_path.states is self.states``
@@ -216,14 +221,14 @@ class Platform(Base):
         self._update_verts_and_relative_edges()
         return self._relative_edges
 
-    @lru_cache(maxsize=None)
+    @cache
     def _orientation_cache(self):
         # Cache for orientation allows for vertices and relative edges to be
         # be calculated when necessary. Maxsize set to unlimited as it
         # is cleared before assigning a new value
         return self.orientation
 
-    @lru_cache(maxsize=None)
+    @cache
     def _position_cache(self):
         # Cache for position allows for vertices and relative edges to be
         # calculated only when necessary. Maxsize set to unlimited as it
@@ -234,8 +239,9 @@ class Platform(Base):
         # Checks to see if cached position and orientation matches the
         # current property. If they match nothing is calculated. If they
         # don't vertices and relative edges are recalculated.
-        if np.any(self._orientation_cache() != self.orientation) or \
-                np.any(self._position_cache() != self.position):
+        if np.any(self._orientation_cache() != self.orientation) or np.any(
+            self._position_cache() != self.position
+        ):
 
             self._orientation_cache.cache_clear()
             self._position_cache.cache_clear()
@@ -246,9 +252,10 @@ class Platform(Base):
         # Calculates the vertices based on the defined `shape` property,
         # `position` and `orientation`.
         rot_mat = build_rotation_matrix(self.orientation)
-        rotated_shape = \
-            rot_mat[np.ix_(self.shape.shape_mapping, self.shape.shape_mapping)] @ \
-            self.shape.shape_data[self.shape.shape_mapping, :]
+        rotated_shape = (
+            rot_mat[np.ix_(self.shape.shape_mapping, self.shape.shape_mapping)]
+            @ self.shape.shape_data[self.shape.shape_mapping, :]
+        )
         verts = rotated_shape + self.position
         return verts[:, self.shape.simplices]
 
@@ -256,15 +263,23 @@ class Platform(Base):
         # Calculates the relative edge length in Cartesian space. Required
         # for visibility estimator
         return np.array(
-            [self.vertices[0, :] -
-             self.vertices[0, np.roll(np.linspace(0,
-                                                  len(self.shape.simplices)-1,
-                                                  len(self.shape.simplices)), 1).astype(int)],
-             self.vertices[1, :] -
-             self.vertices[1, np.roll(np.linspace(0,
-                                                  len(self.shape.simplices)-1,
-                                                  len(self.shape.simplices)), 1).astype(int)],
-             ])
+            [
+                self.vertices[0, :]
+                - self.vertices[
+                    0,
+                    np.roll(
+                        np.linspace(0, len(self.shape.simplices) - 1, len(self.shape.simplices)), 1
+                    ).astype(int),
+                ],
+                self.vertices[1, :]
+                - self.vertices[
+                    1,
+                    np.roll(
+                        np.linspace(0, len(self.shape.simplices) - 1, len(self.shape.simplices)), 1
+                    ).astype(int),
+                ],
+            ]
+        )
 
 
 class FixedPlatform(Platform):
@@ -280,14 +295,16 @@ class MultiTransitionMovingPlatform(Platform):
 
 
 class PathBasedPlatform(MovingPlatform):
-    path: GroundTruthPath = Property(doc="Ground truth path used for the platform. "
-                                     "This is for use in cases when platform paths are imported "
-                                     "from external data, e.g., from a CSV file")
+    path: GroundTruthPath = Property(
+        doc="Ground truth path used for the platform. "
+        "This is for use in cases when platform paths are imported "
+        "from external data, e.g., from a CSV file"
+    )
 
     def __init__(self, *args, **kwargs):
-        if "states" not in kwargs.keys() or kwargs["states"] is None:
+        if "states" not in kwargs or kwargs["states"] is None:
             kwargs["states"] = [kwargs["path"][0]]
-        if "transition_model" not in kwargs.keys():
+        if "transition_model" not in kwargs:
             kwargs["transition_model"] = None
         super().__init__(*args, **kwargs)
 
@@ -306,16 +323,14 @@ class Obstacle(Platform):
         super().__init__(*args, **kwargs)
 
         if not self.shape:
-            raise ValueError("The 'Obstacle' platform type requires "
-                             "that property 'shape' is defined. Currently "
-                             "'{}'.".format(self.shape))
+            raise ValueError(
+                "The 'Obstacle' platform type requires "
+                "that property 'shape' is defined. Currently "
+                f"'{self.shape}'."
+            )
 
     @classmethod
-    def from_obstacle(
-            cls,
-            obstacle: 'Obstacle',
-            **kwargs) -> 'Obstacle':
-
+    def from_obstacle(cls, obstacle: "Obstacle", **kwargs) -> "Obstacle":
         """Return a new obstacle instance by providing new properties to an existing obstacle.
         It is possible to overwrite any property of the original obstacle by
         defining the required keyword arguments. Any arguments that are undefined
@@ -333,16 +348,17 @@ class Obstacle(Platform):
             those extracted from the input ``obstacle``.
         """
 
-        ignore = ['movement_controller', 'id']
+        ignore = ["movement_controller", "id"]
 
         new_kwargs = {
             name: getattr(obstacle, name)
-            for name in obstacle._properties.keys()
-            if name not in kwargs and name not in ignore}
+            for name in obstacle._properties
+            if name not in kwargs and name not in ignore
+        }
 
         new_kwargs.update(kwargs)
 
-        if 'position_mapping' not in kwargs.keys():
-            new_kwargs.update({'position_mapping': getattr(obstacle, 'position_mapping')})
+        if "position_mapping" not in kwargs:
+            new_kwargs.update({"position_mapping": obstacle.position_mapping})
 
         return cls(**new_kwargs)

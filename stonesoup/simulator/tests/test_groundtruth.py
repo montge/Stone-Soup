@@ -1,27 +1,33 @@
 import datetime
 
-import pytest
 import numpy as np
+import pytest
 
 from ...types.state import GaussianState, State
 from ..simple import (
-    SingleTargetGroundTruthSimulator, MultiTargetGroundTruthSimulator,
-    SwitchOneTargetGroundTruthSimulator, SwitchMultiTargetGroundTruthSimulator)
+    MultiTargetGroundTruthSimulator,
+    SingleTargetGroundTruthSimulator,
+    SwitchMultiTargetGroundTruthSimulator,
+    SwitchOneTargetGroundTruthSimulator,
+)
 
 
-@pytest.fixture(params=[datetime.timedelta(seconds=1),
-                        datetime.timedelta(seconds=10),
-                        datetime.timedelta(minutes=1)])
+@pytest.fixture(
+    params=[
+        datetime.timedelta(seconds=1),
+        datetime.timedelta(seconds=10),
+        datetime.timedelta(minutes=1),
+    ]
+)
 def timestep(request):
     return request.param
 
 
 def test_single_target_ground_truth_simulator(transition_model1, timestep):
     initial_state = State(np.array([[1]]), timestamp=datetime.datetime.now())
-    simulator = SingleTargetGroundTruthSimulator(transition_model1,
-                                                 initial_state, timestep)
+    simulator = SingleTargetGroundTruthSimulator(transition_model1, initial_state, timestep)
 
-    for step, (time, groundtruth_paths) in enumerate(simulator):
+    for step, (_time, groundtruth_paths) in enumerate(simulator):
         # Check single ground truth track
         assert len(groundtruth_paths) == 1
 
@@ -34,18 +40,17 @@ def test_single_target_ground_truth_simulator(transition_model1, timestep):
         assert gt_path[-1].timestamp == initial_state.timestamp + timedelta
 
         # Check ground truth object has moved
-        assert gt_path[-1].state_vector == initial_state.state_vector +\
-            timedelta.total_seconds()
+        assert gt_path[-1].state_vector == initial_state.state_vector + timedelta.total_seconds()
 
     # Check that the number of steps is equal to the simulation steps
     assert step + 1 == simulator.number_steps
 
 
 def test_multitarget_ground_truth_simulator(transition_model1, timestep):
-    initial_state = GaussianState(np.array([[1]]), np.array([[0]]),
-                                  timestamp=datetime.datetime.now())
-    simulator = MultiTargetGroundTruthSimulator(transition_model1,
-                                                initial_state, timestep)
+    initial_state = GaussianState(
+        np.array([[1]]), np.array([[0]]), timestamp=datetime.datetime.now()
+    )
+    simulator = MultiTargetGroundTruthSimulator(transition_model1, initial_state, timestep)
 
     total_paths = set()
     for step, (time, groundtruth_paths) in enumerate(simulator):
@@ -67,32 +72,31 @@ def test_multitarget_ground_truth_simulator(transition_model1, timestep):
     assert len({len(path) for path in total_paths}) > 1
 
     # Check random seed gives consistent results
-    simulator1 = MultiTargetGroundTruthSimulator(transition_model1,
-                                                 initial_state, timestep,
-                                                 seed=1)
-    simulator2 = MultiTargetGroundTruthSimulator(transition_model1,
-                                                 initial_state, timestep,
-                                                 seed=1)
+    simulator1 = MultiTargetGroundTruthSimulator(
+        transition_model1, initial_state, timestep, seed=1
+    )
+    simulator2 = MultiTargetGroundTruthSimulator(
+        transition_model1, initial_state, timestep, seed=1
+    )
 
-    for (_, truth1), (_, truth2) in zip(simulator1, simulator2):
+    for (_, truth1), (_, truth2) in zip(simulator1, simulator2, strict=False):
         state_vectors1 = tuple(tuple(gt.state_vector) for gt in truth1)
         state_vectors2 = tuple(tuple(gt.state_vector) for gt in truth2)
         for sv in state_vectors1:
             assert sv in state_vectors2
 
 
-def test_one_target_ground_truth_simulator_switch(transition_model1,
-                                                  transition_model2,
-                                                  timestep):
+def test_one_target_ground_truth_simulator_switch(transition_model1, transition_model2, timestep):
     initial_state = State(np.array([[1]]), timestamp=datetime.datetime.now())
     model_probs = [[0.5, 0.5], [0.5, 0.5]]
     simulator = SwitchOneTargetGroundTruthSimulator(
         transition_models=[transition_model1, transition_model2],
         model_probs=model_probs,
         initial_state=initial_state,
-        timestep=timestep)
+        timestep=timestep,
+    )
 
-    for step, (time, groundtruth_paths) in enumerate(simulator):
+    for step, (_time, groundtruth_paths) in enumerate(simulator):
         # Check single ground truth track
         assert len(groundtruth_paths) == 1
 
@@ -106,12 +110,14 @@ def test_one_target_ground_truth_simulator_switch(transition_model1,
 
         record = []
         for state in gt_path:
-            record.append(state.metadata.get("index")+1)
+            record.append(state.metadata.get("index") + 1)
         total = sum(record[1:])
 
         # Check ground truth object has moved
-        assert gt_path[-1].state_vector == initial_state.state_vector +\
-            timestep.total_seconds()*total
+        assert (
+            gt_path[-1].state_vector
+            == initial_state.state_vector + timestep.total_seconds() * total
+        )
 
     # Check that the number of steps is equal to the simulation steps
     assert step + 1 == simulator.number_steps
@@ -122,32 +128,34 @@ def test_one_target_ground_truth_simulator_switch(transition_model1,
         model_probs=model_probs,
         initial_state=initial_state,
         timestep=timestep,
-        seed=1)
+        seed=1,
+    )
     simulator2 = SwitchOneTargetGroundTruthSimulator(
         transition_models=[transition_model1, transition_model2],
         model_probs=model_probs,
         initial_state=initial_state,
         timestep=timestep,
-        seed=1)
+        seed=1,
+    )
 
-    for (_, truth1), (_, truth2) in zip(simulator1, simulator2):
+    for (_, truth1), (_, truth2) in zip(simulator1, simulator2, strict=False):
         state_vectors1 = tuple(tuple(gt.state_vector) for gt in truth1)
         state_vectors2 = tuple(tuple(gt.state_vector) for gt in truth2)
         for sv in state_vectors1:
             assert sv in state_vectors2
 
 
-def test_multitarget_ground_truth_simulator_witch(transition_model1,
-                                                  transition_model2,
-                                                  timestep):
-    initial_state = GaussianState(np.array([[1]]), np.array([[0]]),
-                                  timestamp=datetime.datetime.now())
+def test_multitarget_ground_truth_simulator_witch(transition_model1, transition_model2, timestep):
+    initial_state = GaussianState(
+        np.array([[1]]), np.array([[0]]), timestamp=datetime.datetime.now()
+    )
     model_probs = [[0.5, 0.5], [0.5, 0.5]]
     simulator = SwitchMultiTargetGroundTruthSimulator(
         transition_models=[transition_model1, transition_model2],
         model_probs=model_probs,
         initial_state=initial_state,
-        timestep=timestep)
+        timestep=timestep,
+    )
 
     total_paths = set()
     for step, (time, groundtruth_paths) in enumerate(simulator):
@@ -181,15 +189,17 @@ def test_multitarget_ground_truth_simulator_witch(transition_model1,
         model_probs=model_probs,
         initial_state=initial_state,
         timestep=timestep,
-        seed=1)
+        seed=1,
+    )
     simulator2 = SwitchMultiTargetGroundTruthSimulator(
         transition_models=[transition_model1, transition_model2],
         model_probs=model_probs,
         initial_state=initial_state,
         timestep=timestep,
-        seed=1)
+        seed=1,
+    )
 
-    for (_, truth1), (_, truth2) in zip(simulator1, simulator2):
+    for (_, truth1), (_, truth2) in zip(simulator1, simulator2, strict=False):
         state_vectors1 = tuple(tuple(gt.state_vector) for gt in truth1)
         state_vectors2 = tuple(tuple(gt.state_vector) for gt in truth2)
         for sv in state_vectors1:

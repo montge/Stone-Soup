@@ -1,102 +1,129 @@
-import pytest
-import numpy as np
-from datetime import datetime, timedelta
-import itertools as it
 import copy
+import itertools as it
+from datetime import datetime, timedelta
 
-from ....types.state import StateVector, State, StateVectors
+import numpy as np
+import pytest
+
 from ....platform import FixedPlatform
+from ....types.state import State, StateVector, StateVectors
 from ...grid import NStepDirectionalGridMovable
-from ...sample import CircleSampleActionableMovable
 from ...max_speed import MaxSpeedActionableMovable
+from ...sample import CircleSampleActionableMovable
 
 
 @pytest.mark.parametrize(
-    'generator_params, state, position_mapping',
+    "generator_params, state, position_mapping",
     [
         (
-                {'n_steps': 1,
-                 'step_size': 1,
-                 'action_mapping': (0, 1),
-                 'action_space': None,
-                 'resolution': 1},
-                StateVector([0., 0., 0.]),  # state
-                (0, 1, 2)  # position_mapping
-        ), (
-                {'n_steps': 1,
-                 'step_size': 1,
-                 'action_mapping': (0, 1),
-                 'action_space': None,
-                 'resolution': 1},
-                StateVector([0., 0.]),  # state
-                (0, 1)  # position_mapping
-        ), (
-                {'n_steps': 1,
-                 'step_size': 1,
-                 'action_mapping': (1,),
-                 'action_space': None,
-                 'resolution': 1},
-                StateVector([0., 0.]),  # state
-                (0, 1)  # position_mapping
-        ), (
-                {'n_steps': 2,
-                 'step_size': 1,
-                 'action_mapping': (0, 1),
-                 'action_space': None,
-                 'resolution': 1},
-                StateVector([0., 0., 0.]),  # state
-                (0, 1, 2)  # position_mapping
-        ), (
-                {'n_steps': 2,
-                 'step_size': 1,
-                 'action_mapping': (0, 1),
-                 'action_space': None,
-                 'resolution': None},
-                StateVector([0., 0., 0.]),  # state
-                (0, 1, 2)  # position_mapping
-        ), (
-                {'n_steps': 2,
-                 'step_size': 1,
-                 'action_mapping': (0, 1),
-                 'action_space': StateVectors([[0, 5], [-1, 5]]),
-                 'resolution': 1},
-                StateVector([0., 0., 0.]),  # state
-                (0, 1, 2)  # position_mapping
-        ), (
-                {'n_steps': 2,
-                 'step_size': 1,
-                 'action_mapping': (0, 1, 2),
-                 'action_space': StateVectors([[0, 5], [-1, 5], [-1, 1]]),
-                 'resolution': 1},
-                StateVector([0., 0., 0.]),  # state
-                (0, 1, 2)  # position_mapping
-        )
+            {
+                "n_steps": 1,
+                "step_size": 1,
+                "action_mapping": (0, 1),
+                "action_space": None,
+                "resolution": 1,
+            },
+            StateVector([0.0, 0.0, 0.0]),  # state
+            (0, 1, 2),  # position_mapping
+        ),
+        (
+            {
+                "n_steps": 1,
+                "step_size": 1,
+                "action_mapping": (0, 1),
+                "action_space": None,
+                "resolution": 1,
+            },
+            StateVector([0.0, 0.0]),  # state
+            (0, 1),  # position_mapping
+        ),
+        (
+            {
+                "n_steps": 1,
+                "step_size": 1,
+                "action_mapping": (1,),
+                "action_space": None,
+                "resolution": 1,
+            },
+            StateVector([0.0, 0.0]),  # state
+            (0, 1),  # position_mapping
+        ),
+        (
+            {
+                "n_steps": 2,
+                "step_size": 1,
+                "action_mapping": (0, 1),
+                "action_space": None,
+                "resolution": 1,
+            },
+            StateVector([0.0, 0.0, 0.0]),  # state
+            (0, 1, 2),  # position_mapping
+        ),
+        (
+            {
+                "n_steps": 2,
+                "step_size": 1,
+                "action_mapping": (0, 1),
+                "action_space": None,
+                "resolution": None,
+            },
+            StateVector([0.0, 0.0, 0.0]),  # state
+            (0, 1, 2),  # position_mapping
+        ),
+        (
+            {
+                "n_steps": 2,
+                "step_size": 1,
+                "action_mapping": (0, 1),
+                "action_space": StateVectors([[0, 5], [-1, 5]]),
+                "resolution": 1,
+            },
+            StateVector([0.0, 0.0, 0.0]),  # state
+            (0, 1, 2),  # position_mapping
+        ),
+        (
+            {
+                "n_steps": 2,
+                "step_size": 1,
+                "action_mapping": (0, 1, 2),
+                "action_space": StateVectors([[0, 5], [-1, 5], [-1, 1]]),
+                "resolution": 1,
+            },
+            StateVector([0.0, 0.0, 0.0]),  # state
+            (0, 1, 2),  # position_mapping
+        ),
     ],
-    ids=["1_step_3D", "1_step_2D", "1_step_2D_with_1D_action", "2_step_3D",
-         "2_step_2D_default_res", "2_step_2D_constrained", "2_step_3D_constrained",
-         ]
+    ids=[
+        "1_step_3D",
+        "1_step_2D",
+        "1_step_2D_with_1D_action",
+        "2_step_3D",
+        "2_step_2D_default_res",
+        "2_step_2D_constrained",
+        "2_step_3D_constrained",
+    ],
 )
 def test_n_step_directional_grid_action_gen(generator_params, state, position_mapping):
 
     start_timestamp = datetime.now()
     end_timestamp = start_timestamp + timedelta(seconds=1)
 
-    n_steps, step_size, action_mapping, action_space, resolution = \
-        (generator_params.get(key) for key in ['n_steps',
-                                               'step_size',
-                                               'action_mapping',
-                                               'action_space',
-                                               'resolution'])
+    n_steps, step_size, action_mapping, action_space, resolution = (
+        generator_params.get(key)
+        for key in ["n_steps", "step_size", "action_mapping", "action_space", "resolution"]
+    )
 
     if resolution is None:
-        generator_params.pop('resolution')
+        generator_params.pop("resolution")
         resolution = 1  # if none, it should use default
 
     platform = FixedPlatform(
         movement_controller=NStepDirectionalGridMovable(
             states=[State(state, timestamp=start_timestamp)],
             position_mapping=position_mapping,
-            **generator_params))  # Dummy platform for initiating the generator
+            **generator_params,
+        )
+    )  # Dummy platform for initiating the generator
 
     generator = platform.actions(start_timestamp).pop()
 
@@ -115,9 +142,9 @@ def test_n_step_directional_grid_action_gen(generator_params, state, position_ma
     for elements in move_position_actions:
         actions.append(elements[0].target_value)
 
-    deltas = np.linspace(-1*n_steps*step_size*resolution,
-                         n_steps*step_size*resolution,
-                         2*n_steps+1)
+    deltas = np.linspace(
+        -1 * n_steps * step_size * resolution, n_steps * step_size * resolution, 2 * n_steps + 1
+    )
 
     eval_actions = [state]
     for dim in action_mapping:
@@ -127,9 +154,10 @@ def test_n_step_directional_grid_action_gen(generator_params, state, position_ma
             eval_action = copy.copy(state)
             eval_action[dim] += delta
 
-            if action_space is None or \
-                    (np.all(eval_action[action_mapping, :] >= action_space[:, [0]])
-                     and np.all(eval_action[action_mapping, :] <= action_space[:, [1]])):
+            if action_space is None or (
+                np.all(eval_action[action_mapping, :] >= action_space[:, [0]])
+                and np.all(eval_action[action_mapping, :] <= action_space[:, [1]])
+            ):
                 eval_actions.append(eval_action)
 
     assert np.all(np.isclose(actions, eval_actions))
@@ -141,103 +169,131 @@ def test_n_step_directional_grid_action_gen(generator_params, state, position_ma
 
 
 @pytest.mark.parametrize(
-    'gen_param_dict, state, position_mapping',
+    "gen_param_dict, state, position_mapping",
     [
         (
-            {'n_samples': None,
-             'action_space': None,
-             'action_mapping': (0, 1),
-             'maximum_travel': 4},
+            {
+                "n_samples": None,
+                "action_space": None,
+                "action_mapping": (0, 1),
+                "maximum_travel": 4,
+            },
             StateVector([0.0, 0.0]),  # state
-            (0, 1)  # position_mapping
-        ), (
-            {'n_samples': 15,
-             'action_space': StateVectors([[-5, 5], [-5, 5]]),
-             'action_mapping': (0, 1),
-             'maximum_travel': None},
+            (0, 1),  # position_mapping
+        ),
+        (
+            {
+                "n_samples": 15,
+                "action_space": StateVectors([[-5, 5], [-5, 5]]),
+                "action_mapping": (0, 1),
+                "maximum_travel": None,
+            },
             StateVector([0.0, 0.0]),  # state
-            (0, 1)  # position_mapping
-        ), (
-            {'n_samples': 20,
-             'action_space': StateVectors([[-10, 5], [-10, 5]]),
-             'action_mapping': (0, 1),
-             'maximum_travel': 10},
+            (0, 1),  # position_mapping
+        ),
+        (
+            {
+                "n_samples": 20,
+                "action_space": StateVectors([[-10, 5], [-10, 5]]),
+                "action_mapping": (0, 1),
+                "maximum_travel": 10,
+            },
             StateVector([2.0, 3.0, 2.0]),  # state
-            (0, 1)  # position_mapping
-        ), (
-            {'n_samples': 20,
-             'action_space': StateVectors([[-5, 5], [-5, 5]]),
-             'action_mapping': (0, 1),
-             'maximum_travel': 10},
+            (0, 1),  # position_mapping
+        ),
+        (
+            {
+                "n_samples": 20,
+                "action_space": StateVectors([[-5, 5], [-5, 5]]),
+                "action_mapping": (0, 1),
+                "maximum_travel": 10,
+            },
             StateVector([6.0, 6.0]),  # state
-            (0, 1)  # position_mapping
-        ), (
-            {'n_samples': 20,
-             'action_space': StateVectors([[-5, 5], [-5, 5], [-5, 5]]),
-             'action_mapping': (0, 1),
-             'maximum_travel': 10},
+            (0, 1),  # position_mapping
+        ),
+        (
+            {
+                "n_samples": 20,
+                "action_space": StateVectors([[-5, 5], [-5, 5], [-5, 5]]),
+                "action_mapping": (0, 1),
+                "maximum_travel": 10,
+            },
             StateVector([0.0, 0.0]),  # state
-            (0, 1)  # position_mapping
-        ), (
-            {'n_samples': 20,
-             'action_space': StateVectors([[-5, 5], [-5, 5], [-5, 5]]),
-             'action_mapping': (0, 1, 2),
-             'maximum_travel': 10},
+            (0, 1),  # position_mapping
+        ),
+        (
+            {
+                "n_samples": 20,
+                "action_space": StateVectors([[-5, 5], [-5, 5], [-5, 5]]),
+                "action_mapping": (0, 1, 2),
+                "maximum_travel": 10,
+            },
             StateVector([0.0, 0.0, 0.0]),  # state
-            (0, 1, 2)  # position_mapping
-        ), (
-            {'n_samples': 20,
-             'action_space': StateVectors([[-5, 5], [-5, 5]]),
-             'action_mapping': (0, 1),
-             'maximum_travel': 10},
+            (0, 1, 2),  # position_mapping
+        ),
+        (
+            {
+                "n_samples": 20,
+                "action_space": StateVectors([[-5, 5], [-5, 5]]),
+                "action_mapping": (0, 1),
+                "maximum_travel": 10,
+            },
             StateVector([0.0, 0.0, 0.0]),  # state
-            (0, 1, 2)  # position_mapping
-        )
+            (0, 1, 2),  # position_mapping
+        ),
     ],
-
-    ids=["defauls_n_samples_no_space", "default_travel_in_space", "max_travel_larger_than_space",
-         "outside_space_start", "incompatible_action_space_and_mapping", "3d_action_value_error",
-         "3d_position_2d_action"]
+    ids=[
+        "defauls_n_samples_no_space",
+        "default_travel_in_space",
+        "max_travel_larger_than_space",
+        "outside_space_start",
+        "incompatible_action_space_and_mapping",
+        "3d_action_value_error",
+        "3d_position_2d_action",
+    ],
 )
 def test_circle_sample_action_gen(gen_param_dict, state, position_mapping):
 
     start_timestamp = datetime.now()
     end_timestamp = start_timestamp + timedelta(seconds=1)
 
-    n_samples, action_space, action_mapping, maximum_travel = \
-        (gen_param_dict.get(key) for key in ['n_samples',
-                                             'action_space',
-                                             'action_mapping',
-                                             'maximum_travel'])
+    n_samples, action_space, action_mapping, maximum_travel = (
+        gen_param_dict.get(key)
+        for key in ["n_samples", "action_space", "action_mapping", "maximum_travel"]
+    )
 
     if n_samples is None:
-        gen_param_dict.pop('n_samples')
+        gen_param_dict.pop("n_samples")
         n_samples = 10  # if none, it should use default
 
     if action_space is None:
-        gen_param_dict.pop('action_space')
+        gen_param_dict.pop("action_space")
 
     if maximum_travel is None:
-        gen_param_dict.pop('maximum_travel')
+        gen_param_dict.pop("maximum_travel")
         maximum_travel = 1  # if non it should use default
 
-    platform = \
-        FixedPlatform(
-            movement_controller=CircleSampleActionableMovable(
-                states=[State(state, timestamp=start_timestamp)],
-                position_mapping=position_mapping,
-                **gen_param_dict))  # Dummy platform for initiating the generator
+    platform = FixedPlatform(
+        movement_controller=CircleSampleActionableMovable(
+            states=[State(state, timestamp=start_timestamp)],
+            position_mapping=position_mapping,
+            **gen_param_dict,
+        )
+    )  # Dummy platform for initiating the generator
 
     # Test error raises for invalid action space, action mapping or incompatibility of the two
-    if action_space is not None:
-        if (len(action_space) != len(action_mapping)) or \
-                (np.any(state[action_mapping, :] < action_space[:, [0]]) or
-                 np.any(state[action_mapping, :] > action_space[:, [1]])) or \
-                (len(action_mapping) != 2):
+    if action_space is not None and (
+        (len(action_space) != len(action_mapping))
+        or (
+            np.any(state[action_mapping, :] < action_space[:, [0]])
+            or np.any(state[action_mapping, :] > action_space[:, [1]])
+        )
+        or (len(action_mapping) != 2)
+    ):
 
-            with pytest.raises(ValueError):
-                generator = platform.actions(start_timestamp).pop()
-            return
+        with pytest.raises(ValueError):
+            generator = platform.actions(start_timestamp).pop()
+        return
 
     generator = platform.actions(start_timestamp).pop()
 
@@ -265,101 +321,129 @@ def test_circle_sample_action_gen(gen_param_dict, state, position_mapping):
         temp_platform = copy.deepcopy(platform)
         temp_platform.add_actions(action)
         temp_platform.act(end_timestamp)
-        assert np.linalg.norm(temp_platform.position - platform.position,
-                              axis=0) <= maximum_travel
+        assert np.linalg.norm(temp_platform.position - platform.position, axis=0) <= maximum_travel
 
         if action_space is not None:
-            assert (temp_platform.position[0] > action_space[0, 0] and
-                    temp_platform.position[0] < action_space[0, 1])
-            assert (temp_platform.position[1] > action_space[1, 0] and
-                    temp_platform.position[1] < action_space[1, 1])
+            assert (
+                temp_platform.position[0] > action_space[0, 0]
+                and temp_platform.position[0] < action_space[0, 1]
+            )
+            assert (
+                temp_platform.position[1] > action_space[1, 0]
+                and temp_platform.position[1] < action_space[1, 1]
+            )
 
 
 @pytest.mark.parametrize(
-    'gen_param_dict, state, position_mapping',
+    "gen_param_dict, state, position_mapping",
     [
         (
-            {'action_space': None,
-             'action_mapping': (0, 1),
-             'max_speed': 4},
+            {"action_space": None, "action_mapping": (0, 1), "max_speed": 4},
             StateVector([0.0, 0.0]),  # state
-            (0, 1)  # position_mapping
-        ), (
-            {'action_space': StateVectors([[-5, 5], [-5, 5]]),
-             'action_mapping': (0, 1),
-             'max_speed': None},
+            (0, 1),  # position_mapping
+        ),
+        (
+            {
+                "action_space": StateVectors([[-5, 5], [-5, 5]]),
+                "action_mapping": (0, 1),
+                "max_speed": None,
+            },
             StateVector([0.0, 0.0]),  # state
-            (0, 1)  # position_mapping
-        ), (
-            {'action_space': StateVectors([[-10, 5], [-10, 5]]),
-             'action_mapping': (0, 1),
-             'max_speed': 10},
+            (0, 1),  # position_mapping
+        ),
+        (
+            {
+                "action_space": StateVectors([[-10, 5], [-10, 5]]),
+                "action_mapping": (0, 1),
+                "max_speed": 10,
+            },
             StateVector([2.0, 3.0, 2.0]),  # state
-            (0, 1)  # position_mapping
-        ), (
-            {'action_space': StateVectors([[-5, 5], [-5, 5]]),
-             'action_mapping': (0, 1),
-             'max_speed': 10},
+            (0, 1),  # position_mapping
+        ),
+        (
+            {
+                "action_space": StateVectors([[-5, 5], [-5, 5]]),
+                "action_mapping": (0, 1),
+                "max_speed": 10,
+            },
             StateVector([6.0, 6.0]),  # state
-            (0, 1)  # position_mapping
-        ), (
-            {'action_space': StateVectors([[-5, 5], [-5, 5], [-5, 5]]),
-             'action_mapping': (0, 1),
-             'max_speed': 10},
+            (0, 1),  # position_mapping
+        ),
+        (
+            {
+                "action_space": StateVectors([[-5, 5], [-5, 5], [-5, 5]]),
+                "action_mapping": (0, 1),
+                "max_speed": 10,
+            },
             StateVector([0.0, 0.0]),  # state
-            (0, 1)  # position_mapping
-        ), (
-            {'action_space': StateVectors([[-5, 5], [-5, 5], [-5, 5]]),
-             'action_mapping': (0, 1, 2),
-             'max_speed': 10},
+            (0, 1),  # position_mapping
+        ),
+        (
+            {
+                "action_space": StateVectors([[-5, 5], [-5, 5], [-5, 5]]),
+                "action_mapping": (0, 1, 2),
+                "max_speed": 10,
+            },
             StateVector([0.0, 0.0, 0.0]),  # state
-            (0, 1, 2)  # position_mapping
-        ), (
-            {'action_space': StateVectors([[-5, 5], [-5, 5]]),
-             'action_mapping': (0, 1),
-             'max_speed': 10},
+            (0, 1, 2),  # position_mapping
+        ),
+        (
+            {
+                "action_space": StateVectors([[-5, 5], [-5, 5]]),
+                "action_mapping": (0, 1),
+                "max_speed": 10,
+            },
             StateVector([0.0, 0.0, 0.0]),  # state
-            (0, 1, 2)  # position_mapping
-        )
+            (0, 1, 2),  # position_mapping
+        ),
     ],
-    ids=["no_action_space", "default_travel_in_space", "max_travel_larger_than_space",
-         "outside_space_start", "incompatible_action_space_and_mapping", "3d_action_value_error",
-         "3d_position_2d_action"]
+    ids=[
+        "no_action_space",
+        "default_travel_in_space",
+        "max_travel_larger_than_space",
+        "outside_space_start",
+        "incompatible_action_space_and_mapping",
+        "3d_action_value_error",
+        "3d_position_2d_action",
+    ],
 )
 def test_max_speed_action_gen(gen_param_dict, state, position_mapping):
 
     start_timestamp = datetime.now()
     end_timestamp = start_timestamp + timedelta(seconds=1)
 
-    action_space, action_mapping, max_speed = \
-        (gen_param_dict.get(key) for key in ['action_space',
-                                             'action_mapping',
-                                             'max_speed'])
+    action_space, action_mapping, max_speed = (
+        gen_param_dict.get(key) for key in ["action_space", "action_mapping", "max_speed"]
+    )
 
     if action_space is None:
-        gen_param_dict.pop('action_space')
+        gen_param_dict.pop("action_space")
 
     if max_speed is None:
-        gen_param_dict.pop('max_speed')
+        gen_param_dict.pop("max_speed")
         max_speed = 1  # if non it should use default
 
-    platform = \
-        FixedPlatform(
-            movement_controller=MaxSpeedActionableMovable(
-                states=[State(state, timestamp=start_timestamp)],
-                position_mapping=position_mapping,
-                **gen_param_dict))  # Dummy platform for initiating the generator
+    platform = FixedPlatform(
+        movement_controller=MaxSpeedActionableMovable(
+            states=[State(state, timestamp=start_timestamp)],
+            position_mapping=position_mapping,
+            **gen_param_dict,
+        )
+    )  # Dummy platform for initiating the generator
 
     # Test error raises for invalid action space, action mapping or incompatibility of the two
-    if action_space is not None:
-        if (len(action_space) != len(action_mapping)) or \
-                (np.any(state[action_mapping, :] < action_space[:, [0]]) or
-                 np.any(state[action_mapping, :] > action_space[:, [1]])) or \
-                (len(action_mapping) != 2):
+    if action_space is not None and (
+        (len(action_space) != len(action_mapping))
+        or (
+            np.any(state[action_mapping, :] < action_space[:, [0]])
+            or np.any(state[action_mapping, :] > action_space[:, [1]])
+        )
+        or (len(action_mapping) != 2)
+    ):
 
-            with pytest.raises(ValueError):
-                generator = platform.actions(start_timestamp).pop()
-            return
+        with pytest.raises(ValueError):
+            generator = platform.actions(start_timestamp).pop()
+        return
 
     generator = platform.actions(end_timestamp).pop()
 
@@ -383,18 +467,21 @@ def test_max_speed_action_gen(gen_param_dict, state, position_mapping):
         temp_platform = copy.deepcopy(platform)
         temp_platform.add_actions(action)
         temp_platform.act(end_timestamp)
-        assert np.linalg.norm(temp_platform.position - platform.position,
-                              axis=0) <= max_speed
+        assert np.linalg.norm(temp_platform.position - platform.position, axis=0) <= max_speed
 
         # Test contains method for both Action and StateVector types
         assert action[0] in generator
         assert action[0].target_value in generator
 
         if action_space is not None:
-            assert (temp_platform.position[0] >= action_space[0, 0] and
-                    temp_platform.position[0] <= action_space[0, 1])
-            assert (temp_platform.position[1] >= action_space[1, 0] and
-                    temp_platform.position[1] <= action_space[1, 1])
+            assert (
+                temp_platform.position[0] >= action_space[0, 0]
+                and temp_platform.position[0] <= action_space[0, 1]
+            )
+            assert (
+                temp_platform.position[1] >= action_space[1, 0]
+                and temp_platform.position[1] <= action_space[1, 1]
+            )
 
     # Test creating action outside of range
     assert generator.action_from_value(StateVector([np.inf] * len(position_mapping))) is None

@@ -1,12 +1,13 @@
-from math import trunc, ceil, floor
+from math import ceil, floor, trunc
 
-from pytest import approx, fixture, xfail
-from numpy import deg2rad
 import numpy as np
+from numpy import deg2rad
+from pytest import approx, fixture, xfail
 
 from stonesoup.types.array import StateVector
+
+from ...functions import mod_bearing, mod_elevation
 from ..angle import Bearing, Elevation, Latitude, Longitude
-from ...functions import (mod_elevation, mod_bearing)
 
 
 @fixture(params=[Bearing, Elevation, Longitude, Latitude])
@@ -32,41 +33,41 @@ def test_bearing_init(class_, func):
 def test_multiply(class_):
     b1 = class_(3.14)
     b2 = class_(2)
-    bmul = float(b1)*float(b2)
-    bmul2 = 2*float(b1)
-    assert b1*b2 == approx(bmul)
-    assert b2*b1 == approx(bmul)
-    assert 2*b1 == approx(bmul2)
-    assert b1*2 == approx(bmul2)
+    bmul = float(b1) * float(b2)
+    bmul2 = 2 * float(b1)
+    assert b1 * b2 == approx(bmul)
+    assert b2 * b1 == approx(bmul)
+    assert 2 * b1 == approx(bmul2)
+    assert b1 * 2 == approx(bmul2)
 
 
 def test_addition(class_, func):
     b1 = class_(3.14)
     b2 = class_(2)
     b_sum = float(b1) + float(b2)
-    assert approx(func(b_sum)) == b1+b2
-    assert approx(func(b_sum)) == float(b1)+b2
-    assert approx(func(b_sum)) == b1+float(b2)
-    assert approx(func(b_sum)) == b2+b1
+    assert approx(func(b_sum)) == b1 + b2
+    assert approx(func(b_sum)) == float(b1) + b2
+    assert approx(func(b_sum)) == b1 + float(b2)
+    assert approx(func(b_sum)) == b2 + b1
 
 
 def test_subtraction(class_, func):
     b1 = class_(3.14)
     b2 = class_(2)
     b_diff = float(b1) - float(b2)
-    assert approx(func(b_diff)) == b1-b2
-    assert approx(func(b_diff)) == float(b1)-b2
-    assert approx(func(b_diff)) == b1-float(b2)
-    assert approx(-func(b_diff)) == b2-b1
+    assert approx(func(b_diff)) == b1 - b2
+    assert approx(func(b_diff)) == float(b1) - b2
+    assert approx(func(b_diff)) == b1 - float(b2)
+    assert approx(-func(b_diff)) == b2 - b1
 
 
 def test_division(class_):
     b1 = class_(3.14)
     b2 = class_(2)
-    b_div = float(b1)/float(b2)
-    assert approx(b_div) == b1/b2
-    assert approx(float(b1)/2) == b1/2
-    assert approx(b_div) == float(b1)/b2
+    b_div = float(b1) / float(b2)
+    assert approx(b_div) == b1 / b2
+    assert approx(float(b1) / 2) == b1 / 2
+    assert approx(b_div) == float(b1) / b2
 
 
 def test_comparison(class_):
@@ -106,12 +107,12 @@ def test_misc(class_):
 
 
 def test_degrees(class_):
-    b1 = class_(np.pi/4)  # pi/4 radians = 45 degrees
+    b1 = class_(np.pi / 4)  # pi/4 radians = 45 degrees
     assert b1.degrees == 45.0
 
 
 def test_average(class_, func):
-    val = np.pi/4
+    val = np.pi / 4
     b1 = class_(val) - 0.1
     b2 = class_(val) + 0.1
     assert class_.average([b1, b2]) == approx(val)

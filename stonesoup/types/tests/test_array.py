@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from ..array import Matrix, StateVector, StateVectors, CovarianceMatrix, PrecisionMatrix
+from ..array import CovarianceMatrix, Matrix, PrecisionMatrix, StateVector, StateVectors
 
 
 def test_statevector():
@@ -21,8 +21,8 @@ def test_statevector():
 
 
 def test_statevectors():
-    vec1 = np.array([[1.], [2.], [3.]])
-    vec2 = np.array([[2.], [3.], [4.]])
+    vec1 = np.array([[1.0], [2.0], [3.0]])
+    vec2 = np.array([[2.0], [3.0], [4.0]])
 
     sv1 = StateVector(vec1)
     sv2 = StateVector(vec2)
@@ -40,8 +40,8 @@ def test_statevectors():
 
 
 def test_statevectors_mean():
-    svs = StateVectors([[1., 2., 3.], [4., 5., 6.]])
-    mean = StateVector([[2., 5.]])
+    svs = StateVectors([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+    mean = StateVector([[2.0, 5.0]])
 
     assert np.allclose(np.average(svs, axis=1), mean)
     assert np.allclose(np.mean(svs, axis=1, keepdims=True), mean)
@@ -49,7 +49,8 @@ def test_statevectors_mean():
 
     assert np.allclose(np.mean(svs, axis=1, where=np.array([True, True, False])), [[1.5, 4.5]])
     assert np.allclose(
-        np.mean(svs, axis=1, dtype=int, where=np.array([True, True, False])), [[1, 4]])
+        np.mean(svs, axis=1, dtype=int, where=np.array([True, True, False])), [[1, 4]]
+    )
 
     with pytest.raises(TypeError):
         np.average(svs, axis=1, keepdims=False)
@@ -109,42 +110,53 @@ def test_setting():
 
 
 def test_covariancematrix():
-    """ CovarianceMatrix Type test """
+    """CovarianceMatrix Type test"""
 
     with pytest.raises(ValueError):
         CovarianceMatrix(np.array([0]))
 
-    covar_nparray = np.array([[2.2128, 0, 0, 0],
-                              [0.0002, 2.2130, 0, 0],
-                              [0.3897, -0.00004, 0.0128, 0],
-                              [0, 0.3897, 0.0013, 0.0135]]) * 1e3
+    covar_nparray = (
+        np.array(
+            [
+                [2.2128, 0, 0, 0],
+                [0.0002, 2.2130, 0, 0],
+                [0.3897, -0.00004, 0.0128, 0],
+                [0, 0.3897, 0.0013, 0.0135],
+            ]
+        )
+        * 1e3
+    )
 
     covar_matrix = CovarianceMatrix(covar_nparray)
     assert np.array_equal(covar_matrix, covar_nparray)
 
 
 def test_precisionmatrix():
-    """ CovarianceMatrix Type test """
+    """CovarianceMatrix Type test"""
 
     with pytest.raises(ValueError):
         PrecisionMatrix(np.array([0]))
 
-    prec_nparray = np.array([[7, 1, 0.5, 0],
-                             [1, 4, 2, 0.4],
-                             [0.5, 2, 6, 0.3],
-                             [0, 0.4, 0.3, 5]])
+    prec_nparray = np.array([[7, 1, 0.5, 0], [1, 4, 2, 0.4], [0.5, 2, 6, 0.3], [0, 0.4, 0.3, 5]])
 
     prec_matrix = PrecisionMatrix(prec_nparray)
     assert np.array_equal(prec_matrix, prec_nparray)
 
 
 def test_matrix():
-    """ Matrix Type test """
+    """Matrix Type test"""
 
-    covar_nparray = np.array([[2.2128, 0, 0, 0],
-                              [0.0002, 2.2130, 0, 0],
-                              [0.3897, -0.00004, 0.0128, 0],
-                              [0, 0.3897, 0.0013, 0.0135]]) * 1e3
+    covar_nparray = (
+        np.array(
+            [
+                [2.2128, 0, 0, 0],
+                [0.0002, 2.2130, 0, 0],
+                [0.3897, -0.00004, 0.0128, 0],
+                [0, 0.3897, 0.0013, 0.0135],
+            ]
+        )
+        * 1e3
+    )
 
     matrix = Matrix(covar_nparray)
     assert np.array_equal(matrix, covar_nparray)
@@ -153,38 +165,37 @@ def test_matrix():
 def test_multiplication():
     vector = np.array([[1, 1, 1, 1]]).T
     state_vector = StateVector(vector)
-    array = np.array([[1., 2., 3., 4.],
-                      [5., 6., 7., 8.]])
+    array = np.array([[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0]])
     covar = CovarianceMatrix(array)
     Mtype = Matrix
     Vtype = StateVector
 
-    assert np.array_equal(covar@state_vector, array@vector)
-    assert np.array_equal(covar@vector, array@vector)
-    assert np.array_equal(array@state_vector, array@vector)
-    assert np.array_equal(state_vector.T@covar.T, vector.T@array.T)
-    assert np.array_equal(vector.T@covar.T, vector.T@array.T)
-    assert np.array_equal(state_vector.T@array.T, vector.T@array.T)
+    assert np.array_equal(covar @ state_vector, array @ vector)
+    assert np.array_equal(covar @ vector, array @ vector)
+    assert np.array_equal(array @ state_vector, array @ vector)
+    assert np.array_equal(state_vector.T @ covar.T, vector.T @ array.T)
+    assert np.array_equal(vector.T @ covar.T, vector.T @ array.T)
+    assert np.array_equal(state_vector.T @ array.T, vector.T @ array.T)
 
-    assert type(array@state_vector) == Vtype  # noqa: E721
-    assert type(state_vector.T@array.T) == Mtype  # noqa: E721
-    assert type(covar@vector) == Vtype  # noqa: E721
-    assert type(vector.T@covar.T) == Mtype  # noqa: E721
+    assert type(array @ state_vector) == Vtype  # noqa: E721
+    assert type(state_vector.T @ array.T) == Mtype  # noqa: E721
+    assert type(covar @ vector) == Vtype  # noqa: E721
+    assert type(vector.T @ covar.T) == Mtype  # noqa: E721
 
 
 def test_array_ops():
     vector = np.array([[1, 1, 1, 1]]).T
-    vector2 = vector + 2.
+    vector2 = vector + 2.0
     sv = StateVector(vector)
-    array = np.array([[1., 2., 3., 4.], [2., 3., 4., 5.]]).T
+    array = np.array([[1.0, 2.0, 3.0, 4.0], [2.0, 3.0, 4.0, 5.0]]).T
     covar = CovarianceMatrix(array)
     Mtype = Matrix
     Vtype = type(sv)
 
     assert np.array_equal(covar - vector, array - vector)
-    assert type(covar-vector) == Mtype  # noqa: E721
+    assert type(covar - vector) == Mtype  # noqa: E721
     assert np.array_equal(covar + vector, array + vector)
-    assert type(covar+vector) == Mtype  # noqa: E721
+    assert type(covar + vector) == Mtype  # noqa: E721
     assert np.array_equal(vector - covar, vector - array)
     assert type(vector - covar) == Mtype  # noqa: E721
     assert np.array_equal(vector + covar, vector + array)
@@ -198,8 +209,8 @@ def test_array_ops():
     assert type(vector2 + sv) == Vtype  # noqa: E721
     assert np.array_equal(sv + vector2, vector + vector2)
     assert type(sv + vector2) == Vtype  # noqa: E721
-    assert type(sv+2.) == Vtype  # noqa: E721
-    assert type(sv*2.) == Vtype  # noqa: E721
+    assert type(sv + 2.0) == Vtype  # noqa: E721
+    assert type(sv * 2.0) == Vtype  # noqa: E721
 
     assert np.array_equal(array - sv, array - vector)
     assert type(array - sv) == Mtype  # noqa: E721
@@ -209,5 +220,86 @@ def test_array_ops():
     assert type(array + sv) == Mtype  # noqa: E721
     assert np.array_equal(sv + array, vector + array)
     assert type(sv + array) == Mtype  # noqa: E721
-    assert type(covar+2.) == Mtype  # noqa: E721
-    assert type(covar*2.) == Mtype  # noqa: E721
+    assert type(covar + 2.0) == Mtype  # noqa: E721
+    assert type(covar * 2.0) == Mtype  # noqa: E721
+
+
+# ============================================================================
+# GPU/CPU Interoperability Tests
+# ============================================================================
+
+
+def test_to_numpy_method():
+    """Test to_numpy() method exists and works."""
+    sv = StateVector([1, 2, 3])
+    arr = sv.to_numpy()
+    assert isinstance(arr, np.ndarray)
+    np.testing.assert_array_equal(arr, sv)
+
+
+def test_to_gpu_method_no_cupy():
+    """Test to_gpu() raises ImportError when CuPy not available."""
+    from stonesoup.backend import is_gpu_available
+
+    sv = StateVector([1, 2, 3])
+    if not is_gpu_available():
+        with pytest.raises(ImportError):
+            sv.to_gpu()
+
+
+@pytest.fixture
+def require_gpu():
+    """Skip test if GPU is not available."""
+    from stonesoup.backend import is_gpu_available
+
+    if not is_gpu_available():
+        pytest.skip("GPU not available")
+
+
+def test_statevector_from_cupy(require_gpu):
+    """Test creating StateVector from CuPy array."""
+    import cupy as cp
+
+    cupy_arr = cp.array([1.0, 2.0, 3.0])
+    sv = StateVector(cupy_arr)
+
+    assert isinstance(sv, StateVector)
+    assert isinstance(sv, np.ndarray)
+    np.testing.assert_array_equal(sv.flatten(), [1.0, 2.0, 3.0])
+
+
+def test_covariancematrix_from_cupy(require_gpu):
+    """Test creating CovarianceMatrix from CuPy array."""
+    import cupy as cp
+
+    cupy_arr = cp.eye(3)
+    cov = CovarianceMatrix(cupy_arr)
+
+    assert isinstance(cov, CovarianceMatrix)
+    assert isinstance(cov, np.ndarray)
+    np.testing.assert_array_equal(cov, np.eye(3))
+
+
+def test_matrix_from_cupy(require_gpu):
+    """Test creating Matrix from CuPy array."""
+    import cupy as cp
+
+    cupy_arr = cp.array([[1.0, 2.0], [3.0, 4.0]])
+    mat = Matrix(cupy_arr)
+
+    assert isinstance(mat, Matrix)
+    assert isinstance(mat, np.ndarray)
+    np.testing.assert_array_equal(mat, [[1.0, 2.0], [3.0, 4.0]])
+
+
+def test_to_gpu_and_back(require_gpu):
+    """Test roundtrip conversion to GPU and back."""
+    sv = StateVector([1.0, 2.0, 3.0])
+    gpu_arr = sv.to_gpu()
+    cpu_arr = sv.to_numpy()
+
+    np.testing.assert_array_equal(cpu_arr.flatten(), [1.0, 2.0, 3.0])
+
+    # Create new StateVector from GPU array
+    sv2 = StateVector(gpu_arr)
+    np.testing.assert_array_equal(sv.flatten(), sv2.flatten())

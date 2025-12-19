@@ -1,9 +1,9 @@
-from .base import Initiator
 from ..base import Property
 from ..types.hypothesis import SingleHypothesis
 from ..types.state import CategoricalState
 from ..types.track import Track
 from ..updater.categorical import HMMUpdater
+from .base import Initiator
 
 
 class SimpleCategoricalMeasurementInitiator(Initiator):

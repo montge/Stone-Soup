@@ -1,10 +1,10 @@
 import numpy as np
 
-from .. import DataAssociator
 from ...base import Property
 from ...hypothesiser.mfa import MFAHypothesiser
 from ...types.multihypothesis import MultipleHypothesis
-from ._init import init_hyp_info, Hyp
+from .. import DataAssociator
+from ._init import Hyp, init_hyp_info
 from ._step import MAX_ITERATION_COUNT, AlgorithmState, algorithm_step, prune_hypotheses
 
 
@@ -20,8 +20,9 @@ class MFADataAssociator(DataAssociator):
     """
 
     hypothesiser: MFAHypothesiser = Property(
-        doc='Generate a set of hypotheses for each prediction-detection pair')
-    slide_window: int = Property(doc='Length of MFA slide window')
+        doc="Generate a set of hypotheses for each prediction-detection pair"
+    )
+    slide_window: int = Property(doc="Length of MFA slide window")
 
     def associate(self, tracks, detections, timestamp, **kwargs):
         # No tracks, nothing to do
@@ -35,24 +36,28 @@ class MFADataAssociator(DataAssociator):
         hypotheses = []
         hyps = []
         for trackID, (track, multihypothesis) in enumerate(
-                self.generate_hypotheses(tracks, detections, timestamp,
-                                         detections_tuple=detections_tuple, **kwargs).items()):
+            self.generate_hypotheses(
+                tracks, detections, timestamp, detections_tuple=detections_tuple, **kwargs
+            ).items()
+        ):
             tracks_list.append(track)
             hypotheses.append(multihypothesis)
-            hyps.extend([
-                Hyp.create(
-                    trackID=trackID,
-                    cost=-np.log(individual_hypothesis.prediction.weight),
-                    measHistory=individual_hypothesis.prediction.tag,  # measurement indices
-                    slide_window=self.slide_window
-                )
-                for individual_hypothesis in multihypothesis
-            ])
+            hyps.extend(
+                [
+                    Hyp.create(
+                        trackID=trackID,
+                        cost=-np.log(individual_hypothesis.prediction.weight),
+                        measHistory=individual_hypothesis.prediction.tag,  # measurement indices
+                        slide_window=self.slide_window,
+                    )
+                    for individual_hypothesis in multihypothesis
+                ]
+            )
         hyp_info = init_hyp_info(hyps, self.slide_window)
 
         # Run the MFA algorithm
         alg_state = AlgorithmState.initialise(self.slide_window, len(hyp_info.hyps))
-        for iteration in range(MAX_ITERATION_COUNT):
+        for _iteration in range(MAX_ITERATION_COUNT):
             algorithm_step(alg_state, hyp_info)
             if alg_state.should_break:
                 break

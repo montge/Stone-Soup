@@ -2,13 +2,13 @@ import heapq
 from abc import abstractmethod
 from collections.abc import Collection
 from functools import cached_property
-from queue import Empty, Full, Queue, LifoQueue, PriorityQueue
+from queue import Empty, Full, LifoQueue, PriorityQueue, Queue
 from threading import Thread
 
-from .base import DetectionFeeder, GroundTruthFeeder
 from ..base import Property
 from ..buffered_generator import BufferedGenerator
 from ..reader import Reader
+from .base import DetectionFeeder, GroundTruthFeeder
 
 
 class MultiDataFeeder(DetectionFeeder, GroundTruthFeeder):
@@ -17,8 +17,9 @@ class MultiDataFeeder(DetectionFeeder, GroundTruthFeeder):
     This returns states from multiple data readers as a single stream,
     yielding from the reader yielding the lowest timestamp first.
     """
+
     reader = None
-    readers: Collection[Reader] = Property(doc='Readers to yield from')
+    readers: Collection[Reader] = Property(doc="Readers to yield from")
 
     @BufferedGenerator.generator_method
     def data_gen(self):
@@ -27,10 +28,11 @@ class MultiDataFeeder(DetectionFeeder, GroundTruthFeeder):
 
 class _QueueMultiDataFeeder(DetectionFeeder, GroundTruthFeeder):
     reader = None
-    readers: Collection[Reader] = Property(doc='Readers to yield from')
+    readers: Collection[Reader] = Property(doc="Readers to yield from")
     max_size: int = Property(
         default=0,
-        doc="Max queue size, where it will block more data being added. Default 0, unbounded.")
+        doc="Max queue size, where it will block more data being added. Default 0, unbounded.",
+    )
 
     @cached_property
     @abstractmethod
@@ -56,8 +58,7 @@ class _QueueMultiDataFeeder(DetectionFeeder, GroundTruthFeeder):
             for thread in self._threads:
                 thread.start()
 
-        while any(thread.is_alive() for thread in self._threads) \
-                or not self._queue.empty():
+        while any(thread.is_alive() for thread in self._threads) or not self._queue.empty():
             try:
                 time, data = self._queue.get_nowait()
             except Empty:
@@ -146,9 +147,11 @@ class MaxSizePriorityMultiDataFeeder(_QueueMultiDataFeeder):
     This is aimed at sources of data that are real-time streams, for
     example sensors sending data via network.
     """
+
     max_size: int = Property(
         default=0,
-        doc="Max queue size, where it will drop oldest data when full. Default 0, unbounded.")
+        doc="Max queue size, where it will drop oldest data when full. Default 0, unbounded.",
+    )
 
     @cached_property
     def _queue(self):

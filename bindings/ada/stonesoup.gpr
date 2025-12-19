@@ -1,0 +1,112 @@
+-- Stone Soup Ada Bindings GPRbuild Project File
+--
+-- Build with: gprbuild -P stonesoup.gpr
+-- Clean with: gprclean -P stonesoup.gpr
+-- Verify with SPARK: gnatprove -P stonesoup.gpr
+
+project StoneSoup is
+
+   for Languages use ("Ada");
+   for Source_Dirs use ("src");
+   for Object_Dir use "obj";
+   for Library_Dir use "lib";
+   for Library_Name use "stonesoup_ada";
+   for Library_Kind use "dynamic";
+
+   type Build_Type is ("Debug", "Release", "SPARK");
+   Build : Build_Type := external ("BUILD", "Debug");
+
+   Common_Switches :=
+      ("-gnatwa",       -- All warnings
+       "-gnatVa",       -- All validity checks
+       "-gnatf",        -- Full errors
+       "-gnateE",       -- Extra info in exceptions
+       "-gnat2022");    -- Ada 2022 mode
+
+   Style_Switches :=
+      ("-gnaty3",       -- Check indentation (3 spaces)
+       "-gnatya",       -- Check attribute casing
+       "-gnatyb",       -- Check no blanks at end of lines
+       "-gnatyc",       -- Check comments
+       "-gnatyd",       -- Check no DOS line terminators
+       "-gnatye",       -- Check end/exit labels
+       "-gnatyf",       -- Check no form feeds
+       "-gnatyh",       -- Check no horizontal tabs
+       "-gnatyi",       -- Check if-then layout
+       "-gnatyk",       -- Check casing rules for keywords
+       "-gnatyl",       -- Check reference manual layout
+       "-gnatym",       -- Check line length <= 79
+       "-gnatyn",       -- Check casing of package Standard
+       "-gnatyp",       -- Check pragma casing
+       "-gnatyr",       -- Check casing for identifier references
+       "-gnatys",       -- Check separate subprogram specs
+       "-gnatyt");      -- Check token separation rules
+       -- Note: -gnatyU and -gnatyx removed for GNAT < 12 compatibility
+
+   package Compiler is
+      case Build is
+         when "Debug" =>
+            for Default_Switches ("Ada") use
+               Common_Switches & Style_Switches &
+               ("-g",          -- Debug info
+                "-O0",         -- No optimization
+                "-gnata");     -- Enable assertions
+         when "Release" =>
+            for Default_Switches ("Ada") use
+               Common_Switches &
+               ("-O2",         -- Optimization level 2
+                "-gnatn",      -- Enable inlining
+                "-gnatp");     -- Suppress all checks
+         when "SPARK" =>
+            for Default_Switches ("Ada") use
+               Common_Switches &
+               ("-g",
+                "-O0",
+                "-gnata");
+      end case;
+   end Compiler;
+
+   package Binder is
+      for Default_Switches ("Ada") use ("-Es");  -- Store tracebacks in exceptions
+   end Binder;
+
+   package Linker is
+      case Build is
+         when "Debug" =>
+            for Default_Switches ("Ada") use ("-g");
+         when "Release" =>
+            for Default_Switches ("Ada") use ("-s");  -- Strip symbols
+         when "SPARK" =>
+            for Default_Switches ("Ada") use ("-g");
+      end case;
+      -- Link to libstonesoup when available
+      -- for Default_Switches ("Ada") use ("-lstonesoup");
+   end Linker;
+
+   package Builder is
+      for Default_Switches ("Ada") use ("-j0", "-g");
+   end Builder;
+
+   package Naming is
+      for Casing use "lowercase";
+      for Dot_Replacement use "-";
+   end Naming;
+
+   package Pretty_Printer is
+      for Default_Switches ("Ada") use
+         ("--max-line-length=99",
+          "--indentation=3",
+          "--no-separate-is",
+          "--align-modes");
+   end Pretty_Printer;
+
+   package Prove is
+      for Proof_Switches ("Ada") use
+         ("--level=2",             -- Proof level (0-4)
+          "--timeout=60",          -- Timeout per proof
+          "--steps=1000",          -- Max proof steps
+          "--prover=all",          -- Use all provers
+          "--warnings=continue");  -- Continue on warnings
+   end Prove;
+
+end StoneSoup;

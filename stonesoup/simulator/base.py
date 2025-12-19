@@ -1,6 +1,7 @@
+from stonesoup.buffered_generator import BufferedGenerator
+
 from ..base import Base
 from ..reader.base import DetectionReader, GroundTruthReader, SensorDataReader
-from stonesoup.buffered_generator import BufferedGenerator
 
 
 class Simulator(Base, BufferedGenerator):

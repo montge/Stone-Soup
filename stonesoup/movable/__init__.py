@@ -1,3 +1,3 @@
-from .movable import Movable, FixedMovable, MovingMovable, MultiTransitionMovable
+from .movable import FixedMovable, Movable, MovingMovable, MultiTransitionMovable
 
-__all__ = ['Movable', 'FixedMovable', 'MovingMovable', 'MultiTransitionMovable']
+__all__ = ["FixedMovable", "Movable", "MovingMovable", "MultiTransitionMovable"]

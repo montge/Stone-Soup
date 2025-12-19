@@ -7,27 +7,25 @@ import pytest
 from ...models.measurement.categorical import MarkovianMeasurementModel
 from ...models.measurement.linear import LinearGaussian
 from ...predictor.tests.test_composite import create_state
-from ...types.detection import Detection, CompositeDetection, CategoricalDetection, MissedDetection
-from ...types.hypothesis import SingleHypothesis, CompositeHypothesis
+from ...types.detection import CategoricalDetection, CompositeDetection, Detection, MissedDetection
+from ...types.hypothesis import CompositeHypothesis, SingleHypothesis
 from ...types.prediction import CompositePrediction
 from ...types.state import State
 from ...types.update import CompositeUpdate
 from ...updater.categorical import HMMUpdater
 from ...updater.composite import CompositeUpdater
-from ...updater.kalman import KalmanUpdater, ExtendedKalmanUpdater, UnscentedKalmanUpdater
+from ...updater.kalman import ExtendedKalmanUpdater, KalmanUpdater, UnscentedKalmanUpdater
 from ...updater.particle import ParticleUpdater
 
 
 def create_measurement_model(gaussian: bool, ndim_state: int):
     """Generate measurement models of particular dimensions"""
     if gaussian:
-        return LinearGaussian(ndim_state=ndim_state,
-                              noise_covar=np.eye(ndim_state),
-                              mapping=np.arange(ndim_state))
-    else:
-        return MarkovianMeasurementModel(
-            emission_matrix=np.random.rand(ndim_state, ndim_state)
+        return LinearGaussian(
+            ndim_state=ndim_state, noise_covar=np.eye(ndim_state), mapping=np.arange(ndim_state)
         )
+    else:
+        return MarkovianMeasurementModel(emission_matrix=np.random.rand(ndim_state, ndim_state))
 
 
 def random_updater_prediction_and_measurement(num_updaters, timestamp):
@@ -35,41 +33,48 @@ def random_updater_prediction_and_measurement(num_updaters, timestamp):
 
     ndim_states = np.random.randint(2, 5, 5)
 
-    sub_updaters = [KalmanUpdater(create_measurement_model(True, ndim_states[0])),
-                    ExtendedKalmanUpdater(create_measurement_model(True, ndim_states[1])),
-                    UnscentedKalmanUpdater(create_measurement_model(True, ndim_states[2])),
-                    ParticleUpdater(create_measurement_model(True, ndim_states[3])),
-                    HMMUpdater(create_measurement_model(False, ndim_states[4]))]
+    sub_updaters = [
+        KalmanUpdater(create_measurement_model(True, ndim_states[0])),
+        ExtendedKalmanUpdater(create_measurement_model(True, ndim_states[1])),
+        UnscentedKalmanUpdater(create_measurement_model(True, ndim_states[2])),
+        ParticleUpdater(create_measurement_model(True, ndim_states[3])),
+        HMMUpdater(create_measurement_model(False, ndim_states[4])),
+    ]
 
     sub_predictions = [
         create_state(True, False, ndim_states[0], timestamp),
         create_state(True, False, ndim_states[1], timestamp),
         create_state(True, False, ndim_states[2], timestamp),
         create_state(True, True, ndim_states[3], timestamp),
-        create_state(False, False, ndim_states[4], timestamp)
+        create_state(False, False, ndim_states[4], timestamp),
     ]
 
     sub_measurements = [
         Detection(
             state_vector=create_state(True, False, ndim_states[0], timestamp).state_vector,
             timestamp=timestamp,
-            measurement_model=sub_updaters[0].measurement_model),
+            measurement_model=sub_updaters[0].measurement_model,
+        ),
         Detection(
             state_vector=create_state(True, False, ndim_states[1], timestamp).state_vector,
             timestamp=timestamp,
-            measurement_model=sub_updaters[1].measurement_model),
+            measurement_model=sub_updaters[1].measurement_model,
+        ),
         Detection(
             state_vector=create_state(True, False, ndim_states[2], timestamp).state_vector,
             timestamp=timestamp,
-            measurement_model=sub_updaters[2].measurement_model),
+            measurement_model=sub_updaters[2].measurement_model,
+        ),
         Detection(
             state_vector=create_state(True, False, ndim_states[3], timestamp).state_vector,
             timestamp=timestamp,
-            measurement_model=sub_updaters[3].measurement_model),
+            measurement_model=sub_updaters[3].measurement_model,
+        ),
         CategoricalDetection(
             state_vector=create_state(False, False, ndim_states[4], timestamp).state_vector,
             timestamp=timestamp,
-            measurement_model=sub_updaters[4].measurement_model)
+            measurement_model=sub_updaters[4].measurement_model,
+        ),
     ]
 
     updater = CompositeUpdater(sub_updaters[:num_updaters])
@@ -79,7 +84,7 @@ def random_updater_prediction_and_measurement(num_updaters, timestamp):
     return updater, prediction, measurement
 
 
-@pytest.mark.parametrize('num_updaters', [1, 2, 3, 4, 5])
+@pytest.mark.parametrize("num_updaters", [1, 2, 3, 4, 5])
 def test_composite_updater(num_updaters):
     now = datetime.datetime.now()
 
@@ -91,36 +96,40 @@ def test_composite_updater(num_updaters):
 
     # Test instantiation errors
     with pytest.raises(
-            ValueError,
-            match="Sub-updaters must be defined as an ordered list, not <class 'set'>"):
+        ValueError, match="Sub-updaters must be defined as an ordered list, not <class 'set'>"
+    ):
         CompositeUpdater(set(sub_updaters))
 
     with pytest.raises(ValueError, match="Cannot create an empty composite updater"):
-        CompositeUpdater(list())
+        CompositeUpdater([])
 
     with pytest.raises(ValueError, match="All sub-updaters must be a Updater type"):
-        CompositeUpdater(sub_updaters + [1, 2, 3])
+        CompositeUpdater([*sub_updaters, 1, 2, 3])
 
     updater = CompositeUpdater(sub_updaters)
 
     # Test measurement model error
-    with pytest.raises(NotImplementedError,
-                       match="A composition of updaters has no defined measurement model"):
+    with pytest.raises(
+        NotImplementedError, match="A composition of updaters has no defined measurement model"
+    ):
         updater.measurement_model
 
     # Test predict measurement error
-    with pytest.raises(NotImplementedError,
-                       match="A composite updater has no method to predict a measurement"):
+    with pytest.raises(
+        NotImplementedError, match="A composite updater has no method to predict a measurement"
+    ):
         updater.predict_measurement()
 
     # Test update
 
-    sub_hypotheses = list()
-    eval_sub_meas_preds = list()
-    eval_sub_updates = list()
+    sub_hypotheses = []
+    eval_sub_meas_preds = []
+    eval_sub_updates = []
 
     # calculate expected update
-    for sub_prediction, sub_measurement, sub_updater in zip(prediction, measurement, sub_updaters):
+    for sub_prediction, sub_measurement, sub_updater in zip(
+        prediction, measurement, sub_updaters, strict=False
+    ):
         sub_hypothesis = SingleHypothesis(prediction=sub_prediction, measurement=sub_measurement)
         sub_hypotheses.append(sub_hypothesis)
 
@@ -138,26 +147,22 @@ def test_composite_updater(num_updaters):
     assert isinstance(update, CompositeUpdate)
     assert len(update) == len(prediction)
     assert update.hypothesis == hypothesis
-    for sub_update, eval_sub_update in zip(update, eval_update):
-        assert (np.allclose(sub_update.state_vector,
-                            eval_sub_update.state_vector,
-                            0,
-                            atol=1.e-14))
+    for sub_update, eval_sub_update in zip(update, eval_update, strict=False):
+        assert np.allclose(sub_update.state_vector, eval_sub_update.state_vector, 0, atol=1.0e-14)
         assert sub_update.hypothesis == eval_sub_update.hypothesis
-    assert (np.allclose(update.state_vector,
-                        eval_update.state_vector,
-                        0,
-                        atol=1.e-14))
+    assert np.allclose(update.state_vector, eval_update.state_vector, 0, atol=1.0e-14)
 
     # hypothesis with null sub-hypothesis
     alt_sub_measurements = copy(measurement.sub_states)
     alt_sub_measurements[0] = MissedDetection(timestamp=measurement.timestamp)
     alt_measurement = CompositeDetection(alt_sub_measurements)
     alt_sub_hypotheses = copy(sub_hypotheses)
-    alt_sub_hypotheses[0] = SingleHypothesis(prediction=prediction[0],
-                                             measurement=alt_sub_measurements[0])
-    alt_hypothesis = CompositeHypothesis(prediction, alt_measurement,
-                                         sub_hypotheses=alt_sub_hypotheses)
+    alt_sub_hypotheses[0] = SingleHypothesis(
+        prediction=prediction[0], measurement=alt_sub_measurements[0]
+    )
+    alt_hypothesis = CompositeHypothesis(
+        prediction, alt_measurement, sub_hypotheses=alt_sub_hypotheses
+    )
     alt_update = updater.update(alt_hypothesis)
     alt_eval_sub_updates = copy(eval_sub_updates)
     alt_eval_sub_updates[0] = prediction[0]
@@ -166,33 +171,32 @@ def test_composite_updater(num_updaters):
     assert isinstance(alt_update, CompositeUpdate)
     assert len(alt_update) == len(prediction)
     assert alt_update.hypothesis == alt_hypothesis
-    for i, (sub_update, eval_sub_update) in enumerate(zip(alt_update, alt_eval_update)):
-        assert (np.allclose(sub_update.state_vector,
-                            eval_sub_update.state_vector,
-                            0,
-                            atol=1.e-14))
+    for i, (sub_update, eval_sub_update) in enumerate(
+        zip(alt_update, alt_eval_update, strict=False)
+    ):
+        assert np.allclose(sub_update.state_vector, eval_sub_update.state_vector, 0, atol=1.0e-14)
         if i > 0:
             assert sub_update.hypothesis == eval_sub_update.hypothesis
-    assert (np.allclose(alt_update.state_vector,
-                        alt_eval_update.state_vector,
-                        0,
-                        atol=1.e-14))
+    assert np.allclose(alt_update.state_vector, alt_eval_update.state_vector, 0, atol=1.0e-14)
 
     # Test update error
-    with pytest.raises(ValueError,
-                       match="CompositeUpdater can only update with CompositeHypothesis types"):
+    with pytest.raises(
+        ValueError, match="CompositeUpdater can only update with CompositeHypothesis types"
+    ):
         updater.update(State([0]))
     if num_updaters > 1:
-        with pytest.raises(ValueError,
-                           match=f"Mismatch in number of sub-hypotheses {num_updaters - 1} and "
-                           f"number of sub-updaters {num_updaters}"):
+        with pytest.raises(
+            ValueError,
+            match=f"Mismatch in number of sub-hypotheses {num_updaters - 1} and "
+            f"number of sub-updaters {num_updaters}",
+        ):
             updater.update(hypothesis[1:])
 
     # Test contains
     for sub_updater in sub_updaters:
         assert sub_updater in updater
     assert KalmanUpdater(create_measurement_model(True, 5)) not in updater
-    assert 'a' not in updater
+    assert "a" not in updater
 
     # Test get
     for i in range(num_updaters):

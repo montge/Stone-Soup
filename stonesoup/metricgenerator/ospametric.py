@@ -3,12 +3,12 @@ from itertools import chain, groupby, zip_longest
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-from .base import MetricGenerator
 from ..base import Property
-from ..measures import Measure, Euclidean
+from ..measures import Euclidean, Measure
+from ..types.metric import SingleTimeMetric, TimeRangeMetric
 from ..types.state import State, StateMutableSequence
 from ..types.time import TimeRange
-from ..types.metric import SingleTimeMetric, TimeRangeMetric
+from .base import MetricGenerator
 
 
 class _SwitchingLoss:
@@ -16,6 +16,7 @@ class _SwitchingLoss:
     Holds state assignment history and computes GOSPA switching term
     See https://www.mathworks.com/help/fusion/ref/trackgospametric-system-object.html#d126e213697
     """
+
     def __init__(self, loss_factor, p):
         self.truth_associations = {}
         self.switching_loss = None
@@ -49,7 +50,7 @@ class _SwitchingLoss:
         """Compute loss based on last association."""
         if self.switching_loss is None:
             raise RuntimeError("Can't compute switching loss before any association are added.")
-        return self.loss_factor * self.switching_loss**(1/self.p)
+        return self.loss_factor * self.switching_loss ** (1 / self.p)
 
 
 class GOSPAMetric(MetricGenerator):
@@ -66,21 +67,27 @@ class GOSPAMetric(MetricGenerator):
         Generalized optimal sub-pattern assignment metric, 2016,
         [online] Available: http://arxiv.org/abs/1601.05585.
     """
+
     p: float = Property(doc="1<=p<infty, exponent.")
     c: float = Property(doc="c>0, cutoff distance.")
     switching_penalty: float = Property(doc="Penalty term for switching.", default=0.0)
     measure: Measure = Property(
         default_factory=Euclidean,
-        doc="Distance measure to use. Default :class:`~.measures.Euclidean()`")
-    generator_name: str = Property(doc="Unique identifier to use when accessing generated metrics "
-                                       "from MultiManager",
-                                   default='gospa_generator')
-    tracks_key: str = Property(doc='Key to access set of tracks added to MetricManager',
-                               default='tracks')
-    truths_key: str = Property(doc="Key to access set of ground truths added to MetricManager. "
-                                   "Or key to access a second set of tracks for track-to-track"
-                                   " metric generation",
-                               default='groundtruth_paths')
+        doc="Distance measure to use. Default :class:`~.measures.Euclidean()`",
+    )
+    generator_name: str = Property(
+        doc="Unique identifier to use when accessing generated metrics " "from MultiManager",
+        default="gospa_generator",
+    )
+    tracks_key: str = Property(
+        doc="Key to access set of tracks added to MetricManager", default="tracks"
+    )
+    truths_key: str = Property(
+        doc="Key to access set of ground truths added to MetricManager. "
+        "Or key to access a second set of tracks for track-to-track"
+        " metric generation",
+        default="groundtruth_paths",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -103,7 +110,7 @@ class GOSPAMetric(MetricGenerator):
         """
         return self.compute_over_time(
             *self.extract_states(manager.states_sets[self.tracks_key], True),
-            *self.extract_states(manager.states_sets[self.truths_key], True)
+            *self.extract_states(manager.states_sets[self.truths_key], True),
         )
 
     @staticmethod
@@ -130,19 +137,19 @@ class GOSPAMetric(MetricGenerator):
             if isinstance(element, StateMutableSequence) and not isinstance(element, State):
                 states = list(element.last_timestamp_generator())
                 state_list.extend(states)
-                ids.extend([i]*len(states))
+                ids.extend([i] * len(states))
             elif isinstance(element, State):
                 state_list.append(element)
                 ids.extend([i])
             else:
-                raise ValueError(
-                    "{!r} has no state extraction method".format(element))
+                raise ValueError(f"{element!r} has no state extraction method")
         if return_ids:
             return state_list, ids
         return state_list
 
-    def compute_over_time(self, measured_states, measured_state_ids, truth_states,
-                          truth_state_ids):
+    def compute_over_time(
+        self, measured_states, measured_state_ids, truth_states, truth_state_ids
+    ):
         """
         Compute the GOSPA metric at every timestep from a list of measured
         states and truth states.
@@ -162,8 +169,7 @@ class GOSPAMetric(MetricGenerator):
         for the GOSPA metric at each timestamp
         """
         all_meas_timestamps = np.fromiter(
-            (state.timestamp for state in measured_states),
-            dtype='O'
+            (state.timestamp for state in measured_states), dtype="O"
         )
         meas_order = np.argsort(all_meas_timestamps)
         all_meas_timestamps = all_meas_timestamps[meas_order]
@@ -173,10 +179,7 @@ class GOSPAMetric(MetricGenerator):
         all_meas_points = all_meas_points[meas_order]
         all_meas_ids = np.array(measured_state_ids)[meas_order]
 
-        all_truth_timestamps = np.fromiter(
-            (state.timestamp for state in truth_states),
-            dtype='O'
-        )
+        all_truth_timestamps = np.fromiter((state.timestamp for state in truth_states), dtype="O")
         truth_order = np.argsort(all_truth_timestamps)
         all_truth_timestamps = all_truth_timestamps[truth_order]
         all_truth_points = np.array(truth_states)[truth_order]
@@ -213,18 +216,19 @@ class GOSPAMetric(MetricGenerator):
             truth_ids = all_truth_ids[truth_idxs]
 
             metric, truth_to_measured_assignment = self.compute_gospa_metric(
-                meas_points,
-                truth_points
+                meas_points, truth_points
             )
             truth_mapping = {
                 truth_id: meas_ids[meas_id] if meas_id != -1 else None
-                for truth_id, meas_id in zip(truth_ids, truth_to_measured_assignment)}
+                for truth_id, meas_id in zip(truth_ids, truth_to_measured_assignment, strict=False)
+            }
 
             switching_metric.add_associations(truth_mapping)
-            metric.value['switching'] = switching_metric.loss()
-            metric.value['distance'] = np.power(metric.value['distance']**self.alpha +
-                                                metric.value['switching']**self.alpha,
-                                                1.0/self.alpha)
+            metric.value["switching"] = switching_metric.loss()
+            metric.value["distance"] = np.power(
+                metric.value["distance"] ** self.alpha + metric.value["switching"] ** self.alpha,
+                1.0 / self.alpha,
+            )
             gospa_metrics.append(metric)
 
         # If only one timestamp is present then return a SingleTimeMetric
@@ -235,10 +239,11 @@ class GOSPAMetric(MetricGenerator):
             end_time = np.concatenate((all_truth_timestamps[-1:], all_meas_timestamps[-1:])).max()
 
             return TimeRangeMetric(
-                title='GOSPA Metrics',
+                title="GOSPA Metrics",
                 value=gospa_metrics,
                 time_range=TimeRange(start=start_time, end=end_time),
-                generator=self)
+                generator=self,
+            )
 
     def compute_assignments(self, cost_matrix):
         """Compute assignments using modified Jonker-Volgenant algorithm
@@ -262,8 +267,8 @@ class GOSPAMetric(MetricGenerator):
         # Index for objects that will be left un-assigned.
         unassigned_idx = -1
 
-        measured_to_truth = np.full((n_measured, ), unassigned_idx)
-        truth_to_measured = np.full((m_truth, ), unassigned_idx)
+        measured_to_truth = np.full((n_measured,), unassigned_idx)
+        truth_to_measured = np.full((m_truth,), unassigned_idx)
 
         row_ind, col_ind = linear_sum_assignment(-cost_matrix)
         opt_cost = cost_matrix[row_ind, col_ind].sum()
@@ -300,7 +305,10 @@ class GOSPAMetric(MetricGenerator):
         # c could be int, so force to float
         cost_matrix = np.full((m, n), self.c, dtype=np.float64)
 
-        for i_track, track_state, in zip_longest(range(m), track_states):
+        for (
+            i_track,
+            track_state,
+        ) in zip_longest(range(m), track_states):
             for i_truth, truth_state in zip_longest(range(n), truth_states):
                 if None in (track_state, truth_state):
                     continue
@@ -329,17 +337,11 @@ class GOSPAMetric(MetricGenerator):
                       Note that distance = (localisation + missed + false)^1/p
         truth_to_measured_assignment: Assignment matrix.
         """
-        timestamps = {
-            state.timestamp
-            for state in chain(truth_states, measured_states)}
+        timestamps = {state.timestamp for state in chain(truth_states, measured_states)}
         if len(timestamps) != 1:
-            raise ValueError(
-                'All states must be from the same time to compute GOSPA')
+            raise ValueError("All states must be from the same time to compute GOSPA")
 
-        gospa_metric = {'distance': 0.0,
-                        'localisation': 0.0,
-                        'missed': 0,
-                        'false': 0}
+        gospa_metric = {"distance": 0.0, "localisation": 0.0, "missed": 0, "false": 0}
         num_truth_states = len(truth_states)
         num_measured_states = len(measured_states)
         truth_to_measured_assignment = []
@@ -347,31 +349,33 @@ class GOSPAMetric(MetricGenerator):
         cost_matrix = cost_matrix.transpose()
 
         opt_cost = 0.0
-        dummy_cost = (self.c ** self.p) / self.alpha
+        dummy_cost = (self.c**self.p) / self.alpha
         unassigned_index = -1
 
         if num_truth_states == 0:
             # When truth states are empty all measured states are false
             opt_cost = -1.0 * num_measured_states * dummy_cost
             if self.alpha == 2:
-                gospa_metric['false'] = opt_cost
+                gospa_metric["false"] = opt_cost
         elif num_measured_states == 0:
             # When measured states are empty all truth
             # states are missed
-            opt_cost = -1. * num_truth_states * dummy_cost
+            opt_cost = -1.0 * num_truth_states * dummy_cost
             if self.alpha == 2:
-                gospa_metric['missed'] = opt_cost
+                gospa_metric["missed"] = opt_cost
         else:
             # Use assignment algorithm when both truth_states
             # and measured_states are non-empty
-            cost_matrix = -1. * np.power(cost_matrix, self.p)
-            truth_to_measured_assignment, measured_to_truth_assignment, _ =\
+            cost_matrix = -1.0 * np.power(cost_matrix, self.p)
+            truth_to_measured_assignment, measured_to_truth_assignment, _ = (
                 self.compute_assignments(cost_matrix)
+            )
 
             opt_cost -= np.sum(measured_to_truth_assignment == unassigned_index) * dummy_cost
             if self.alpha == 2:
-                gospa_metric['false'] -= \
-                    np.sum(measured_to_truth_assignment == unassigned_index)*dummy_cost
+                gospa_metric["false"] -= (
+                    np.sum(measured_to_truth_assignment == unassigned_index) * dummy_cost
+                )
 
             # Now use assignments to compute bids
             for i in range(num_truth_states):
@@ -380,16 +384,19 @@ class GOSPAMetric(MetricGenerator):
 
                     if self.alpha == 2:
                         const_assign = truth_to_measured_assignment[i]
-                        const_cmp = (-1 * self.c**self.p)
+                        const_cmp = -1 * self.c**self.p
 
-                        gospa_metric['localisation'] += \
-                            cost_matrix[i, const_assign]*(cost_matrix[i, const_assign] > const_cmp)
+                        gospa_metric["localisation"] += cost_matrix[i, const_assign] * (
+                            cost_matrix[i, const_assign] > const_cmp
+                        )
 
-                        gospa_metric['missed'] -= \
-                            dummy_cost*(cost_matrix[i, const_assign] == const_cmp)
+                        gospa_metric["missed"] -= dummy_cost * (
+                            cost_matrix[i, const_assign] == const_cmp
+                        )
 
-                        gospa_metric['false'] -= \
-                            dummy_cost*(cost_matrix[i, const_assign] == const_cmp)
+                        gospa_metric["false"] -= dummy_cost * (
+                            cost_matrix[i, const_assign] == const_cmp
+                        )
 
                         if cost_matrix[i, const_assign] == const_cmp:
                             truth_to_measured_assignment[i] = unassigned_index
@@ -397,16 +404,16 @@ class GOSPAMetric(MetricGenerator):
                 else:
                     opt_cost = opt_cost - dummy_cost
                     if self.alpha == 2:
-                        gospa_metric['missed'] -= dummy_cost
+                        gospa_metric["missed"] -= dummy_cost
 
-        gospa_metric['distance'] = np.power((-1. * opt_cost), 1 / self.p)
-        gospa_metric['localisation'] *= -1.
-        gospa_metric['missed'] *= -1.
-        gospa_metric['false'] *= -1.
+        gospa_metric["distance"] = np.power((-1.0 * opt_cost), 1 / self.p)
+        gospa_metric["localisation"] *= -1.0
+        gospa_metric["missed"] *= -1.0
+        gospa_metric["false"] *= -1.0
 
         single_time_gospa_metric = SingleTimeMetric(
-                title='GOSPA Metric', value=gospa_metric,
-                timestamp=timestamps.pop(), generator=self)
+            title="GOSPA Metric", value=gospa_metric, timestamp=timestamps.pop(), generator=self
+        )
 
         return single_time_gospa_metric, truth_to_measured_assignment
 
@@ -425,11 +432,13 @@ class OSPAMetric(GOSPAMetric):
         Filters, D. Schuhmacher, B. Vo and B. Vo, IEEE Trans. Signal Processing
         2008
     """
-    c: float = Property(doc='Maximum distance for possible association')
-    p: float = Property(doc='Norm associated to distance')
-    generator_name: str = Property(doc="Unique identifier to use when accessing generated metrics "
-                                       "from MultiManager",
-                                   default='ospa_generator')
+
+    c: float = Property(doc="Maximum distance for possible association")
+    p: float = Property(doc="Norm associated to distance")
+    generator_name: str = Property(
+        doc="Unique identifier to use when accessing generated metrics " "from MultiManager",
+        default="ospa_generator",
+    )
 
     def compute_over_time(self, measured_states, meas_ids, truth_states, truth_ids):
         """Compute the OSPA metric at every timestep from a list of measured
@@ -451,31 +460,25 @@ class OSPAMetric(GOSPAMetric):
         """
 
         # Make a sorted list of all the unique timestamps used
-        timestamps = sorted({
-            state.timestamp
-            for state in chain(measured_states, truth_states)})
+        timestamps = sorted({state.timestamp for state in chain(measured_states, truth_states)})
 
         ospa_distances = []
 
         for timestamp in timestamps:
-            meas_points = [state
-                           for state in measured_states
-                           if state.timestamp == timestamp]
-            truth_points = [state
-                            for state in truth_states
-                            if state.timestamp == timestamp]
-            ospa_distances.append(
-                self.compute_OSPA_distance(meas_points, truth_points))
+            meas_points = [state for state in measured_states if state.timestamp == timestamp]
+            truth_points = [state for state in truth_states if state.timestamp == timestamp]
+            ospa_distances.append(self.compute_OSPA_distance(meas_points, truth_points))
 
         # If only one timestamp is present then return a SingleTimeMetric
         if len(timestamps) == 1:
             return ospa_distances[0]
         else:
             return TimeRangeMetric(
-                title='OSPA distances',
+                title="OSPA distances",
                 value=ospa_distances,
                 time_range=TimeRange(min(timestamps), max(timestamps)),
-                generator=self)
+                generator=self,
+            )
 
     def compute_OSPA_distance(self, track_states, truth_states):
         r"""
@@ -510,12 +513,9 @@ class OSPAMetric(GOSPAMetric):
 
         """
 
-        timestamps = {
-            state.timestamp
-            for state in chain(truth_states, track_states)}
+        timestamps = {state.timestamp for state in chain(truth_states, track_states)}
         if len(timestamps) > 1:
-            raise ValueError(
-                'All states must be from the same time to perform OSPA')
+            raise ValueError("All states must be from the same time to perform OSPA")
 
         if not track_states and not truth_states:  # pragma: no cover
             # For completeness, but can't generate metric without timestamp.
@@ -527,7 +527,7 @@ class OSPAMetric(GOSPAMetric):
             # Length of longest set of states
             n = max(len(track_states), len(truth_states))
             # Calculate metric
-            distance = ((1/n) * np.sum(cost_matrix[row_ind, col_ind]**self.p))**(1/self.p)
+            distance = ((1 / n) * np.sum(cost_matrix[row_ind, col_ind] ** self.p)) ** (1 / self.p)
         else:  # self.p == np.inf
             if len(track_states) == len(truth_states):
                 cost_matrix = self.compute_cost_matrix(track_states, truth_states)
@@ -536,5 +536,6 @@ class OSPAMetric(GOSPAMetric):
             else:
                 distance = self.c
 
-        return SingleTimeMetric(title='OSPA distance', value=distance,
-                                timestamp=timestamps.pop(), generator=self)
+        return SingleTimeMetric(
+            title="OSPA distance", value=distance, timestamp=timestamps.pop(), generator=self
+        )

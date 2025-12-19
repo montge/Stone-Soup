@@ -2,11 +2,11 @@ from abc import abstractmethod
 
 import numpy as np
 
-from .base import Sampler
 from ..base import Property
+from ..functions import gm_sample, jacobian
 from ..models.measurement.linear import LinearModel
-from ..functions import jacobian, gm_sample
 from ..types.state import ParticleState, StateVectors
+from .base import Sampler
 
 
 class DetectionSampler(Sampler):
@@ -14,6 +14,7 @@ class DetectionSampler(Sampler):
 
     Samples from a continuous distribution based on provided detections.
     """
+
     @abstractmethod
     def sample(self, detections):
         """Sample from continuous distribution based on detections
@@ -39,9 +40,7 @@ class GaussianDetectionParticleSampler(DetectionSampler):
     Gaussian detections and will either return samples from a single or mixture of Gaussians
     depending on which is provided."""
 
-    nsamples: int = Property(
-        default=1,
-        doc="Number of samples to return")
+    nsamples: int = Property(default=1, doc="Number of samples to return")
 
     def sample(self, detections, random_state=None, **kwargs):
         """Samples from a Gaussian mixture around detections
@@ -67,12 +66,12 @@ class GaussianDetectionParticleSampler(DetectionSampler):
                 if ndim_state > ndim_meas:
                     mapping = detection.measurement_model.mapping
                     mapping_matrix = np.zeros((ndim_state, ndim_meas))
-                    mapping_index = np.linspace(0, len(mapping)-1, ndim_meas, dtype=int)
+                    mapping_index = np.linspace(0, len(mapping) - 1, ndim_meas, dtype=int)
                     mapping_matrix[mapping, mapping_index] = 1
                     dist_mean.append(mapping_matrix @ detection.state_vector)
-                    dist_covar.append(mapping_matrix @
-                                      detection.measurement_model.noise_covar @
-                                      mapping_matrix.T)
+                    dist_covar.append(
+                        mapping_matrix @ detection.measurement_model.noise_covar @ mapping_matrix.T
+                    )
                 else:
                     dist_mean.append(detection.state_vector)
                     dist_covar.append(detection.measurement_model.noise_covar)
@@ -85,21 +84,25 @@ class GaussianDetectionParticleSampler(DetectionSampler):
 
         weights = self.get_weight(num_det)
 
-        samples = gm_sample(means=dist_mean,
-                            covars=dist_covar,
-                            weights=weights,
-                            size=self.nsamples,
-                            random_state=random_state)
+        samples = gm_sample(
+            means=dist_mean,
+            covars=dist_covar,
+            weights=weights,
+            size=self.nsamples,
+            random_state=random_state,
+        )
 
-        particles = ParticleState(state_vector=StateVectors(samples),
-                                  weight=np.array([1 / self.nsamples] * self.nsamples),
-                                  timestamp=timestamp)
+        particles = ParticleState(
+            state_vector=StateVectors(samples),
+            weight=np.array([1 / self.nsamples] * self.nsamples),
+            timestamp=timestamp,
+        )
         return particles
 
     @staticmethod
     def get_weight(num_detections):
 
-        weights = np.array([1/num_detections]*num_detections)
+        weights = np.array([1 / num_detections] * num_detections)
 
         return weights
 
@@ -114,10 +117,12 @@ class SwitchingDetectionSampler(DetectionSampler):
     """
 
     detection_sampler: DetectionSampler = Property(
-        doc="Sampler for generating samples from detections")
+        doc="Sampler for generating samples from detections"
+    )
 
     backup_sampler: Sampler = Property(
-        doc="Sampler for generating samples in the absence of detections")
+        doc="Sampler for generating samples in the absence of detections"
+    )
 
     def sample(self, detections, timestamp=None, **kwargs):
         """Produces samples based on the detections provided.

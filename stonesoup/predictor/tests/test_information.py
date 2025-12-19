@@ -1,29 +1,28 @@
 import datetime
-import pytest
+
 import numpy as np
+import pytest
 
 from ...models.transition.linear import ConstantVelocity
 from ...predictor.information import InformationKalmanPredictor
 from ...predictor.kalman import KalmanPredictor
-from ...types.state import InformationState, GaussianState
-from ...types.array import StateVector, CovarianceMatrix
+from ...types.array import CovarianceMatrix, StateVector
+from ...types.state import GaussianState, InformationState
 
 
 @pytest.mark.parametrize(
     "PredictorClass, transition_model, prior_mean, prior_covar",
     [
-        (   # Standard Kalman
+        (  # Standard Kalman
             InformationKalmanPredictor,
             ConstantVelocity(noise_diff_coeff=0.1),
             StateVector([-6.45, 0.7]),
-            CovarianceMatrix([[4.1123, 0.0013],
-                              [0.0013, 0.0365]])
+            CovarianceMatrix([[4.1123, 0.0013], [0.0013, 0.0365]]),
         )
     ],
-    ids=["standard"]
+    ids=["standard"],
 )
-def test_information(PredictorClass, transition_model,
-                     prior_mean, prior_covar):
+def test_information(PredictorClass, transition_model, prior_mean, prior_covar):
 
     # Define time related variables
     timestamp = datetime.datetime.now()
@@ -46,21 +45,21 @@ def test_information(PredictorClass, transition_model,
     predictor = PredictorClass(transition_model=transition_model)
 
     # Perform and assert state prediction
-    prediction = predictor.predict(prior=prior,
-                                   timestamp=new_timestamp)
+    prediction = predictor.predict(prior=prior, timestamp=new_timestamp)
 
     # reconstruct the state vector and covariance matrix
     pred_covar = np.linalg.inv(prediction.precision)
     pred_mean = pred_covar @ prediction.state_vector
 
     # And do the tests
-    assert np.allclose(predictor._transition_function(prior,
-                                                      time_interval=new_timestamp-timestamp),
-                       test_prediction.state_vector, 0, atol=1e-14)
-    assert np.allclose(pred_mean,
-                       test_prediction.state_vector, 0, atol=1.e-14)
-    assert np.allclose(pred_covar,
-                       test_prediction.covar, 0, atol=1.e-14)
+    assert np.allclose(
+        predictor._transition_function(prior, time_interval=new_timestamp - timestamp),
+        test_prediction.state_vector,
+        0,
+        atol=1e-14,
+    )
+    assert np.allclose(pred_mean, test_prediction.state_vector, 0, atol=1.0e-14)
+    assert np.allclose(pred_covar, test_prediction.covar, 0, atol=1.0e-14)
     assert prediction.timestamp == new_timestamp
 
     # test that we can get to the inverse matrix
@@ -75,6 +74,6 @@ def test_information(PredictorClass, transition_model,
     # Test this still works
     prediction_from_inv = predictor_winv.predict(prior=prior, timestamp=new_timestamp)
 
-    assert np.allclose(prediction.state_vector, prediction_from_inv.state_vector, 0, atol=1.e-14)
+    assert np.allclose(prediction.state_vector, prediction_from_inv.state_vector, 0, atol=1.0e-14)
 
     # TODO: Test with Control Model

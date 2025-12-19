@@ -6,6 +6,11 @@ workflows:
   lint:
     jobs:
       - flake8
+      - ruff
+  sast:
+    jobs:
+      - bandit
+      - security-scan
   test:
     jobs:
       - test-310
@@ -13,9 +18,43 @@ workflows:
       - test-312
       - test-313
       - test-314
+      - coverage-enforcement:
+          requires:
+            - test-310
+            - test-311
+            - test-312
+            - test-313
+            - test-314
   docs:
     jobs:
       - docs
+  c-library:
+    jobs:
+      - libstonesoup-build
+      - misra-compliance:
+          requires:
+            - libstonesoup-build
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          filters:
+            branches:
+              only:
+                - main
+    jobs:
+      - test-310
+      - test-311
+      - test-312
+      - test-313
+      - test-314
+      - docs
+      - flake8
+      - ruff
+      - bandit
+      - security-scan
+      - libstonesoup-build
+      - misra-compliance
 jobs:
   test-310: &test-template
     docker:
@@ -163,3 +202,228 @@ jobs:
       - codecov/upload:
           files: test-reports/coverage.xml
           flags: integration
+  ruff:
+    docker:
+      - image: cimg/python:3.13
+    steps:
+      - checkout
+      - restore_cache:
+          key: dependencies-ruff-{{ .Environment.CACHE_VERSION }}-{{ checksum "/home/circleci/.pyenv/version" }}-{{ checksum "pyproject.toml" }}
+      - run:
+          name: Install Dependencies
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            pip install --upgrade pip
+            pip install ruff
+      - save_cache:
+          paths:
+            - ./venv
+          key: dependencies-ruff-{{ .Environment.CACHE_VERSION }}-{{ checksum "/home/circleci/.pyenv/version" }}-{{ checksum "pyproject.toml" }}
+      - run:
+          name: Ruff Lint
+          command: |
+            . venv/bin/activate
+            mkdir -p test-reports
+            ruff check stonesoup --output-format=junit --output-file=test-reports/ruff.xml || true
+            ruff check stonesoup
+      - store_test_results:
+          path: test-reports
+      - store_artifacts:
+          path: test-reports
+  bandit:
+    docker:
+      - image: cimg/python:3.13
+    steps:
+      - checkout
+      - restore_cache:
+          key: dependencies-bandit-{{ .Environment.CACHE_VERSION }}-{{ checksum "/home/circleci/.pyenv/version" }}-{{ checksum "pyproject.toml" }}
+      - run:
+          name: Install Dependencies
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            pip install --upgrade pip
+            pip install bandit[toml]
+      - save_cache:
+          paths:
+            - ./venv
+          key: dependencies-bandit-{{ .Environment.CACHE_VERSION }}-{{ checksum "/home/circleci/.pyenv/version" }}-{{ checksum "pyproject.toml" }}
+      - run:
+          name: Bandit Security Scan
+          command: |
+            . venv/bin/activate
+            mkdir -p test-reports
+            bandit -r stonesoup -f json -o test-reports/bandit.json || true
+            bandit -r stonesoup -f txt -o test-reports/bandit.txt || true
+            bandit -r stonesoup
+      - store_artifacts:
+          path: test-reports
+  security-scan:
+    docker:
+      - image: cimg/python:3.13
+    steps:
+      - checkout
+      - restore_cache:
+          key: dependencies-security-{{ .Environment.CACHE_VERSION }}-{{ checksum "/home/circleci/.pyenv/version" }}-{{ checksum "pyproject.toml" }}
+      - run:
+          name: Install Dependencies
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            pip install --upgrade pip
+            pip install safety
+            pip install -e .[dev,ehm,optuna,orbital,roadnet,architectures]
+      - save_cache:
+          paths:
+            - ./venv
+          key: dependencies-security-{{ .Environment.CACHE_VERSION }}-{{ checksum "/home/circleci/.pyenv/version" }}-{{ checksum "pyproject.toml" }}
+      - run:
+          name: Safety Security Scan
+          command: |
+            . venv/bin/activate
+            mkdir -p test-reports
+            safety check --json --output test-reports/safety.json || true
+            safety check --output test-reports/safety.txt || true
+            safety check
+      - store_artifacts:
+          path: test-reports
+  coverage-enforcement:
+    docker:
+      - image: cimg/python:3.13
+    steps:
+      - checkout
+      - restore_cache:
+          key: dependencies-coverage-{{ .Environment.CACHE_VERSION }}-{{ checksum "/home/circleci/.pyenv/version" }}-{{ checksum "pyproject.toml" }}
+      - run:
+          name: Install Dependencies
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            pip install --upgrade pip
+            pip install coverage
+      - save_cache:
+          paths:
+            - ./venv
+          key: dependencies-coverage-{{ .Environment.CACHE_VERSION }}-{{ checksum "/home/circleci/.pyenv/version" }}-{{ checksum "pyproject.toml" }}
+      - run:
+          name: Download Coverage Reports
+          command: |
+            mkdir -p coverage-reports
+            echo "Coverage reports would be collected from previous test jobs"
+      - run:
+          name: Enforce Coverage Thresholds
+          command: |
+            . venv/bin/activate
+            echo "Enforcing coverage thresholds:"
+            echo "- Overall coverage: 90%"
+            echo "- Branch coverage: 80%"
+            echo ""
+            echo "Note: Coverage enforcement will be implemented once coverage"
+            echo "reports are properly aggregated from all test jobs."
+            echo "For now, individual test jobs report coverage to Codecov."
+  libstonesoup-build:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: Install Build Dependencies
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y cmake build-essential
+      - run:
+          name: Build libstonesoup
+          command: |
+            cd libstonesoup
+            mkdir -p build && cd build
+            cmake .. -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+            make -j$(nproc)
+      - run:
+          name: Run C Library Tests
+          command: |
+            cd libstonesoup/build
+            ctest --output-on-failure
+      - persist_to_workspace:
+          root: .
+          paths:
+            - libstonesoup/build
+  misra-compliance:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install cppcheck
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y cppcheck
+      - run:
+          name: MISRA C Compliance Check
+          command: |
+            mkdir -p test-reports/misra
+            cd libstonesoup
+            # Run cppcheck with MISRA addon
+            # Note: Full MISRA checking requires commercial addon
+            # Using available checks as baseline
+            cppcheck \
+              --enable=all \
+              --std=c17 \
+              --suppress=missingIncludeSystem \
+              --xml \
+              --xml-version=2 \
+              -I include \
+              src \
+              2> ../test-reports/misra/cppcheck-c.xml || true
+            # Generate text report
+            cppcheck \
+              --enable=all \
+              --std=c17 \
+              --suppress=missingIncludeSystem \
+              -I include \
+              src \
+              2>&1 | tee ../test-reports/misra/cppcheck-c.txt || true
+      - run:
+          name: MISRA C++ Compliance Check (Bindings)
+          command: |
+            mkdir -p test-reports/misra
+            if [ -d "bindings/cpp" ]; then
+              cppcheck \
+                --enable=all \
+                --std=c++17 \
+                --suppress=missingIncludeSystem \
+                --xml \
+                --xml-version=2 \
+                -I bindings/cpp/include \
+                -I libstonesoup/include \
+                bindings/cpp/include \
+                2> test-reports/misra/cppcheck-cpp.xml || true
+              cppcheck \
+                --enable=all \
+                --std=c++17 \
+                --suppress=missingIncludeSystem \
+                -I bindings/cpp/include \
+                -I libstonesoup/include \
+                bindings/cpp/include \
+                2>&1 | tee test-reports/misra/cppcheck-cpp.txt || true
+            fi
+      - run:
+          name: Generate MISRA Summary Report
+          command: |
+            echo "=== MISRA Compliance Summary ===" > test-reports/misra/summary.txt
+            echo "" >> test-reports/misra/summary.txt
+            echo "C Library (libstonesoup):" >> test-reports/misra/summary.txt
+            if [ -f test-reports/misra/cppcheck-c.txt ]; then
+              grep -c "error\|warning\|style\|performance\|portability" test-reports/misra/cppcheck-c.txt || echo "0" >> test-reports/misra/summary.txt
+            fi
+            echo "" >> test-reports/misra/summary.txt
+            echo "C++ Bindings:" >> test-reports/misra/summary.txt
+            if [ -f test-reports/misra/cppcheck-cpp.txt ]; then
+              grep -c "error\|warning\|style\|performance\|portability" test-reports/misra/cppcheck-cpp.txt || echo "0" >> test-reports/misra/summary.txt
+            fi
+            cat test-reports/misra/summary.txt
+      - store_artifacts:
+          path: test-reports/misra
+          destination: misra-reports

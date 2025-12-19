@@ -2,23 +2,21 @@ from datetime import datetime, timedelta
 
 import numpy as np
 
-from ..categorical import MarkovianTransitionModel
 from ....types.array import StateVector
 from ....types.state import CategoricalState
+from ..categorical import MarkovianTransitionModel
 
 
 def test_categorical_transition_model():
     # 3 categories
-    F = np.array([[50, 5, 30],
-                  [25, 90, 30],
-                  [25, 5, 30]])
+    F = np.array([[50, 5, 30], [25, 90, 30], [25, 5, 30]])
 
     model = MarkovianTransitionModel(F)
 
     # Test normalised
-    expected_array = np.array([[2 / 4, 1 / 20, 1 / 3],
-                               [1 / 4, 18 / 20, 1 / 3],
-                               [1 / 4, 1 / 20, 1 / 3]])
+    expected_array = np.array(
+        [[2 / 4, 1 / 20, 1 / 3], [1 / 4, 18 / 20, 1 / 3], [1 / 4, 1 / 20, 1 / 3]]
+    )
     assert np.allclose(model.transition_matrix, expected_array)
 
     # Test ndim

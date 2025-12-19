@@ -4,12 +4,16 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from .base import Type
-from .detection import Detection, MissedDetection, CompositeDetection
-from .prediction import MeasurementPrediction, Prediction, CompositePrediction, \
-    CompositeMeasurementPrediction
 from ..base import Property
 from ..types.numeric import Probability
+from .base import Type
+from .detection import CompositeDetection, Detection, MissedDetection
+from .prediction import (
+    CompositeMeasurementPrediction,
+    CompositePrediction,
+    MeasurementPrediction,
+    Prediction,
+)
 
 
 class Hypothesis(Type):
@@ -28,7 +32,8 @@ class Hypothesis(Type):
 
 class ProbabilityHypothesis(Hypothesis):
     probability: Probability = Property(
-        doc="Probability that detection is true location of prediction")
+        doc="Probability that detection is true location of prediction"
+    )
 
     def __lt__(self, other):
         return self.probability < other.probability
@@ -51,17 +56,18 @@ class ProbabilityHypothesis(Hypothesis):
 
 
 class SingleHypothesis(Hypothesis):
-    """A hypothesis based on a single measurement.
+    """A hypothesis based on a single measurement."""
 
-    """
     prediction: Prediction = Property(doc="Predicted track state")
     measurement: Detection = Property(doc="Detection used for hypothesis and updating")
     measurement_prediction: MeasurementPrediction = Property(
-        default=None, doc="Optional track prediction in measurement space")
+        default=None, doc="Optional track prediction in measurement space"
+    )
 
     def __bool__(self):
-        return (not isinstance(self.measurement, MissedDetection)) and \
-               (self.measurement is not None)
+        return (not isinstance(self.measurement, MissedDetection)) and (
+            self.measurement is not None
+        )
 
 
 class SingleDistanceHypothesis(SingleHypothesis):
@@ -95,15 +101,16 @@ class SingleDistanceHypothesis(SingleHypothesis):
         try:
             return 1 / self.distance
         except ZeroDivisionError:
-            return float('inf')
+            return float("inf")
 
 
 class SingleProbabilityHypothesis(ProbabilityHypothesis, SingleHypothesis):
     """Single Measurement Probability scored hypothesis subclass."""
 
     def __hash__(self):
-        return hash((self.probability, self.prediction, self.measurement,
-                    self.measurement_prediction))
+        return hash(
+            (self.probability, self.prediction, self.measurement, self.measurement_prediction)
+        )
 
 
 class JointHypothesis(Type, UserDict):
@@ -122,14 +129,17 @@ class JointHypothesis(Type, UserDict):
     Update, and Update imports Hypothesis, which is a circular import.
     """
 
-    hypotheses: Hypothesis = Property(doc='Association hypotheses')
+    hypotheses: Hypothesis = Property(doc="Association hypotheses")
 
     def __new__(cls, hypotheses):
-        if all(isinstance(hypothesis, SingleDistanceHypothesis)
-               for hypothesis in hypotheses.values()):
+        if all(
+            isinstance(hypothesis, SingleDistanceHypothesis) for hypothesis in hypotheses.values()
+        ):
             return super().__new__(DistanceJointHypothesis)
-        elif all(isinstance(hypothesis, SingleProbabilityHypothesis)
-                 for hypothesis in hypotheses.values()):
+        elif all(
+            isinstance(hypothesis, SingleProbabilityHypothesis)
+            for hypothesis in hypotheses.values()
+        ):
             return super().__new__(ProbabilityJointHypothesis)
         else:
             raise NotImplementedError
@@ -165,17 +175,20 @@ class ProbabilityJointHypothesis(ProbabilityHypothesis, JointHypothesis):
     probability: Probability = Property(
         default=None,
         doc="Probability that detection is true location of prediction. Defaults to `None`, "
-            "whereby the probability is calculated as being the product of the constituent "
-            "multiple-hypotheses' probabilities.")
+        "whereby the probability is calculated as being the product of the constituent "
+        "multiple-hypotheses' probabilities.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.probability = Probability(np.prod(
-            [hypothesis.probability for hypothesis in self.hypotheses.values()]))
+        self.probability = Probability(
+            np.prod([hypothesis.probability for hypothesis in self.hypotheses.values()])
+        )
 
     def normalise(self):
         sum_probability = Probability.sum(
-            hypothesis.probability for hypothesis in self.hypotheses.values())
+            hypothesis.probability for hypothesis in self.hypotheses.values()
+        )
         for hypothesis in self.hypotheses.values():
             hypothesis.probability /= sum_probability
 
@@ -219,13 +232,13 @@ class CompositeHypothesis(SingleHypothesis):
     """
 
     sub_hypotheses: Sequence[SingleHypothesis] = Property(
-        doc="Sequence of sub-hypotheses comprising the composite hypothesis. Must not be empty.")
-    prediction: CompositePrediction = Property(
-        doc="Predicted track state")
-    measurement: CompositeDetection = Property(
-        doc="Detection used for hypothesis and updating")
+        doc="Sequence of sub-hypotheses comprising the composite hypothesis. Must not be empty."
+    )
+    prediction: CompositePrediction = Property(doc="Predicted track state")
+    measurement: CompositeDetection = Property(doc="Detection used for hypothesis and updating")
     measurement_prediction: CompositeMeasurementPrediction = Property(
-        default=None, doc="Optional track prediction in measurement space")
+        default=None, doc="Optional track prediction in measurement space"
+    )
 
     def __init__(self, *args, **kwargs):
 
@@ -242,10 +255,7 @@ class CompositeHypothesis(SingleHypothesis):
 
         # Prediction matching `item`
         if isinstance(item, Prediction):
-            for sub_hypothesis in self.sub_hypotheses:
-                if sub_hypothesis.prediction is item:
-                    return True
-            return False
+            return any(sub_hypothesis.prediction is item for sub_hypothesis in self.sub_hypotheses)
 
         # Detection matching `item`
         if isinstance(item, Detection):
@@ -265,9 +275,11 @@ class CompositeHypothesis(SingleHypothesis):
             return self.sub_hypotheses.__getitem__(index)
 
         if isinstance(index, slice):
-            return self.__class__(prediction=self.prediction.__getitem__(index),
-                                  measurement=self.measurement.__getitem__(index),
-                                  sub_hypotheses=self.sub_hypotheses.__getitem__(index))
+            return self.__class__(
+                prediction=self.prediction.__getitem__(index),
+                measurement=self.measurement.__getitem__(index),
+                sub_hypotheses=self.sub_hypotheses.__getitem__(index),
+            )
 
         # retrieve sub-hypothesis by prediction
         if isinstance(index, Prediction):
@@ -290,7 +302,7 @@ class CompositeHypothesis(SingleHypothesis):
         return self.sub_hypotheses.__len__()
 
 
-Hypothesis.register(CompositeHypothesis)  # noqa: E305
+Hypothesis.register(CompositeHypothesis)
 
 
 class CompositeProbabilityHypothesis(CompositeHypothesis, SingleProbabilityHypothesis):
@@ -305,20 +317,24 @@ class CompositeProbabilityHypothesis(CompositeHypothesis, SingleProbabilityHypot
     probability: Probability = Property(
         default=None,
         doc="Probability that detection is true location of prediction. Default is `None`, "
-            "whereby probability is calculated as the product of sub-hypotheses' probabilities")
+        "whereby probability is calculated as the product of sub-hypotheses' probabilities",
+    )
     sub_hypotheses: Sequence[SingleProbabilityHypothesis] = Property(
         default_factory=list,
-        doc="Sequence of probability-scored sub-hypotheses comprising the composite hypothesis."
+        doc="Sequence of probability-scored sub-hypotheses comprising the composite hypothesis.",
     )
 
     def __init__(self, *args, **kwargs):
 
         super().__init__(*args, **kwargs)
 
-        if any(not isinstance(sub_hypothesis, SingleProbabilityHypothesis)
-               for sub_hypothesis in self.sub_hypotheses):
+        if any(
+            not isinstance(sub_hypothesis, SingleProbabilityHypothesis)
+            for sub_hypothesis in self.sub_hypotheses
+        ):
             raise ValueError(
-                f"{type(self).__name__} must be composed of SingleProbabilityHypothesis types")
+                f"{type(self).__name__} must be composed of SingleProbabilityHypothesis types"
+            )
 
         if self.probability is None:
             # Probability is product of sub-hypothesis probabilities
@@ -330,4 +346,4 @@ class CompositeProbabilityHypothesis(CompositeHypothesis, SingleProbabilityHypot
                     self.probability *= sub_hypothesis.probability
 
 
-ProbabilityHypothesis.register(CompositeProbabilityHypothesis)  # noqa: E305
+ProbabilityHypothesis.register(CompositeProbabilityHypothesis)

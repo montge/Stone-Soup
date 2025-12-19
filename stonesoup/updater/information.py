@@ -3,9 +3,9 @@ from functools import lru_cache
 import numpy as np
 
 from ..base import Property
+from ..models.measurement.linear import LinearGaussian
 from ..types.prediction import GaussianMeasurementPrediction
 from ..types.update import Update
-from ..models.measurement.linear import LinearGaussian
 from ..updater.kalman import KalmanUpdater
 
 
@@ -31,12 +31,14 @@ class InformationKalmanUpdater(KalmanUpdater):
     inverted.
 
     """
+
     measurement_model: LinearGaussian = Property(
         default=None,
         doc="A linear Gaussian measurement model. This need not be defined if "
-            "a measurement model is provided in the measurement. If no model "
-            "specified on construction, or in the measurement, then error "
-            "will be thrown.")
+        "a measurement model is provided in the measurement. If no model "
+        "specified on construction, or in the measurement, then error "
+        "will be thrown.",
+    )
 
     def _inverse_measurement_covar(self, measurement_model, **kwargs):
         """Return the inverse of the measurement covariance (or calculate it)
@@ -54,16 +56,17 @@ class InformationKalmanUpdater(KalmanUpdater):
             The inverse of the measurement covariance, :math:`R_k^{-1}`
 
         """
-        if hasattr(measurement_model, 'inverse_covar'):
+        if hasattr(measurement_model, "inverse_covar"):
             inv_measurement_covar = measurement_model.inverse_covar(**kwargs)
         else:
             inv_measurement_covar = np.linalg.inv(measurement_model.covar(**kwargs))
 
         return inv_measurement_covar
 
-    @lru_cache()
-    def predict_measurement(self, predicted_state, measurement_model=None, measurement_noise=True,
-                            **kwargs):
+    @lru_cache
+    def predict_measurement(
+        self, predicted_state, measurement_model=None, measurement_noise=True, **kwargs
+    ):
         r"""There's no direct analogue of a predicted measurement in the information form. This
         method is therefore provided to return the predicted measurement as would the standard
         Kalman updater. This is mainly for compatibility as it's not anticipated that it would
@@ -92,9 +95,9 @@ class InformationKalmanUpdater(KalmanUpdater):
         # native to the updater
         measurement_model = self._check_measurement_model(measurement_model)
 
-        hh = self._measurement_matrix(predicted_state=predicted_state,
-                                      measurement_model=measurement_model,
-                                      **kwargs)
+        hh = self._measurement_matrix(
+            predicted_state=predicted_state, measurement_model=measurement_model, **kwargs
+        )
 
         predicted_covariance = np.linalg.inv(predicted_state.precision)
         predicted_state_mean = predicted_covariance @ predicted_state.state_vector
@@ -104,9 +107,12 @@ class InformationKalmanUpdater(KalmanUpdater):
         if measurement_noise:
             innovation_covariance += measurement_model.covar(**kwargs)
 
-        return GaussianMeasurementPrediction(predicted_measurement, innovation_covariance,
-                                             predicted_state.timestamp,
-                                             cross_covar=predicted_covariance @ hh.T)
+        return GaussianMeasurementPrediction(
+            predicted_measurement,
+            innovation_covariance,
+            predicted_state.timestamp,
+            cross_covar=predicted_covariance @ hh.T,
+        )
 
     def update(self, hypothesis, **kwargs):
         r"""The Information filter update (corrector) method. Given a hypothesised association
@@ -137,12 +143,17 @@ class InformationKalmanUpdater(KalmanUpdater):
         invr = self._inverse_measurement_covar(measurement_model)
 
         posterior_precision = hypothesis.prediction.precision + hh.T @ invr @ hh
-        posterior_information_mean = pred_info_mean + hh.T @ invr @ \
-            hypothesis.measurement.state_vector
+        posterior_information_mean = (
+            pred_info_mean + hh.T @ invr @ hypothesis.measurement.state_vector
+        )
 
         if self.force_symmetric_covariance:
-            posterior_precision = (posterior_precision + posterior_precision.T)/2
+            posterior_precision = (posterior_precision + posterior_precision.T) / 2
 
-        return Update.from_state(hypothesis.prediction, posterior_information_mean,
-                                 posterior_precision,
-                                 timestamp=hypothesis.measurement.timestamp, hypothesis=hypothesis)
+        return Update.from_state(
+            hypothesis.prediction,
+            posterior_information_mean,
+            posterior_precision,
+            timestamp=hypothesis.measurement.timestamp,
+            hypothesis=hypothesis,
+        )

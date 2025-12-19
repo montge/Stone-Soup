@@ -1,6 +1,5 @@
-from collections.abc import Sequence, Iterable
+from collections.abc import Iterable, Sequence
 from itertools import chain
-from typing import Union
 
 from ..base import Property
 from ..dataassociator import Associator
@@ -18,17 +17,18 @@ class MultiManager(MetricManager):
     :class:`~.Track`, :class:`~.Detection` and :class:`~.GroundTruthPath`
     objects passed in as dictionaries.
     """
-    generators: Sequence[MetricGenerator] = Property(doc='List of generators to use', default=None)
+
+    generators: Sequence[MetricGenerator] = Property(doc="List of generators to use", default=None)
     associator: Associator = Property(doc="Associator to combine tracks and truth", default=None)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.states_sets = dict()
+        self.states_sets = {}
         self.association_set = None
         self.metrics = None
         self._association_sets = {}
 
-    def add_data(self, metric_data: dict = None, overwrite=True):
+    def add_data(self, metric_data: dict | None = None, overwrite=True):
         """Adds data to the metric generator
 
         Parameters
@@ -50,7 +50,7 @@ class MultiManager(MetricManager):
                 self.states_sets[key] = set(value)
         else:
             for key, value in metric_data.items():
-                if key not in self.states_sets.keys():
+                if key not in self.states_sets:
                     self.states_sets[key] = set(value)
                 else:
                     self.states_sets[key].update(value)
@@ -71,7 +71,8 @@ class MultiManager(MetricManager):
         key = (generator.tracks_key, generator.truths_key)
         if key not in self._association_sets:
             self._association_sets[key] = self.associator.associate_tracks(
-                self.states_sets[generator.tracks_key], self.states_sets[generator.truths_key])
+                self.states_sets[generator.tracks_key], self.states_sets[generator.truths_key]
+            )
         self.association_set = self._association_sets[key]
 
     def _get_metrics(self):
@@ -91,14 +92,17 @@ class MultiManager(MetricManager):
         generators = self.generators if isinstance(self.generators, list) else [self.generators]
 
         for generator in generators:
-            if self.associator is not None and \
-                    hasattr(generator, 'tracks_key') and hasattr(generator, 'truths_key'):
+            if (
+                self.associator is not None
+                and hasattr(generator, "tracks_key")
+                and hasattr(generator, "truths_key")
+            ):
                 self.associate_tracks(generator)
             metric_list = generator.compute_metric(self)
             if not isinstance(metric_list, list):  # If not already a list, force it to be one
                 metric_list = [metric_list]
             for metric in metric_list:
-                if generator.generator_name not in metrics.keys():
+                if generator.generator_name not in metrics:
                     metrics[generator.generator_name] = {metric.title: metric}
                 else:
                     metrics[generator.generator_name][metric.title] = metric
@@ -126,10 +130,13 @@ class MultiManager(MetricManager):
         """
         if generator is None:
             generator = self.generators[0]
-        timestamps = {state.timestamp
-                      for sequence in chain(self.states_sets[generator.tracks_key],
-                                            self.states_sets[generator.truths_key])
-                      for state in sequence}
+        timestamps = {
+            state.timestamp
+            for sequence in chain(
+                self.states_sets[generator.tracks_key], self.states_sets[generator.truths_key]
+            )
+            for state in sequence
+        }
 
         return sorted(timestamps)
 
@@ -141,18 +148,23 @@ class SimpleManager(MultiManager):
     :class:`~.Track`, :class:`~.Detection` and :class:`~.GroundTruthPath`
     objects.
     """
-    generators: Sequence[MetricGenerator] = Property(doc='List of generators to use', default=None)
+
+    generators: Sequence[MetricGenerator] = Property(doc="List of generators to use", default=None)
     associator: Associator = Property(doc="Associator to combine tracks and truth", default=None)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.states_sets = dict()
+        self.states_sets = {}
         self.association_set = None
         self.metrics = None
 
-    def add_data(self, groundtruth_paths: Iterable[Union[GroundTruthPath, Platform]] = None,
-                 tracks: Iterable[Track] = None, detections: Iterable[Detection] = None,
-                 overwrite=True):
+    def add_data(
+        self,
+        groundtruth_paths: Iterable[GroundTruthPath | Platform] | None = None,
+        tracks: Iterable[Track] | None = None,
+        detections: Iterable[Detection] | None = None,
+        overwrite=True,
+    ):
         """Adds data to the metric generator
 
         Parameters
@@ -168,8 +180,9 @@ class SimpleManager(MultiManager):
             overwriting one field (e.g. tracks) does not affect the others
         """
 
-        self._add(overwrite, groundtruth_paths=groundtruth_paths,
-                  tracks=tracks, detections=detections)
+        self._add(
+            overwrite, groundtruth_paths=groundtruth_paths, tracks=tracks, detections=detections
+        )
 
     def _add(self, overwrite, **kwargs):
         if overwrite:
@@ -179,14 +192,14 @@ class SimpleManager(MultiManager):
         else:
             for key, value in kwargs.items():
                 if value is not None:
-                    if key not in self.states_sets.keys():
+                    if key not in self.states_sets:
                         self.states_sets[key] = set(value)
                     else:
                         self.states_sets[key].update(value)
 
     def _get_metrics(self):
         metrics = {}
-        for key, value in self.metrics.items():
+        for _key, value in self.metrics.items():
             metrics.update(value)
 
         return metrics

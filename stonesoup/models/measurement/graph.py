@@ -59,11 +59,11 @@ class OptimalPathToDestinationMeasurementModel(NonLinearGaussianMeasurement):
               doi: 10.23919/FUSION45008.2020.9190463.
     """
 
-    graph: RoadNetwork = Property(
-        doc="The road network that the target is moving on")
+    graph: RoadNetwork = Property(doc="The road network that the target is moving on")
     use_indicator: bool = Property(
         default=True,
-        doc="Whether to use the indicator function in the evaluation of the likelihood")
+        doc="Whether to use the indicator function in the evaluation of the likelihood",
+    )
 
     @property
     def ndim_meas(self):
@@ -80,10 +80,7 @@ class OptimalPathToDestinationMeasurementModel(NonLinearGaussianMeasurement):
     def function(self, state, noise=False, **kwargs):
 
         if isinstance(noise, bool) or noise is None:
-            if noise:
-                noise = self.rvs(num_samples=state.state_vector.shape[1], **kwargs)
-            else:
-                noise = 0
+            noise = self.rvs(num_samples=state.state_vector.shape[1], **kwargs) if noise else 0
 
         # Transform range and edge to xy
         r = state.state_vector[0, :]
@@ -94,11 +91,9 @@ class OptimalPathToDestinationMeasurementModel(NonLinearGaussianMeasurement):
     def logpdf(self, state1, state2, **kwargs):
         sv = self.function(state2, **kwargs)
         num_particles = sv.shape[1]
-        likelihood = np.atleast_1d(mvn.logpdf(
-            sv.T,
-            mean=state1.state_vector.ravel(),
-            cov=self.covar(**kwargs)
-        ))
+        likelihood = np.atleast_1d(
+            mvn.logpdf(sv.T, mean=state1.state_vector.ravel(), cov=self.covar(**kwargs))
+        )
         if self.use_indicator:
             # If edge is not in the path, set likelihood to 0 (log(0)=-inf)
             e = state2.state_vector[-3, :]
@@ -106,7 +101,7 @@ class OptimalPathToDestinationMeasurementModel(NonLinearGaussianMeasurement):
             s = state2.state_vector[-1, :]
             for i in range(num_particles):
                 try:
-                    path = self.graph.shortest_path(s[i], d[i], path_type='edge')[(s[i], d[i])]
+                    path = self.graph.shortest_path(s[i], d[i], path_type="edge")[(s[i], d[i])]
                 except KeyError:
                     # If no path exists, set likelihood to -inf
                     likelihood[i] = -np.inf

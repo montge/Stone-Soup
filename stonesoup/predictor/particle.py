@@ -1,27 +1,25 @@
 import copy
-from collections.abc import Sequence, Collection
+from collections.abc import Collection, Sequence
 from enum import Enum
 
 import numpy as np
-from scipy.special import logsumexp
 from ordered_set import OrderedSet
+from scipy.special import logsumexp
 
-from ..sensor.sensor import Sensor
-
-from .base import Predictor
-from ._utils import predict_lru_cache
-from .kalman import KalmanPredictor, ExtendedKalmanPredictor
 from ..base import Property
 from ..models.transition import TransitionModel
 from ..proposal.base import Proposal
 from ..proposal.simple import DynamicsProposal
+from ..sampler import Sampler
 from ..sampler.particle import ParticleSampler
+from ..sensor.sensor import Sensor
+from ..types.array import StateVectors
 from ..types.numeric import Probability
 from ..types.prediction import Prediction
 from ..types.state import GaussianState
-from ..sampler import Sampler
-
-from ..types.array import StateVectors
+from ._utils import predict_lru_cache
+from .base import Predictor
+from .kalman import ExtendedKalmanPredictor, KalmanPredictor
 
 
 class ParticlePredictor(Predictor):
@@ -29,10 +27,12 @@ class ParticlePredictor(Predictor):
 
     An implementation of a Particle Filter predictor.
     """
+
     proposal: Proposal = Property(
         default=None,
         doc="A proposal object that generates samples from the proposal distribution. If `None`,"
-            "the transition model is used to generate samples.")
+        "the transition model is used to generate samples.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -68,11 +68,9 @@ class ParticlePredictor(Predictor):
             # TypeError: (timestamp or prior.timestamp) is None
             time_interval = None
 
-        return self.proposal.rvs(prior,
-                                 noise=True,
-                                 time_interval=time_interval,
-                                 measurement=measurement,
-                                 **kwargs)
+        return self.proposal.rvs(
+            prior, noise=True, time_interval=time_interval, measurement=measurement, **kwargs
+        )
 
 
 class ParticleFlowKalmanPredictor(ParticlePredictor):
@@ -94,11 +92,13 @@ class ParticleFlowKalmanPredictor(ParticlePredictor):
     .. [1] Ding, Tao & Coates, Mark J., "Implementation of the Daum-Huang
        Exact-Flow Particle Filter" 2012
     """
+
     kalman_predictor: KalmanPredictor = Property(
         default=None,
         doc="Kalman predictor to use. Default `None` where a new instance of"
-            ":class:`~.ExtendedKalmanPredictor` will be created utilising the"
-            "same transition model.")
+        ":class:`~.ExtendedKalmanPredictor` will be created utilising the"
+        "same transition model.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -111,16 +111,18 @@ class ParticleFlowKalmanPredictor(ParticlePredictor):
         particle_prediction = super().predict(prior, *args, **kwargs)
 
         kalman_prediction = self.kalman_predictor.predict(
-            GaussianState(prior.state_vector, prior.covar, prior.timestamp),
-            *args, **kwargs)
+            GaussianState(prior.state_vector, prior.covar, prior.timestamp), *args, **kwargs
+        )
 
-        return Prediction.from_state(prior,
-                                     state_vector=particle_prediction.state_vector,
-                                     log_weight=particle_prediction.log_weight,
-                                     timestamp=particle_prediction.timestamp,
-                                     fixed_covar=kalman_prediction.covar,
-                                     transition_model=self.transition_model,
-                                     prior=prior)
+        return Prediction.from_state(
+            prior,
+            state_vector=particle_prediction.state_vector,
+            log_weight=particle_prediction.log_weight,
+            timestamp=particle_prediction.timestamp,
+            fixed_covar=kalman_prediction.covar,
+            transition_model=self.transition_model,
+            prior=prior,
+        )
 
 
 class MultiModelPredictor(Predictor):
@@ -128,20 +130,20 @@ class MultiModelPredictor(Predictor):
 
     An implementation of a Particle Filter predictor utilising multiple models.
     """
+
     transition_model = None
     transition_models: Sequence[TransitionModel] = Property(
         doc="Transition models used to for particle transition, selected by model index on "
-            "particle. Models dimensions can be subset of the overall state space, by "
-            "using :attr:`model_mappings`."
+        "particle. Models dimensions can be subset of the overall state space, by "
+        "using :attr:`model_mappings`."
     )
-    transition_matrix: np.ndarray = Property(
-        doc="n-model by n-model transition matrix."
-    )
+    transition_matrix: np.ndarray = Property(doc="n-model by n-model transition matrix.")
     model_mappings: Sequence[Sequence[int]] = Property(
         doc="Sequence of mappings associated with each transition model. This enables mapping "
-            "between model and state space, enabling use of models that may have different "
-            "dimensions (e.g. velocity or acceleration). Parts of the state that aren't mapped "
-            "are set to zero.")
+        "between model and state space, enabling use of models that may have different "
+        "dimensions (e.g. velocity or acceleration). Parts of the state that aren't mapped "
+        "are set to zero."
+    )
 
     @property
     def probabilities(self):
@@ -169,7 +171,8 @@ class MultiModelPredictor(Predictor):
             state_vector=copy.copy(prior.state_vector),
             parent=prior,
             dynamic_model=copy.copy(prior.dynamic_model),
-            timestamp=timestamp)
+            timestamp=timestamp,
+        )
 
         for model_index, transition_model in enumerate(self.transition_models):
             # Change the value of the dynamic value randomly according to the defined
@@ -179,12 +182,17 @@ class MultiModelPredictor(Predictor):
             if current_model_count == 0:
                 continue
             new_dynamic_models = np.searchsorted(
-                self.probabilities[model_index],
-                np.random.random(size=current_model_count))
+                self.probabilities[model_index], np.random.random(size=current_model_count)
+            )
 
             new_state_vector = self.apply_model(
-                prior[current_model_indices], transition_model, timestamp,
-                self.model_mappings[model_index], noise=True, **kwargs)
+                prior[current_model_indices],
+                transition_model,
+                timestamp,
+                self.model_mappings[model_index],
+                noise=True,
+                **kwargs,
+            )
 
             new_particle_state.state_vector[:, current_model_indices] = new_state_vector
             new_particle_state.dynamic_model[current_model_indices] = new_dynamic_models
@@ -198,7 +206,8 @@ class MultiModelPredictor(Predictor):
         orig_ndim = prior.ndim
         prior.state_vector = prior.state_vector[model_mapping, :]
         new_state_vector = transition_model.function(
-            prior, time_interval=timestamp - prior.timestamp, **kwargs)
+            prior, time_interval=timestamp - prior.timestamp, **kwargs
+        )
 
         # Calculate the indices removed from the state vector to become compatible with the
         # dynamic model
@@ -234,16 +243,14 @@ class RaoBlackwellisedMultiModelPredictor(MultiModelPredictor):
         """
 
         new_particle_state = Prediction.from_state(
-            prior,
-            state_vector=copy.copy(prior.state_vector),
-            parent=prior,
-            timestamp=timestamp)
+            prior, state_vector=copy.copy(prior.state_vector), parent=prior, timestamp=timestamp
+        )
 
         # Change the value of the dynamic value randomly according to the
         # matrix
         new_dynamic_models = np.argmax(
-            prior.model_probabilities.astype(float).cumsum(0) > np.random.rand(len(prior)),
-            axis=0)
+            prior.model_probabilities.astype(float).cumsum(0) > np.random.rand(len(prior)), axis=0
+        )
 
         for model_index, transition_model in enumerate(self.transition_models):
 
@@ -252,8 +259,13 @@ class RaoBlackwellisedMultiModelPredictor(MultiModelPredictor):
                 continue
 
             new_state_vector = self.apply_model(
-                prior[new_model_indices], transition_model, timestamp,
-                self.model_mappings[model_index], noise=True, **kwargs)
+                prior[new_model_indices],
+                transition_model,
+                timestamp,
+                self.model_mappings[model_index],
+                noise=True,
+                **kwargs,
+            )
 
             new_particle_state.state_vector[:, new_model_indices] = new_state_vector
 
@@ -277,16 +289,13 @@ class BernoulliParticlePredictor(ParticlePredictor):
        2013, IEEE Transactions on Signal Processing, 61(13), 3406-3430.
     """
 
-    birth_probability: float = Property(
-        default=0.01,
-        doc="Probability of target birth.")
-    survival_probability: float = Property(
-        default=0.98,
-        doc="Probability of target survival")
+    birth_probability: float = Property(default=0.01, doc="Probability of target birth.")
+    survival_probability: float = Property(default=0.98, doc="Probability of target survival")
     birth_sampler: Sampler = Property(
         default=None,
         doc="Sampler object used for sampling birth particles. "
-            "Currently implementation assumes the :class:`~.DetectionSampler` is used")
+        "Currently implementation assumes the :class:`~.DetectionSampler` is used",
+    )
 
     def predict(self, prior, timestamp=None, **kwargs):
         """Bernoulli Particle Filter prediction step
@@ -322,11 +331,16 @@ class BernoulliParticlePredictor(ParticlePredictor):
         nbirth_particles = len(birth_state)
 
         # Unite the surviving and birth particle sets in the prior
-        new_particle_state.state_vector = StateVectors(np.concatenate(
-            (new_particle_state.state_vector, birth_part), axis=1))
+        new_particle_state.state_vector = StateVectors(
+            np.concatenate((new_particle_state.state_vector, birth_part), axis=1)
+        )
         # Extend weights to match length of state_vector
         new_log_weight_vector = np.concatenate(
-            (new_particle_state.log_weight, np.full(nbirth_particles, np.log(1/nbirth_particles))))
+            (
+                new_particle_state.log_weight,
+                np.full(nbirth_particles, np.log(1 / nbirth_particles)),
+            )
+        )
         new_particle_state.log_weight = new_log_weight_vector - logsumexp(new_log_weight_vector)
 
         untransitioned_state = Prediction.from_state(
@@ -335,14 +349,11 @@ class BernoulliParticlePredictor(ParticlePredictor):
         )
 
         new_state_vector = self.transition_model.function(
-            new_particle_state,
-            time_interval=time_interval,
-            noise=True,
-            **kwargs)
+            new_particle_state, time_interval=time_interval, noise=True, **kwargs
+        )
 
         # Estimate existence
-        predicted_existence = self.estimate_existence(
-            new_particle_state.existence_probability)
+        predicted_existence = self.estimate_existence(new_particle_state.existence_probability)
 
         predicted_log_weights = self.predict_log_weights(
             untransitioned_state,  # prior state
@@ -351,9 +362,11 @@ class BernoulliParticlePredictor(ParticlePredictor):
                 state_vector=new_state_vector,
             ),  # predicted_state
             new_particle_state.existence_probability,
-            predicted_existence, nsurv_particles,
+            predicted_existence,
+            nsurv_particles,
             new_particle_state.log_weight,
-            time_interval=time_interval)
+            time_interval=time_interval,
+        )
 
         # Create the prediction output
         new_particle_state = Prediction.from_state(
@@ -364,27 +377,41 @@ class BernoulliParticlePredictor(ParticlePredictor):
             parent=untransitioned_state,
             timestamp=timestamp,
             transition_model=self.transition_model,
-            prior=prior
+            prior=prior,
         )
         return new_particle_state
 
     def estimate_existence(self, existence_prior):
-        existence_estimate = self.birth_probability * (1 - existence_prior) \
-                             + self.survival_probability * existence_prior
+        existence_estimate = (
+            self.birth_probability * (1 - existence_prior)
+            + self.survival_probability * existence_prior
+        )
         return existence_estimate
 
-    def predict_log_weights(self, prior_state, predicted_state, prior_existence,
-                            predicted_existence, surv_part_size, prior_log_weights, **kwargs):
+    def predict_log_weights(
+        self,
+        prior_state,
+        predicted_state,
+        prior_existence,
+        predicted_existence,
+        surv_part_size,
+        prior_log_weights,
+        **kwargs,
+    ):
 
         # Weight prediction function currently assumes that the chosen importance density is the
         # transition density. This will need to change if implementing a different importance
         # density or incorporating visibility information
 
-        surv_weights = np.log((self.survival_probability*prior_existence)/predicted_existence) \
+        surv_weights = (
+            np.log((self.survival_probability * prior_existence) / predicted_existence)
             + prior_log_weights[:surv_part_size]
+        )
 
-        birth_weights = np.log((self.birth_probability*(1-prior_existence))/predicted_existence) \
+        birth_weights = (
+            np.log((self.birth_probability * (1 - prior_existence)) / predicted_existence)
             + prior_log_weights[surv_part_size:]
+        )
         predicted_log_weights = np.concatenate((surv_weights, birth_weights))
 
         # Normalise weights
@@ -396,11 +423,10 @@ class BernoulliParticlePredictor(ParticlePredictor):
     def get_detections(prior):
 
         detections = OrderedSet()
-        if hasattr(prior, 'hypothesis'):
-            if prior.hypothesis is not None:
-                for hypothesis in prior.hypothesis:
-                    if hypothesis.measurement:
-                        detections |= {hypothesis.measurement}
+        if hasattr(prior, "hypothesis") and prior.hypothesis is not None:
+            for hypothesis in prior.hypothesis:
+                if hypothesis.measurement:
+                    detections |= {hypothesis.measurement}
 
         return detections
 
@@ -427,25 +453,38 @@ class VisibilityInformedBernoulliParticlePredictor(BernoulliParticlePredictor):
     """
 
     sensors: Collection[Sensor] = Property(
-        default=None, doc="Collection of sensors providing measurements for update stages. "
-        "Used here to evaluate visibility of particles.")
+        default=None,
+        doc="Collection of sensors providing measurements for update stages. "
+        "Used here to evaluate visibility of particles.",
+    )
     obstacle_transition_likelihood: float = Property(
-        default=1e-20, doc="Transition likelihood of particles that are propagated into obstacles "
-        "or not visible")
+        default=1e-20,
+        doc="Transition likelihood of particles that are propagated into obstacles "
+        "or not visible",
+    )
     obstacle_birth_likelihood: float = Property(
-        default=1e-20, doc="Birth transition likelihood of particles that are not visible "
-        "or within obstacles")
+        default=1e-20,
+        doc="Birth transition likelihood of particles that are not visible " "or within obstacles",
+    )
 
-    def predict_log_weights(self, prior_state, predicted_state, prior_existence,
-                            predicted_existence, surv_part_size, prior_log_weights, **kwargs):
+    def predict_log_weights(
+        self,
+        prior_state,
+        predicted_state,
+        prior_existence,
+        predicted_existence,
+        surv_part_size,
+        prior_log_weights,
+        **kwargs,
+    ):
 
         # Weight prediction function currently assumes that the chosen importance density is the
         # transition density. This will need to change if implementing a different importance
         # density or incorporating visibility information
 
-        transition_likelihood = self.transition_model.logpdf(predicted_state,
-                                                             prior_state,
-                                                             **kwargs)
+        transition_likelihood = self.transition_model.logpdf(
+            predicted_state, prior_state, **kwargs
+        )
         n_parts = len(predicted_state)
         visible_parts = np.full(n_parts, False)
         parts_in_obs = np.full(n_parts, False)
@@ -454,21 +493,25 @@ class VisibilityInformedBernoulliParticlePredictor(BernoulliParticlePredictor):
             parts_in_obs = np.logical_or(parts_in_obs, sensor.in_obstacle(predicted_state))
 
         transition_likelihood_mod = copy.copy(transition_likelihood)
-        transition_likelihood_mod[:surv_part_size][parts_in_obs[:surv_part_size]] = \
-            np.log(self.obstacle_transition_likelihood)
+        transition_likelihood_mod[:surv_part_size][parts_in_obs[:surv_part_size]] = np.log(
+            self.obstacle_transition_likelihood
+        )
 
-        transition_likelihood_mod[surv_part_size:][~visible_parts[surv_part_size:]] = \
-            np.log(self.obstacle_birth_likelihood)
+        transition_likelihood_mod[surv_part_size:][~visible_parts[surv_part_size:]] = np.log(
+            self.obstacle_birth_likelihood
+        )
 
-        surv_weights = \
-            np.log((self.survival_probability*prior_existence)/predicted_existence) + \
-                  (transition_likelihood_mod[:surv_part_size] -
-                   transition_likelihood[:surv_part_size]) + prior_log_weights[:surv_part_size]
+        surv_weights = (
+            np.log((self.survival_probability * prior_existence) / predicted_existence)
+            + (transition_likelihood_mod[:surv_part_size] - transition_likelihood[:surv_part_size])
+            + prior_log_weights[:surv_part_size]
+        )
 
-        birth_weights = \
-            np.log((self.birth_probability*(1-prior_existence))/predicted_existence) + \
-                  (transition_likelihood_mod[surv_part_size:] -
-                   transition_likelihood[surv_part_size:]) + prior_log_weights[surv_part_size:]
+        birth_weights = (
+            np.log((self.birth_probability * (1 - prior_existence)) / predicted_existence)
+            + (transition_likelihood_mod[surv_part_size:] - transition_likelihood[surv_part_size:])
+            + prior_log_weights[surv_part_size:]
+        )
         predicted_log_weights = np.concatenate((surv_weights, birth_weights))
 
         # Normalise weights
@@ -479,8 +522,9 @@ class VisibilityInformedBernoulliParticlePredictor(BernoulliParticlePredictor):
 
 class SMCPHDBirthSchemeEnum(Enum):
     """SMC-PHD Birth scheme enumeration"""
-    EXPANSION = 'expansion'  #: Expansion birth scheme
-    MIXTURE = 'mixture'      #: Mixture birth scheme
+
+    EXPANSION = "expansion"  #: Expansion birth scheme
+    MIXTURE = "mixture"  #: Mixture birth scheme
 
 
 class SMCPHDPredictor(Predictor):
@@ -505,37 +549,43 @@ class SMCPHDPredictor(Predictor):
             doi: 10.1109/ICIF.2003.177320
 
     """
+
     death_probability: Probability = Property(
         doc="The probability of death per unit time. This is used to calculate the probability "
-            r"of survival as :math:`1 - \exp(-\lambda \Delta t)` where :math:`\lambda` is the "
-            r"probability of death and :math:`\Delta t` is the time interval")
+        r"of survival as :math:`1 - \exp(-\lambda \Delta t)` where :math:`\lambda` is the "
+        r"probability of death and :math:`\Delta t` is the time interval"
+    )
     birth_probability: Probability = Property(
         doc="Probability of target birth. In the current implementation, this is used to calculate"
-            "the number of birth particles, as per the explanation under :py:attr:`~birth_scheme`")
+        "the number of birth particles, as per the explanation under :py:attr:`~birth_scheme`"
+    )
     birth_rate: float = Property(
         doc="The expected number of new/born targets at each iteration. This is used to calculate"
-            "the weight of the birth particles")
+        "the weight of the birth particles"
+    )
     birth_sampler: ParticleSampler = Property(
         doc="Sampler object used for sampling birth particles. The weight of the sampled birth "
-            "particles is ignored and calculated internally based on the :py:attr:`~birth_rate` "
-            "and number of particles")
+        "particles is ignored and calculated internally based on the :py:attr:`~birth_rate` "
+        "and number of particles"
+    )
     birth_func_num_samples_field: str = Property(
-        default='num_samples',
+        default="num_samples",
         doc="The field name of the number of samples parameter for the birth sampler. This is "
-            "required since the number of samples required for the birth sampler may be vary"
-            "between iterations. Default is ``'num_samples'``")
+        "required since the number of samples required for the birth sampler may be vary"
+        "between iterations. Default is ``'num_samples'``",
+    )
     birth_scheme: SMCPHDBirthSchemeEnum = Property(
         default=SMCPHDBirthSchemeEnum.EXPANSION,
         doc="The scheme for birth particles. Options are ``'expansion'`` | ``'mixture'``. Default "
-            "is ``'expansion'``.\n\n"
-            " - The ``'expansion'`` scheme follows the implementation of [#phd]_, meaning that "
-            "birth particles are appended to the list of surviving particles, where the number of "
-            "birth particles is computed as :math:`P_b N` where :math:`P_b` is the birth "
-            "probability and :math:`N` is the number of particles.\n"
-            " - The ``'mixture'`` scheme draws from a binomial distribution, with probability "
-            ":math:`P_b`, for each particle to decide if it gets replaced by a birth particle. "
-            "The weights of the particles are then updated as a mixture of the survival and birth "
-            "probabilities."
+        "is ``'expansion'``.\n\n"
+        " - The ``'expansion'`` scheme follows the implementation of [#phd]_, meaning that "
+        "birth particles are appended to the list of surviving particles, where the number of "
+        "birth particles is computed as :math:`P_b N` where :math:`P_b` is the birth "
+        "probability and :math:`N` is the number of particles.\n"
+        " - The ``'mixture'`` scheme draws from a binomial distribution, with probability "
+        ":math:`P_b`, for each particle to decide if it gets replaced by a birth particle. "
+        "The weights of the particles are then updated as a mixture of the survival and birth "
+        "probabilities.",
     )
 
     def __init__(self, *args, **kwargs):
@@ -545,7 +595,7 @@ class SMCPHDPredictor(Predictor):
 
     @predict_lru_cache()
     def predict(self, prior, timestamp=None, random_state=None, **kwargs):
-        """ SMC-PHD prediction step
+        """SMC-PHD prediction step
 
         Parameters
         ----------
@@ -564,11 +614,9 @@ class SMCPHDPredictor(Predictor):
         time_interval = timestamp - prior.timestamp
 
         # Predict surviving particles forward
-        pred_particles_sv = self.transition_model.function(prior,
-                                                           time_interval=time_interval,
-                                                           noise=True,
-                                                           random_state=random_state,
-                                                           **kwargs)
+        pred_particles_sv = self.transition_model.function(
+            prior, time_interval=time_interval, noise=True, random_state=random_state, **kwargs
+        )
 
         # Calculate probability of survival
         log_prob_survive = -float(self.death_probability) * time_interval.total_seconds()
@@ -584,7 +632,8 @@ class SMCPHDPredictor(Predictor):
                 params={self.birth_func_num_samples_field: num_birth},
                 timestamp=timestamp,
                 random_state=random_state,
-                **kwargs)
+                **kwargs,
+            )
             # Ensure birth weights are uniform and scaled by birth rate
             birth_particles.log_weight = np.full((num_birth,), np.log(self.birth_rate / num_birth))
 
@@ -593,7 +642,8 @@ class SMCPHDPredictor(Predictor):
 
             # Append birth particles to predicted ones
             pred_particles_sv = StateVectors(
-                np.concatenate((pred_particles_sv, birth_particles.state_vector), axis=1))
+                np.concatenate((pred_particles_sv, birth_particles.state_vector), axis=1)
+            )
             log_pred_weights = np.concatenate((log_pred_weights, birth_particles.log_weight))
         else:
             rng = random_state if random_state is not None else np.random
@@ -609,7 +659,8 @@ class SMCPHDPredictor(Predictor):
                     params={self.birth_func_num_samples_field: num_birth},
                     timestamp=timestamp,
                     random_state=random_state,
-                    **kwargs)
+                    **kwargs,
+                )
                 # Replace particles in the state vector matrix
                 pred_particles_sv[:, birth_inds] = birth_particles.state_vector
 
@@ -618,9 +669,13 @@ class SMCPHDPredictor(Predictor):
             birth_weight = self.birth_rate / num_samples
             log_pred_weights = np.log(prob_survive + birth_weight) + log_prior_weights
 
-        prediction = Prediction.from_state(prior, state_vector=pred_particles_sv,
-                                           log_weight=log_pred_weights,
-                                           timestamp=timestamp, particle_list=None,
-                                           transition_model=self.transition_model)
+        prediction = Prediction.from_state(
+            prior,
+            state_vector=pred_particles_sv,
+            log_weight=log_pred_weights,
+            timestamp=timestamp,
+            particle_list=None,
+            transition_model=self.transition_model,
+        )
 
         return prediction

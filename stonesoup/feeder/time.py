@@ -13,6 +13,7 @@ class TimeBufferedFeeder(DetectionFeeder, GroundTruthFeeder):
     Any "old" data (where the time is earlier than the head of the
     buffer) shall be dropped, producing a :class:`UserWarning`.
     """
+
     buffer_size: int = Property(default=1000, doc="Max size of buffer")
 
     @BufferedGenerator.generator_method
@@ -21,9 +22,8 @@ class TimeBufferedFeeder(DetectionFeeder, GroundTruthFeeder):
 
         for time_data in self.reader:
             # Drop "old" detections
-            if len(time_data_buffer) >= self.buffer_size and \
-                    time_data < time_data_buffer[0]:
-                warn('"Old" detection dropped')
+            if len(time_data_buffer) >= self.buffer_size and time_data < time_data_buffer[0]:
+                warn('"Old" detection dropped', stacklevel=2)
                 continue
 
             # Yield oldest when buffer full
@@ -47,8 +47,8 @@ class TimeSyncFeeder(DetectionFeeder, GroundTruthFeeder):
     """
 
     time_window: datetime.timedelta = Property(
-        default=datetime.timedelta(seconds=1),
-        doc="Time window to group detections")
+        default=datetime.timedelta(seconds=1), doc="Time window to group detections"
+    )
 
     @BufferedGenerator.generator_method
     def data_gen(self):

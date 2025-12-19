@@ -3,8 +3,8 @@ import datetime
 import pytest
 from dateutil.parser import parse
 
-pytest.importorskip('confluent_kafka')
-from ..kafka import KafkaDetectionReader, KafkaGroundTruthReader  # noqa: E402
+pytest.importorskip("confluent_kafka")
+from ..kafka import KafkaDetectionReader, KafkaGroundTruthReader
 
 
 @pytest.fixture(params=[KafkaDetectionReader, KafkaGroundTruthReader])
@@ -12,13 +12,7 @@ def reader_cls(request):
     return request.param
 
 
-@pytest.mark.parametrize(
-    "metadata_fields",
-    [
-        ["sensor_id"],
-        None
-    ]
-)
+@pytest.mark.parametrize("metadata_fields", [["sensor_id"], None])
 def test_reader_default(reader_cls, metadata_fields):
 
     kwargs = {
@@ -68,17 +62,13 @@ def test_reader_default(reader_cls, metadata_fields):
 @pytest.mark.parametrize(
     "timestamps, timestamp, time_field_format",
     [
-        (
-            ["1514815200", "1514815200", "1514815200"],
-            True,
-            None
-        ),
+        (["1514815200", "1514815200", "1514815200"], True, None),
         (
             ["2018-01-01T14:00:00Z", "2018-01-01T14:00:00Z", "2018-01-01T14:00:00Z"],
             False,
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
-    ]
+            "%Y-%m-%dT%H:%M:%SZ",
+        ),
+    ],
 )
 def test_reader_timestamp(reader_cls, timestamps, timestamp, time_field_format):
     kwargs = {

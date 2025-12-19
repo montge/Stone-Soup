@@ -1,0 +1,72 @@
+## Stone Soup Octave Package Autoload Script
+##
+## This file is automatically executed when the Stone Soup package is loaded
+## in GNU Octave. It sets up the environment and makes functions available.
+##
+## Version: 0.1.0
+
+## Print loading message
+disp('Loading Stone Soup package...');
+
+## Get the directory where this package is installed
+pkg_dir = fileparts(mfilename('fullpath'));
+
+## Add package directories to path
+addpath(fullfile(pkg_dir, 'src'));
+addpath(fullfile(pkg_dir, 'examples'));
+
+## Load any necessary native libraries
+## This will need to be updated when the C library is available
+lib_name = 'stonesoup';
+lib_path = fullfile(pkg_dir, 'lib');
+
+if exist(lib_path, 'dir')
+    ## Attempt to load the shared library
+    ## Note: This is a placeholder and will be updated with actual library loading
+    if isunix()
+        lib_file = fullfile(lib_path, ['lib' lib_name '.so']);
+    elseif ispc()
+        lib_file = fullfile(lib_path, [lib_name '.dll']);
+    elseif ismac()
+        lib_file = fullfile(lib_path, ['lib' lib_name '.dylib']);
+    endif
+
+    if exist(lib_file, 'file')
+        ## Library loading code will be added here
+        disp(['Stone Soup native library found: ' lib_file]);
+    else
+        warning('Stone Soup native library not found. Some functionality may be unavailable.');
+    endif
+else
+    warning('Stone Soup library directory not found. Native functionality will be unavailable.');
+endif
+
+## Define package version
+global STONESOUP_VERSION;
+STONESOUP_VERSION = '0.1.0';
+
+## Initialize the library (placeholder)
+## This will be replaced with actual initialization when C API is available
+function stonesoup_init()
+    global STONESOUP_INITIALIZED;
+    if isempty(STONESOUP_INITIALIZED)
+        STONESOUP_INITIALIZED = true;
+        disp('Stone Soup initialized successfully.');
+    endif
+endfunction
+
+## Cleanup function (placeholder)
+function stonesoup_cleanup()
+    global STONESOUP_INITIALIZED;
+    if !isempty(STONESOUP_INITIALIZED)
+        STONESOUP_INITIALIZED = false;
+        disp('Stone Soup cleaned up successfully.');
+    endif
+endfunction
+
+## Make initialization function available
+global stonesoup_init stonesoup_cleanup;
+
+disp('Stone Soup package loaded successfully.');
+disp(['Version: ' STONESOUP_VERSION]);
+disp('Type "help stonesoup" for more information.');

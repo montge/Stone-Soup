@@ -1,37 +1,39 @@
+import copy
+import datetime
 import itertools
 
-import datetime
-import copy
-
 import numpy as np
-from scipy.special import logsumexp
 import pytest
+from scipy.special import logsumexp
 
-from ...models.transition.linear import ConstantVelocity
-from ...predictor.particle import (
-    ParticlePredictor, ParticleFlowKalmanPredictor, BernoulliParticlePredictor, SMCPHDPredictor,
-    SMCPHDBirthSchemeEnum, VisibilityInformedBernoulliParticlePredictor)
-from ...types.array import StateVector
-from ...types.numeric import Probability
-from ...types.particle import Particle
-from ...types.prediction import ParticleStatePrediction, BernoulliParticleStatePrediction
-from ...types.update import BernoulliParticleStateUpdate
-from ...types.state import ParticleState, BernoulliParticleState, State
-from ...models.measurement.linear import LinearGaussian
-from ...types.detection import Detection
-from ...sampler.particle import ParticleSampler
-from ...sampler.detection import SwitchingDetectionSampler, GaussianDetectionParticleSampler
 from ...functions import gm_sample
-from ...types.hypothesis import SingleHypothesis
-from ...types.multihypothesis import MultipleHypothesis
+from ...models.measurement.linear import LinearGaussian
+from ...models.transition.linear import ConstantVelocity
 from ...platform.base import Obstacle
 from ...platform.shape import Shape
+from ...predictor.particle import (
+    BernoulliParticlePredictor,
+    ParticleFlowKalmanPredictor,
+    ParticlePredictor,
+    SMCPHDBirthSchemeEnum,
+    SMCPHDPredictor,
+    VisibilityInformedBernoulliParticlePredictor,
+)
+from ...sampler.detection import GaussianDetectionParticleSampler, SwitchingDetectionSampler
+from ...sampler.particle import ParticleSampler
 from ...sensor.radar import RadarBearingRange
+from ...types.array import StateVector
+from ...types.detection import Detection
+from ...types.hypothesis import SingleHypothesis
+from ...types.multihypothesis import MultipleHypothesis
+from ...types.numeric import Probability
+from ...types.particle import Particle
+from ...types.prediction import BernoulliParticleStatePrediction, ParticleStatePrediction
+from ...types.state import BernoulliParticleState, ParticleState, State
+from ...types.update import BernoulliParticleStateUpdate
 
 
-@pytest.mark.parametrize(
-    "predictor_class",
-    (ParticlePredictor, ParticleFlowKalmanPredictor))
+@pytest.mark.parametrize("predictor_class", (ParticlePredictor, ParticleFlowKalmanPredictor))
 def test_particle(predictor_class):
     # Initialise a transition model
     cv = ConstantVelocity(noise_diff_coeff=0)
@@ -43,34 +45,28 @@ def test_particle(predictor_class):
     time_interval = new_timestamp - timestamp
 
     # Define prior state
-    prior_particles = [Particle(np.array([[10], [10]]),
-                                1 / 9),
-                       Particle(np.array([[10], [20]]),
-                                1 / 9),
-                       Particle(np.array([[10], [30]]),
-                                1 / 9),
-                       Particle(np.array([[20], [10]]),
-                                1 / 9),
-                       Particle(np.array([[20], [20]]),
-                                1 / 9),
-                       Particle(np.array([[20], [30]]),
-                                1 / 9),
-                       Particle(np.array([[30], [10]]),
-                                1 / 9),
-                       Particle(np.array([[30], [20]]),
-                                1 / 9),
-                       Particle(np.array([[30], [30]]),
-                                1 / 9),
-                       ]
+    prior_particles = [
+        Particle(np.array([[10], [10]]), 1 / 9),
+        Particle(np.array([[10], [20]]), 1 / 9),
+        Particle(np.array([[10], [30]]), 1 / 9),
+        Particle(np.array([[20], [10]]), 1 / 9),
+        Particle(np.array([[20], [20]]), 1 / 9),
+        Particle(np.array([[20], [30]]), 1 / 9),
+        Particle(np.array([[30], [10]]), 1 / 9),
+        Particle(np.array([[30], [20]]), 1 / 9),
+        Particle(np.array([[30], [30]]), 1 / 9),
+    ]
     prior = ParticleState(None, particle_list=prior_particles, timestamp=timestamp)
 
-    eval_particles = [Particle(cv.matrix(timestamp=new_timestamp,
-                                         time_interval=time_interval)
-                               @ particle.state_vector,
-                               1 / 9)
-                      for particle in prior_particles]
-    eval_mean = np.mean(np.hstack([i.state_vector for i in eval_particles]),
-                        axis=1).reshape(2, 1)
+    eval_particles = [
+        Particle(
+            cv.matrix(timestamp=new_timestamp, time_interval=time_interval)
+            @ particle.state_vector,
+            1 / 9,
+        )
+        for particle in prior_particles
+    ]
+    eval_mean = np.mean(np.hstack([i.state_vector for i in eval_particles]), axis=1).reshape(2, 1)
 
     eval_prediction = ParticleStatePrediction(None, new_timestamp, particle_list=eval_particles)
 
@@ -80,30 +76,46 @@ def test_particle(predictor_class):
 
     assert np.allclose(prediction.mean, eval_mean)
     assert prediction.timestamp == new_timestamp
-    assert np.all([eval_prediction.state_vector[:, i] ==
-                   prediction.state_vector[:, i] for i in range(9)])
+    assert np.all(
+        [eval_prediction.state_vector[:, i] == prediction.state_vector[:, i] for i in range(9)]
+    )
     assert np.all([prediction.weight[i] == 1 / 9 for i in range(9)])
 
 
 @pytest.mark.parametrize(
-        "predictor, extra_params",
-        [
-            (BernoulliParticlePredictor,  # predictor
-             {},),  # extra_params
-            (VisibilityInformedBernoulliParticlePredictor,  # predictor
-             {'sensors': {RadarBearingRange(
-                 position=StateVector([[0], [0]]),
-                 position_mapping=(0, 1),
-                 noise_covar=np.array([[np.radians(1)**2, 0],
-                                       [0, 1**2]]),
-                 ndim_state=4,
-                 obstacles=[Obstacle(states=State(StateVector([[20], [15]])),
-                                     shape=Shape(shape_data=np.array([[-2.5, -2.5, 2.5, 2.5],
-                                                                      [-2.5, 2.5, 2.5, -2.5]])),
-                                     position_mapping=(0, 1))])}})  # extra_params
-        ],
-        ids=["standard_bernoulli", "vis_informed_bernoulli"]
-     )
+    "predictor, extra_params",
+    [
+        (
+            BernoulliParticlePredictor,  # predictor
+            {},
+        ),  # extra_params
+        (
+            VisibilityInformedBernoulliParticlePredictor,  # predictor
+            {
+                "sensors": {
+                    RadarBearingRange(
+                        position=StateVector([[0], [0]]),
+                        position_mapping=(0, 1),
+                        noise_covar=np.array([[np.radians(1) ** 2, 0], [0, 1**2]]),
+                        ndim_state=4,
+                        obstacles=[
+                            Obstacle(
+                                states=State(StateVector([[20], [15]])),
+                                shape=Shape(
+                                    shape_data=np.array(
+                                        [[-2.5, -2.5, 2.5, 2.5], [-2.5, 2.5, 2.5, -2.5]]
+                                    )
+                                ),
+                                position_mapping=(0, 1),
+                            )
+                        ],
+                    )
+                }
+            },
+        ),  # extra_params
+    ],
+    ids=["standard_bernoulli", "vis_informed_bernoulli"],
+)
 def test_bernoulli_particle_no_detection(predictor, extra_params):
     # Initialise transition model
     cv = ConstantVelocity(noise_diff_coeff=0.1)
@@ -111,63 +123,69 @@ def test_bernoulli_particle_no_detection(predictor, extra_params):
     # Define time related variables
     timestamp = datetime.datetime.now()
     timediff = 2
-    new_timestamp = timestamp+datetime.timedelta(seconds=timediff)
+    new_timestamp = timestamp + datetime.timedelta(seconds=timediff)
     time_interval = new_timestamp - timestamp
 
     nbirth_parts = 9
-    prior_particles = [Particle(np.array([[10], [10]]), 1 / 9),
-                       Particle(np.array([[10], [20]]), 1 / 9),
-                       Particle(np.array([[10], [30]]), 1 / 9),
-                       Particle(np.array([[20], [10]]), 1 / 9),
-                       Particle(np.array([[20], [20]]), 1 / 9),
-                       Particle(np.array([[20], [30]]), 1 / 9),
-                       Particle(np.array([[30], [10]]), 1 / 9),
-                       Particle(np.array([[30], [20]]), 1 / 9),
-                       Particle(np.array([[30], [30]]), 1 / 9)]
+    prior_particles = [
+        Particle(np.array([[10], [10]]), 1 / 9),
+        Particle(np.array([[10], [20]]), 1 / 9),
+        Particle(np.array([[10], [30]]), 1 / 9),
+        Particle(np.array([[20], [10]]), 1 / 9),
+        Particle(np.array([[20], [20]]), 1 / 9),
+        Particle(np.array([[20], [30]]), 1 / 9),
+        Particle(np.array([[30], [10]]), 1 / 9),
+        Particle(np.array([[30], [20]]), 1 / 9),
+        Particle(np.array([[30], [30]]), 1 / 9),
+    ]
 
     existence_prob = 0.5
     birth_prob = 0.01
     survival_prob = 0.98
 
-    prior = BernoulliParticleState(None,
-                                   particle_list=prior_particles,
-                                   existence_probability=existence_prob,
-                                   timestamp=timestamp)
+    prior = BernoulliParticleState(
+        None,
+        particle_list=prior_particles,
+        existence_probability=existence_prob,
+        timestamp=timestamp,
+    )
 
     rng = np.random.RandomState(1990)
-    backup_sampler = ParticleSampler(distribution_func=rng.uniform,
-                                     params={'low': np.array([0, 10]),
-                                             'high': np.array([30, 30]),
-                                             'size': (nbirth_parts, 2)},
-                                     ndim_state=2)
+    backup_sampler = ParticleSampler(
+        distribution_func=rng.uniform,
+        params={"low": np.array([0, 10]), "high": np.array([30, 30]), "size": (nbirth_parts, 2)},
+        ndim_state=2,
+    )
     detection_sampler = GaussianDetectionParticleSampler(nbirth_parts)
-    sampler = SwitchingDetectionSampler(detection_sampler=detection_sampler,
-                                        backup_sampler=backup_sampler)
+    sampler = SwitchingDetectionSampler(
+        detection_sampler=detection_sampler, backup_sampler=backup_sampler
+    )
 
     rng = np.random.RandomState(1990)
     birth_samples = rng.uniform(np.array([0, 10]), np.array([30, 30]), (nbirth_parts, 2))
 
     eval_prior = copy.copy(prior)
-    eval_prior.state_vector = np.concatenate((eval_prior.state_vector,
-                                             birth_samples.T),
-                                             axis=1)
-    eval_prior.weight = np.array([1/18]*18)
+    eval_prior.state_vector = np.concatenate((eval_prior.state_vector, birth_samples.T), axis=1)
+    eval_prior.weight = np.array([1 / 18] * 18)
 
     rng = np.random.RandomState(1990)
     eval_prediction = cv.function(
-        eval_prior, noise=True, time_interval=time_interval, random_state=rng)
+        eval_prior, noise=True, time_interval=time_interval, random_state=rng
+    )
 
-    eval_prediction = BernoulliParticleStatePrediction(eval_prediction,
-                                                       weight=eval_prior.weight,
-                                                       timestamp=new_timestamp,
-                                                       existence_probability=existence_prob)
+    eval_prediction = BernoulliParticleStatePrediction(
+        eval_prediction,
+        weight=eval_prior.weight,
+        timestamp=new_timestamp,
+        existence_probability=existence_prob,
+    )
 
     eval_existence = birth_prob * (1 - existence_prob) + survival_prob * existence_prob
 
     eval_weight = eval_prior.weight
 
     if len(extra_params) > 0:
-        sensors = extra_params['sensors']
+        sensors = extra_params["sensors"]
         # since the noise of the model is 0, logpdf is assumed to be 1e10
         visible_parts = np.full(18, False)
         parts_in_obs = np.full(18, False)
@@ -179,25 +197,31 @@ def test_bernoulli_particle_no_detection(predictor, extra_params):
         log_likelihood = copy.copy(original_log_likelihood)
         log_likelihood[:9][parts_in_obs[:9]] = np.log(1e-20)
         log_likelihood[9:][~visible_parts[9:]] = np.log(1e-20)
-        eval_weight[:9] = np.log((survival_prob*existence_prob)/eval_existence) + \
-                                (log_likelihood[:9] -
-                                 original_log_likelihood[:9]) + np.log(eval_weight[:9])
-        eval_weight[9:] = np.log((birth_prob*(1-existence_prob))/eval_existence) + \
-                                (log_likelihood[9:] -
-                                 original_log_likelihood[9:]) + np.log(eval_weight[9:])
+        eval_weight[:9] = (
+            np.log((survival_prob * existence_prob) / eval_existence)
+            + (log_likelihood[:9] - original_log_likelihood[:9])
+            + np.log(eval_weight[:9])
+        )
+        eval_weight[9:] = (
+            np.log((birth_prob * (1 - existence_prob)) / eval_existence)
+            + (log_likelihood[9:] - original_log_likelihood[9:])
+            + np.log(eval_weight[9:])
+        )
         eval_weight -= logsumexp(eval_weight)
         eval_weight = np.exp(eval_weight)
     else:
-        eval_weight[:9] = survival_prob*existence_prob/eval_existence * eval_weight[:9]
-        eval_weight[9:] = birth_prob*(1-existence_prob)/eval_existence * eval_weight[9:]
-        eval_weight = eval_weight/np.sum(eval_weight)
+        eval_weight[:9] = survival_prob * existence_prob / eval_existence * eval_weight[:9]
+        eval_weight[9:] = birth_prob * (1 - existence_prob) / eval_existence * eval_weight[9:]
+        eval_weight = eval_weight / np.sum(eval_weight)
 
     # reinitialise the random seed to ensure model noise is similar
     rng = np.random.RandomState(1990)
-    predictor_inputs = {'transition_model': cv,
-                        'birth_sampler': sampler,
-                        'birth_probability': birth_prob,
-                        'survival_probability': survival_prob}
+    predictor_inputs = {
+        "transition_model": cv,
+        "birth_sampler": sampler,
+        "birth_probability": birth_prob,
+        "survival_probability": survival_prob,
+    }
     predictor_inputs.update(extra_params)
     predictor = predictor(**predictor_inputs)
 
@@ -220,104 +244,132 @@ def test_bernoulli_particle_no_detection(predictor, extra_params):
 
 
 @pytest.mark.parametrize(
-        "predictor, extra_params",
-        [
-            (BernoulliParticlePredictor,  # predictor
-             {},),  # extra_params
-            (VisibilityInformedBernoulliParticlePredictor,  # predictor
-             {'sensors': {RadarBearingRange(
-                 position=StateVector([[0], [0]]),
-                 position_mapping=(0, 1),
-                 noise_covar=np.array([[np.radians(1)**2, 0],
-                                       [0, 1**2]]),
-                 ndim_state=4,
-                 obstacles=[Obstacle(states=State(StateVector([[20], [15]])),
-                                     shape=Shape(shape_data=np.array([[-2.5, -2.5, 2.5, 2.5],
-                                                                      [-2.5, 2.5, 2.5, -2.5]])),
-                                     position_mapping=(0, 1))])}})  # extra_params
-        ],
-        ids=["standard_bernoulli", "vis_informed_bernoulli"]
-     )
+    "predictor, extra_params",
+    [
+        (
+            BernoulliParticlePredictor,  # predictor
+            {},
+        ),  # extra_params
+        (
+            VisibilityInformedBernoulliParticlePredictor,  # predictor
+            {
+                "sensors": {
+                    RadarBearingRange(
+                        position=StateVector([[0], [0]]),
+                        position_mapping=(0, 1),
+                        noise_covar=np.array([[np.radians(1) ** 2, 0], [0, 1**2]]),
+                        ndim_state=4,
+                        obstacles=[
+                            Obstacle(
+                                states=State(StateVector([[20], [15]])),
+                                shape=Shape(
+                                    shape_data=np.array(
+                                        [[-2.5, -2.5, 2.5, 2.5], [-2.5, 2.5, 2.5, -2.5]]
+                                    )
+                                ),
+                                position_mapping=(0, 1),
+                            )
+                        ],
+                    )
+                }
+            },
+        ),  # extra_params
+    ],
+    ids=["standard_bernoulli", "vis_informed_bernoulli"],
+)
 def test_bernoulli_particle_detection(predictor, extra_params):
     # Initialise transition model
     cv = ConstantVelocity(noise_diff_coeff=0.1)
-    lg = LinearGaussian(ndim_state=2,
-                        mapping=(0,),
-                        noise_covar=np.array([[1]]))
+    lg = LinearGaussian(ndim_state=2, mapping=(0,), noise_covar=np.array([[1]]))
 
     # Define time related variables
     timestamp = datetime.datetime.now()
     timediff = 2
-    new_timestamp = timestamp+datetime.timedelta(seconds=timediff)
+    new_timestamp = timestamp + datetime.timedelta(seconds=timediff)
     time_interval = new_timestamp - timestamp
 
     rng = np.random.RandomState(1990)
     nbirth_parts = 9
-    prior_particles = [Particle(np.array([[10], [10]]), 1 / 9),
-                       Particle(np.array([[10], [20]]), 1 / 9),
-                       Particle(np.array([[10], [30]]), 1 / 9),
-                       Particle(np.array([[20], [10]]), 1 / 9),
-                       Particle(np.array([[20], [20]]), 1 / 9),
-                       Particle(np.array([[20], [30]]), 1 / 9),
-                       Particle(np.array([[30], [10]]), 1 / 9),
-                       Particle(np.array([[30], [20]]), 1 / 9),
-                       Particle(np.array([[30], [30]]), 1 / 9)]
+    prior_particles = [
+        Particle(np.array([[10], [10]]), 1 / 9),
+        Particle(np.array([[10], [20]]), 1 / 9),
+        Particle(np.array([[10], [30]]), 1 / 9),
+        Particle(np.array([[20], [10]]), 1 / 9),
+        Particle(np.array([[20], [20]]), 1 / 9),
+        Particle(np.array([[20], [30]]), 1 / 9),
+        Particle(np.array([[30], [10]]), 1 / 9),
+        Particle(np.array([[30], [20]]), 1 / 9),
+        Particle(np.array([[30], [30]]), 1 / 9),
+    ]
 
-    detections = [Detection(np.array([5]), timestamp, measurement_model=lg),
-                  Detection(np.array([7]), timestamp, measurement_model=lg),
-                  Detection(np.array([15]), timestamp, measurement_model=lg)]
+    detections = [
+        Detection(np.array([5]), timestamp, measurement_model=lg),
+        Detection(np.array([7]), timestamp, measurement_model=lg),
+        Detection(np.array([15]), timestamp, measurement_model=lg),
+    ]
 
     existence_prob = 0.5
     birth_prob = 0.01
     survival_prob = 0.98
 
-    hypotheses = MultipleHypothesis([SingleHypothesis(None, detection)
-                                     for detection in detections])
-    prior = BernoulliParticleStateUpdate(None,
-                                         particle_list=prior_particles,
-                                         existence_probability=existence_prob,
-                                         timestamp=timestamp,
-                                         hypothesis=hypotheses)
+    hypotheses = MultipleHypothesis(
+        [SingleHypothesis(None, detection) for detection in detections]
+    )
+    prior = BernoulliParticleStateUpdate(
+        None,
+        particle_list=prior_particles,
+        existence_probability=existence_prob,
+        timestamp=timestamp,
+        hypothesis=hypotheses,
+    )
 
     detection_sampler = GaussianDetectionParticleSampler(nbirth_parts)
-    backup_sampler = ParticleSampler(distribution_func=np.random.uniform,
-                                     params={'low': np.array([0, 10]),
-                                             'high': np.array([30, 30]),
-                                             'size': (nbirth_parts, 2)},
-                                     ndim_state=2)
-    sampler = SwitchingDetectionSampler(detection_sampler=detection_sampler,
-                                        backup_sampler=backup_sampler)
+    backup_sampler = ParticleSampler(
+        distribution_func=np.random.uniform,
+        params={"low": np.array([0, 10]), "high": np.array([30, 30]), "size": (nbirth_parts, 2)},
+        ndim_state=2,
+    )
+    sampler = SwitchingDetectionSampler(
+        detection_sampler=detection_sampler, backup_sampler=backup_sampler
+    )
 
-    birth_samples = gm_sample([np.array([detections[0].state_vector[0], 0]),
-                              np.array([detections[1].state_vector[0], 0]),
-                              np.array([detections[2].state_vector[0], 0])],
-                              [np.diag([detections[0].measurement_model.noise_covar[0, 0], 0]),
-                              np.diag([detections[1].measurement_model.noise_covar[0, 0], 0]),
-                              np.diag([detections[2].measurement_model.noise_covar[0, 0], 0])],
-                              nbirth_parts,
-                              np.array([1/3]*3),
-                              random_state=rng)
+    birth_samples = gm_sample(
+        [
+            np.array([detections[0].state_vector[0], 0]),
+            np.array([detections[1].state_vector[0], 0]),
+            np.array([detections[2].state_vector[0], 0]),
+        ],
+        [
+            np.diag([detections[0].measurement_model.noise_covar[0, 0], 0]),
+            np.diag([detections[1].measurement_model.noise_covar[0, 0], 0]),
+            np.diag([detections[2].measurement_model.noise_covar[0, 0], 0]),
+        ],
+        nbirth_parts,
+        np.array([1 / 3] * 3),
+        random_state=rng,
+    )
 
     eval_prior = copy.copy(prior)
-    eval_prior.state_vector = np.concatenate((eval_prior.state_vector,
-                                             birth_samples),
-                                             axis=1)
-    eval_prior.weight = np.array([1/18]*18)
+    eval_prior.state_vector = np.concatenate((eval_prior.state_vector, birth_samples), axis=1)
+    eval_prior.weight = np.array([1 / 18] * 18)
 
     eval_prediction = cv.function(
-        eval_prior, noise=True, time_interval=time_interval, random_state=rng)
+        eval_prior, noise=True, time_interval=time_interval, random_state=rng
+    )
 
-    eval_prediction = BernoulliParticleStatePrediction(eval_prediction,
-                                                       weight=eval_prior.weight,
-                                                       timestamp=new_timestamp,
-                                                       existence_probability=existence_prob)
+    eval_prediction = BernoulliParticleStatePrediction(
+        eval_prediction,
+        weight=eval_prior.weight,
+        timestamp=new_timestamp,
+        existence_probability=existence_prob,
+    )
 
-    eval_existence = birth_prob*(1 - existence_prob) + survival_prob*existence_prob
+    eval_existence = birth_prob * (1 - existence_prob) + survival_prob * existence_prob
 
     eval_weight = eval_prior.weight
 
     if len(extra_params) > 0:
-        sensors = extra_params['sensors']
+        sensors = extra_params["sensors"]
         # since the noise of the model is 0, logpdf is assumed to be 1e10
         visible_parts = np.full(18, False)
         parts_in_obs = np.full(18, False)
@@ -329,24 +381,30 @@ def test_bernoulli_particle_detection(predictor, extra_params):
         log_likelihood = copy.copy(original_log_likelihood)
         log_likelihood[:9][parts_in_obs[:9]] = np.log(1e-20)
         log_likelihood[9:][~visible_parts[9:]] = np.log(1e-20)
-        eval_weight[:9] = np.log((survival_prob*existence_prob)/eval_existence) + \
-                                (log_likelihood[:9] -
-                                 original_log_likelihood[:9]) + np.log(eval_weight[:9])
-        eval_weight[9:] = np.log((birth_prob*(1-existence_prob))/eval_existence) + \
-                                (log_likelihood[9:] -
-                                 original_log_likelihood[9:]) + np.log(eval_weight[9:])
+        eval_weight[:9] = (
+            np.log((survival_prob * existence_prob) / eval_existence)
+            + (log_likelihood[:9] - original_log_likelihood[:9])
+            + np.log(eval_weight[:9])
+        )
+        eval_weight[9:] = (
+            np.log((birth_prob * (1 - existence_prob)) / eval_existence)
+            + (log_likelihood[9:] - original_log_likelihood[9:])
+            + np.log(eval_weight[9:])
+        )
         eval_weight -= logsumexp(eval_weight)
         eval_weight = np.exp(eval_weight)
     else:
-        eval_weight[:9] = survival_prob*existence_prob/eval_existence * eval_weight[:9]
-        eval_weight[9:] = birth_prob*(1-existence_prob)/eval_existence * eval_weight[9:]
-        eval_weight = eval_weight/np.sum(eval_weight)
+        eval_weight[:9] = survival_prob * existence_prob / eval_existence * eval_weight[:9]
+        eval_weight[9:] = birth_prob * (1 - existence_prob) / eval_existence * eval_weight[9:]
+        eval_weight = eval_weight / np.sum(eval_weight)
 
     rng = np.random.RandomState(1990)
-    predictor_inputs = {'transition_model': cv,
-                        'birth_sampler': sampler,
-                        'birth_probability': birth_prob,
-                        'survival_probability': survival_prob}
+    predictor_inputs = {
+        "transition_model": cv,
+        "birth_sampler": sampler,
+        "birth_probability": birth_prob,
+        "survival_probability": survival_prob,
+    }
     predictor_inputs.update(extra_params)
     predictor = predictor(**predictor_inputs)
 
@@ -372,9 +430,9 @@ def test_bernoulli_particle_detection(predictor, extra_params):
     "birth_scheme",
     (
         SMCPHDBirthSchemeEnum.MIXTURE,  # Mixture birth scheme and Enum test
-        'expansion',                    # Expansion birth scheme and string test
-        'some_other_scheme'             # Invalid birth scheme
-    )
+        "expansion",  # Expansion birth scheme and string test
+        "some_other_scheme",  # Invalid birth scheme
+    ),
 )
 def test_smcphd(birth_scheme):
 
@@ -394,35 +452,42 @@ def test_smcphd(birth_scheme):
     death_probability = Probability(0.01)  # Probability of death
     birth_probability = Probability(0.1)  # Probability of birth
     birth_rate = 0.05  # Birth-rate (Mean number of new targets per scan)
-    birth_sampler = ParticleSampler(distribution_func=rng.multivariate_normal,
-                                    params={'mean': np.array([20., 0.0]),
-                                            'cov': np.diag([10. ** 2, 1. ** 2])},
-                                    ndim_state=2)
+    birth_sampler = ParticleSampler(
+        distribution_func=rng.multivariate_normal,
+        params={"mean": np.array([20.0, 0.0]), "cov": np.diag([10.0**2, 1.0**2])},
+        ndim_state=2,
+    )
     num_particles = 9  # Number of particles
 
     # Define prior state
-    prior_particles = [Particle(np.array([[i], [j]]), 1/num_particles)
-                       for i, j in itertools.product([10, 20, 30], [10, 20, 30])]
+    prior_particles = [
+        Particle(np.array([[i], [j]]), 1 / num_particles)
+        for i, j in itertools.product([10, 20, 30], [10, 20, 30])
+    ]
     prior = ParticleState(None, particle_list=prior_particles, timestamp=timestamp)
 
-    if birth_scheme == 'some_other_scheme':
+    if birth_scheme == "some_other_scheme":
         with pytest.raises(ValueError):
-            SMCPHDPredictor(transition_model=cv,
-                            death_probability=death_probability,
-                            birth_probability=birth_probability,
-                            birth_rate=birth_rate,
-                            birth_sampler=birth_sampler,
-                            birth_func_num_samples_field='size',
-                            birth_scheme=birth_scheme)
+            SMCPHDPredictor(
+                transition_model=cv,
+                death_probability=death_probability,
+                birth_probability=birth_probability,
+                birth_rate=birth_rate,
+                birth_sampler=birth_sampler,
+                birth_func_num_samples_field="size",
+                birth_scheme=birth_scheme,
+            )
         return
 
-    predictor = SMCPHDPredictor(transition_model=cv,
-                                death_probability=death_probability,
-                                birth_probability=birth_probability,
-                                birth_rate=birth_rate,
-                                birth_sampler=birth_sampler,
-                                birth_func_num_samples_field='size',
-                                birth_scheme=birth_scheme)
+    predictor = SMCPHDPredictor(
+        transition_model=cv,
+        death_probability=death_probability,
+        birth_probability=birth_probability,
+        birth_rate=birth_rate,
+        birth_sampler=birth_sampler,
+        birth_func_num_samples_field="size",
+        birth_scheme=birth_scheme,
+    )
 
     # Perform the prediction
     prediction = predictor.predict(prior, timestamp=new_timestamp, random_state=rng)
@@ -432,11 +497,14 @@ def test_smcphd(birth_scheme):
 
     # Compute the expected surviving particles
     # NOTE: The line below is valid since process noise is zero
-    eval_particles = [Particle(cv.matrix(timestamp=new_timestamp,
-                                         time_interval=time_interval)
-                               @ particle.state_vector,
-                               prob_survive * particle.weight)
-                      for particle in prior_particles]
+    eval_particles = [
+        Particle(
+            cv.matrix(timestamp=new_timestamp, time_interval=time_interval)
+            @ particle.state_vector,
+            prob_survive * particle.weight,
+        )
+        for particle in prior_particles
+    ]
     if SMCPHDBirthSchemeEnum(birth_scheme) == SMCPHDBirthSchemeEnum.MIXTURE:
         # NOTE: In the lines below, we utilise the knowledge that the above configuration results
         #       in a single birth particle, that replaces the first particle in the prior, whose
@@ -444,8 +512,7 @@ def test_smcphd(birth_scheme):
         #       the random seed is changed.
         birth_weight = birth_rate / num_particles
         new_weight = (prob_survive + birth_weight) * 1 / num_particles
-        eval_particles[0].state_vector = StateVector([[11.31091636],
-                                                      [-1.39374536]])
+        eval_particles[0].state_vector = StateVector([[11.31091636], [-1.39374536]])
         for particle in eval_particles:
             particle.weight = new_weight
 
@@ -456,10 +523,13 @@ def test_smcphd(birth_scheme):
         #       other configurations, or if the random seed is changed.
         num_birth = round(float(birth_probability) * num_particles)
         birth_weight = birth_rate / num_birth
-        eval_particles.append(Particle(state_vector=StateVector([[18.3918058],
-                                                                 [0.31072265]]),
-                                       weight=birth_weight,
-                                       parent=None))
+        eval_particles.append(
+            Particle(
+                state_vector=StateVector([[18.3918058], [0.31072265]]),
+                weight=birth_weight,
+                parent=None,
+            )
+        )
 
     # Construct the expected prediction
     eval_prediction = ParticleStatePrediction(None, new_timestamp, particle_list=eval_particles)

@@ -4,7 +4,7 @@ from functools import partial
 import numpy as np
 
 from ..base import Property
-from ..functions import (gauss2sigma, unscented_transform, cub_points_and_tf)
+from ..functions import cub_points_and_tf, gauss2sigma, unscented_transform
 from ..models.base import LinearModel
 from ..models.transition.base import TransitionModel
 from ..models.transition.linear import LinearGaussianTransitionModel
@@ -90,9 +90,7 @@ class KalmanSmoother(Smoother):
             else:
                 return state.hypothesis.prediction
         else:
-            raise TypeError(
-                "States must be GaussianStatePredictions or GaussianStateUpdates."
-            )
+            raise TypeError("States must be GaussianStatePredictions or GaussianStateUpdates.")
 
     def _transition_model(self, prediction):
         """If it exists, return the transition model from the prediction associated with input
@@ -152,9 +150,7 @@ class KalmanSmoother(Smoother):
         """
         return (
             state.covar
-            @ self._transition_matrix(
-                state, self._transition_model(prediction), **kwargs
-            ).T
+            @ self._transition_matrix(state, self._transition_model(prediction), **kwargs).T
             @ np.linalg.inv(prediction.covar)
         )
 
@@ -237,9 +233,7 @@ class ExtendedKalmanSmoother(KalmanSmoother):
 
     transition_model: TransitionModel = Property(doc="The transition model to be used.")
 
-    def _transition_matrix(
-        self, state, transition_model, linearisation_point=None, **kwargs
-    ):
+    def _transition_matrix(self, state, transition_model, linearisation_point=None, **kwargs):
         r"""Returns the transition matrix, a matrix if the model is linear, or
         approximated as Jacobian otherwise.
         Parameters
@@ -341,9 +335,7 @@ class StochasticIntegrationSmoother(KalmanSmoother):
         doc="minimal number of iterations of stochastic integration rule (SIR)",
     )
     Eps: float = Property(default=5e-3, doc="allowed threshold for integration error")
-    SIorder: int = Property(
-        default=5, doc="order of SIR (orders 1, 3, 5 are currently supported)"
-    )
+    SIorder: int = Property(default=5, doc="order of SIR (orders 1, 3, 5 are currently supported)")
 
     def _smooth_gain(self, state, prediction, time_interval, **kwargs):
         """Calculate the smoothing gain
@@ -385,14 +377,13 @@ class StochasticIntegrationSmoother(KalmanSmoother):
 
         # - SIR recursion for measurement predictive moments computation
         # -- until either required number of iterations is reached or threshold is reached
-        while N < self.Nmin or (N < self.Nmax and np.linalg.norm(VPxx) > self.Eps):
+        while self.Nmin > N or (self.Nmax > N and np.linalg.norm(VPxx) > self.Eps):
             N += 1
             # -- cubature points and weights computation (for standard normal PDF)
             # -- points transformation for given filtering mean and covariance matrix
-            xpoints, w, fpoints = cub_points_and_tf(nx, self.SIorder, Sf,
-                                                    efMean,
-                                                    transition_function,
-                                                    prediction)
+            xpoints, w, fpoints = cub_points_and_tf(
+                nx, self.SIorder, Sf, efMean, transition_function, prediction
+            )
             # Stochastic integration rule for predictive measurement
             # mean and covariance matrix
             fpoints_diff = fpoints - predMean

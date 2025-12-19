@@ -4,17 +4,16 @@ from abc import abstractmethod
 import utm
 from pymap3d import geodetic2enu, geodetic2ned
 
-from .base import DetectionFeeder, GroundTruthFeeder
 from ..base import Property
 from ..buffered_generator import BufferedGenerator
+from .base import DetectionFeeder, GroundTruthFeeder
 
 
 class _LLARefConverter(DetectionFeeder, GroundTruthFeeder):
-    reference_point: tuple[float, float, float] = Property(
-        doc="(Long, Lat, Altitude)")
+    reference_point: tuple[float, float, float] = Property(doc="(Long, Lat, Altitude)")
     mapping: tuple[int, int, int] = Property(
-        default=(0, 1, 2),
-        doc="Indexes of long, lat, altitude. Default (0, 1, 2)")
+        default=(0, 1, 2), doc="Indexes of long, lat, altitude. Default (0, 1, 2)"
+    )
 
     @property
     @abstractmethod
@@ -75,17 +74,17 @@ class LongLatToUTMConverter(DetectionFeeder, GroundTruthFeeder):
 
     """
 
-    mapping: tuple[int, int] = Property(
-        default=(0, 1),
-        doc="Indexes of long, lat. Default (0, 1)")
+    mapping: tuple[int, int] = Property(default=(0, 1), doc="Indexes of long, lat. Default (0, 1)")
     zone_number: int = Property(
         default=None,
         doc="UTM zone number to carry out conversion. Default `None`, where it will select the "
-            "zone based on the first yielded data.")
+        "zone based on the first yielded data.",
+    )
     northern: bool = Property(
         default=None,
         doc="UTM northern for northern or southern grid. Default `None`, where it will be based "
-            "on the first yielded data.")
+        "on the first yielded data.",
+    )
 
     @BufferedGenerator.generator_method
     def data_gen(self):
@@ -93,15 +92,14 @@ class LongLatToUTMConverter(DetectionFeeder, GroundTruthFeeder):
 
             for state in states:
                 easting, northing, zone_num, northern = utm.from_latlon(
-                    *state.state_vector[self.mapping[::-1], :],
-                    self.zone_number)
+                    *state.state_vector[self.mapping[::-1], :], self.zone_number
+                )
                 if self.zone_number is None:
                     self.zone_number = zone_num
                 if self.northern is None:
-                    self.northern = northern >= 'N'
-                elif (self.northern and northern < 'N') or (
-                            not self.northern and northern >= 'N'):
-                    warnings.warn("State cannot be converted to UTM zone")
+                    self.northern = northern >= "N"
+                elif (self.northern and northern < "N") or (not self.northern and northern >= "N"):
+                    warnings.warn("State cannot be converted to UTM zone", stacklevel=2)
                     continue
 
                 state.state_vector[self.mapping, 0] = easting, northing

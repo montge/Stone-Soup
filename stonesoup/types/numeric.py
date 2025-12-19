@@ -1,5 +1,5 @@
-from math import log, log1p, exp, trunc, ceil, floor
-from numbers import Real, Integral
+from math import ceil, exp, floor, log, log1p, trunc
+from numbers import Integral, Real
 
 import numpy as np
 
@@ -45,7 +45,7 @@ class Probability(Real):
         value = float(self)
         if value == 0 and self.log_value != float("-inf"):  # Too close to zero
             # Add string so doesn't have same hash as the log value itself.
-            return hash(('log', self._log_value))
+            return hash(("log", self._log_value))
         else:
             return hash(value)
 
@@ -89,8 +89,7 @@ class Probability(Real):
         if log_s == float("-inf"):  # Just return largest value
             return Probability(log_l, log_value=True)
 
-        return Probability(log_l + log1p(exp(log_s - log_l)),
-                           log_value=True)
+        return Probability(log_l + log1p(exp(log_s - log_l)), log_value=True)
 
     def __radd__(self, other):
         return self + other
@@ -114,8 +113,7 @@ class Probability(Real):
         if exp_diff == 1:  # Diff too small, so result is effectively zero
             return Probability(float("-inf"), log_value=True)
 
-        return Probability(log_l + log1p(-exp_diff),
-                           log_value=True)
+        return Probability(log_l + log1p(-exp_diff), log_value=True)
 
     def __rsub__(self, other):
         if other < 0:  # Result will be negative
@@ -136,13 +134,11 @@ class Probability(Real):
         if exp_diff == 1:  # Diff too small, so result is effectively zero
             return Probability(float("-inf"), log_value=True)
 
-        return Probability(log_l + log1p(-exp_diff),
-                           log_value=True)
+        return Probability(log_l + log1p(-exp_diff), log_value=True)
 
     def __imul__(self, other):
         try:
-            return Probability(self.log_value + self._log(other),
-                               log_value=True)
+            return Probability(self.log_value + self._log(other), log_value=True)
         except ValueError:
             return float(self) * other
 
@@ -152,8 +148,7 @@ class Probability(Real):
 
         try:
             if isinstance(other, Probability):
-                return Probability(self.log_value + self._log(other),
-                                   log_value=True)
+                return Probability(self.log_value + self._log(other), log_value=True)
             else:
                 return exp(self.log_value + self._log(other))
         except ValueError:
@@ -164,8 +159,7 @@ class Probability(Real):
 
     def __truediv__(self, other):
         try:
-            return Probability(self.log_value - self._log(other),
-                               log_value=True)
+            return Probability(self.log_value - self._log(other), log_value=True)
         except ValueError:
             return float(self) / other
 
@@ -174,8 +168,7 @@ class Probability(Real):
             return other / float(self)
 
         try:
-            return Probability(self._log(other) - self.log_value,
-                               log_value=True)
+            return Probability(self._log(other) - self.log_value, log_value=True)
         except ValueError:
             return other / float(self)
 
@@ -233,20 +226,20 @@ class Probability(Real):
     def __repr__(self):
         value = float(self)
         if value == 0 and self.log_value != float("-inf"):  # Too close to zero
-            return "Probability({!r}, log_value=True)".format(self.log_value)
+            return f"Probability({self.log_value!r}, log_value=True)"
         else:
-            return "Probability({!r})".format(value)
+            return f"Probability({value!r})"
 
     def __str__(self):
         value = float(self)
         if value == 0 and self.log_value != float("-inf"):  # Too close to zero
-            return "exp({})".format(self.log_value)
+            return f"exp({self.log_value})"
         else:
             return str(value)
 
     def sqrt(self):
         """Square root which can be called by NumPy"""
-        return self ** 0.5
+        return self**0.5
 
     def log(self):
         """Log which can be called by NumPy"""
@@ -261,7 +254,7 @@ class Probability(Real):
 
         max_log_value = max(log_values)
         # Check if all values are zero
-        if max_log_value == float('-inf'):
+        if max_log_value == float("-inf"):
             return Probability(0)
 
         value_sum = np.sum(np.exp(log_values - max_log_value))

@@ -1,0 +1,334 @@
+name: Nightly Build
+
+on:
+  schedule:
+    # Run at 2 AM UTC every day
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish packages'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  NIGHTLY_VERSION_SUFFIX: .dev${{ github.run_number }}
+
+jobs:
+  # Generate version string
+  version:
+    name: Generate Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      date: ${{ steps.version.outputs.date }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate version
+        id: version
+        run: |
+          DATE=$(date +%Y%m%d)
+          # Get base version from pyproject.toml or default
+          BASE_VERSION=$(grep -oP 'version\s*=\s*"\K[^"]+' pyproject.toml 2>/dev/null || echo "0.1.0")
+          VERSION="${BASE_VERSION}.dev${DATE}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "date=${DATE}" >> $GITHUB_OUTPUT
+          echo "Nightly version: ${VERSION}"
+
+  # Run full test suite
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    needs: version
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libspatialindex-dev
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev,ehm,optuna,orbital,roadnet,architectures] opencv-python-headless
+
+      - name: Run tests
+        run: |
+          pytest --junitxml=junit.xml --cov --cov-report=xml --slow stonesoup
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            junit.xml
+            coverage.xml
+
+  # Build Python package
+  build-python:
+    name: Build Python Package
+    runs-on: ubuntu-latest
+    needs: [version, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Update version for nightly
+        run: |
+          sed -i 's/version = "[^"]*"/version = "${{ needs.version.outputs.version }}"/' pyproject.toml
+
+      - name: Build package
+        run: python -m build
+
+      - name: Check package
+        run: twine check dist/*
+
+      - name: Upload Python artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+
+  # Build Rust crate
+  build-rust:
+    name: Build Rust Crate
+    runs-on: ubuntu-latest
+    needs: [version, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build libstonesoup
+        run: |
+          cd libstonesoup
+          mkdir -p build && cd build
+          cmake .. -DBUILD_TESTS=OFF
+          make -j$(nproc)
+          sudo make install
+          sudo ldconfig
+
+      - name: Update Cargo.toml version
+        run: |
+          cd bindings/rust
+          sed -i 's/^version = "[^"]*"/version = "${{ needs.version.outputs.version }}"/' Cargo.toml
+
+      - name: Build Rust crate
+        run: |
+          cd bindings/rust
+          cargo build --release
+
+      - name: Package crate
+        run: |
+          cd bindings/rust
+          cargo package --allow-dirty
+
+      - name: Upload Rust artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-dist
+          path: bindings/rust/target/package/
+
+  # Build Node.js package
+  build-nodejs:
+    name: Build Node.js Package
+    runs-on: ubuntu-latest
+    needs: [version, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Update package.json version
+        run: |
+          cd bindings/nodejs
+          npm version ${{ needs.version.outputs.version }} --no-git-tag-version --allow-same-version || true
+
+      - name: Install dependencies
+        run: |
+          cd bindings/nodejs
+          npm ci
+
+      - name: Build package
+        run: |
+          cd bindings/nodejs
+          npm run build || true
+          npm pack
+
+      - name: Upload Node.js artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nodejs-dist
+          path: bindings/nodejs/*.tgz
+
+  # Create nightly release
+  release:
+    name: Create Nightly Release
+    runs-on: ubuntu-latest
+    needs: [version, build-python, build-rust, build-nodejs]
+    if: github.event_name == 'schedule' || github.event.inputs.publish == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Delete old nightly releases
+        uses: dev-drprasad/delete-older-releases@v0.3.4
+        with:
+          keep_latest: 30
+          delete_tag_pattern: nightly
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create nightly release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: nightly-${{ needs.version.outputs.date }}
+          name: Nightly Build ${{ needs.version.outputs.date }}
+          prerelease: true
+          files: |
+            artifacts/python-dist/*
+            artifacts/rust-dist/*
+            artifacts/nodejs-dist/*
+          body: |
+            ## Nightly Build - ${{ needs.version.outputs.date }}
+
+            **Version:** ${{ needs.version.outputs.version }}
+
+            This is an automated nightly build from the main branch.
+            These builds are for testing purposes and may be unstable.
+
+            ### Installation
+
+            **Python:**
+            ```bash
+            pip install stonesoup==${{ needs.version.outputs.version }}
+            ```
+
+            **Rust:**
+            ```toml
+            stonesoup = "${{ needs.version.outputs.version }}"
+            ```
+
+            **Node.js:**
+            ```bash
+            npm install stonesoup@nightly
+            ```
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Publish to package registries (optional)
+  publish-python:
+    name: Publish Python to PyPI
+    runs-on: ubuntu-latest
+    needs: [version, build-python, release]
+    if: github.event_name == 'schedule' || github.event.inputs.publish == 'true'
+    environment:
+      name: pypi-nightly
+      url: https://pypi.org/p/stonesoup
+    steps:
+      - name: Download Python artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+        continue-on-error: true
+
+  publish-rust:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    needs: [version, build-rust, release]
+    if: github.event_name == 'schedule' || github.event.inputs.publish == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build libstonesoup
+        run: |
+          cd libstonesoup
+          mkdir -p build && cd build
+          cmake .. -DBUILD_TESTS=OFF
+          make -j$(nproc)
+          sudo make install
+          sudo ldconfig
+
+      - name: Update Cargo.toml version
+        run: |
+          cd bindings/rust
+          sed -i 's/^version = "[^"]*"/version = "${{ needs.version.outputs.version }}"/' Cargo.toml
+
+      - name: Publish to crates.io
+        run: |
+          cd bindings/rust
+          cargo publish --allow-dirty
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        continue-on-error: true
+
+  publish-npm:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    needs: [version, build-nodejs, release]
+    if: github.event_name == 'schedule' || github.event.inputs.publish == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download Node.js artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nodejs-dist
+          path: dist/
+
+      - name: Publish to npm with nightly tag
+        run: |
+          cd dist
+          npm publish *.tgz --tag nightly --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        continue-on-error: true

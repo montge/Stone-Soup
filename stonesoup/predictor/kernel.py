@@ -2,13 +2,13 @@ import copy
 
 import numpy as np
 
-from ._utils import predict_lru_cache
-from .kalman import KalmanPredictor
 from ..base import Property
 from ..kernel import Kernel, QuadraticKernel
 from ..types.prediction import Prediction
 from ..types.state import State
 from ..types.update import KernelParticleStateUpdate
+from ._utils import predict_lru_cache
+from .kalman import KalmanPredictor
 
 
 class AdaptiveKernelKalmanPredictor(KalmanPredictor):
@@ -39,13 +39,16 @@ class AdaptiveKernelKalmanPredictor(KalmanPredictor):
     The transition matrix :math:`\Gamma_{k}` represents the change of sample representation, and
     :math:`{V}_{k}` represents the finite matrix representation of the transition residual matrix.
     """
+
     kernel: Kernel = Property(
         default_factory=QuadraticKernel,
-        doc="Default is None. If None, the default :class:`~QuadraticKernel` is used.")
+        doc="Default is None. If None, the default :class:`~QuadraticKernel` is used.",
+    )
     lambda_predictor: float = Property(
         default=1e-3,
         doc=r":math:`\lambda_{\tilde{K}}`. Regularisation parameter used to stabilise the inverse "
-            r"Gram matrix. Range is :math:`\left[10^{-4}, 10^{-2}\right]`")
+        r"Gram matrix. Range is :math:`\left[10^{-4}, 10^{-2}\right]`",
+    )
 
     @predict_lru_cache()
     def predict(self, prior, timestamp=None, proposal=None, **kwargs):
@@ -77,9 +80,8 @@ class AdaptiveKernelKalmanPredictor(KalmanPredictor):
         # Get the prediction interval
         predict_over_interval = self._predict_over_interval(prior, timestamp)
         new_state_vector = self.transition_model.function(
-            proposal,
-            time_interval=predict_over_interval,
-            **kwargs)
+            proposal, time_interval=predict_over_interval, **kwargs
+        )
 
         k_tilde_tilde = self.kernel(proposal)
         k_tilde_nontilde = self.kernel(proposal, prior)
@@ -90,12 +92,14 @@ class AdaptiveKernelKalmanPredictor(KalmanPredictor):
         kernel_t = inv_val @ k_tilde_nontilde
         prediction_weights = kernel_t @ prior.weight
         new_val = inv_val @ k_tilde_tilde - I
-        v = new_val@new_val.T / len(prior)
+        v = new_val @ new_val.T / len(prior)
 
         prediction_covariance = kernel_t @ prior.kernel_covar @ kernel_t.T + v
-        return Prediction.from_state(prior,
-                                     state_vector=new_state_vector,
-                                     weight=prediction_weights,
-                                     kernel_covar=prediction_covariance,
-                                     timestamp=timestamp,
-                                     transition_model=self.transition_model)
+        return Prediction.from_state(
+            prior,
+            state_vector=new_state_vector,
+            weight=prediction_weights,
+            kernel_covar=prediction_covariance,
+            timestamp=timestamp,
+            transition_model=self.transition_model,
+        )

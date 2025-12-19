@@ -1,3 +1,3 @@
-from .base import Writer, MetricsWriter, TrackWriter
+from .base import MetricsWriter, TrackWriter, Writer
 
-__all__ = ['Writer', 'MetricsWriter', 'TrackWriter']
+__all__ = ["MetricsWriter", "TrackWriter", "Writer"]

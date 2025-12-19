@@ -1,6 +1,6 @@
 from pytest import approx, raises
 
-from ..beam_shape import BeamShape, Beam2DGaussian
+from ..beam_shape import Beam2DGaussian, BeamShape
 
 
 def test_abstract_beam_shape():

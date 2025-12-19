@@ -1,38 +1,40 @@
 import datetime
-from abc import abstractmethod, ABC
-from functools import lru_cache
-from collections.abc import Sequence, MutableSequence
-from typing import Optional
 import warnings
+from abc import ABC, abstractmethod
+from collections.abc import MutableSequence, Sequence
+from functools import lru_cache
+from math import cos, sin
 
 import numpy as np
-from math import cos, sin
 from scipy.linalg import expm
 
 from ..base import Property
-from ..functions import cart2sphere, cart2pol, build_rotation_matrix, rotz
+from ..functions import build_rotation_matrix, cart2pol, cart2sphere, rotz
 from ..models.transition import TransitionModel
+from ..sensormanager.action import Actionable
 from ..types.array import StateVector
 from ..types.state import State, StateMutableSequence
-from ..sensormanager.action import Actionable
 
 
 class Movable(StateMutableSequence, Actionable, ABC):
     states: MutableSequence[State] = Property(
         doc="A list of States which enables the platform's history to be "
-            "accessed in simulators and for plotting. Initiated as a "
-            "state, for a static platform, this would usually contain its "
-            "position coordinates in the form ``[x, y, z]``. For a moving "
-            "platform it would contain position and velocity interleaved: "
-            "``[x, vx, y, vy, z, vz]``")
+        "accessed in simulators and for plotting. Initiated as a "
+        "state, for a static platform, this would usually contain its "
+        "position coordinates in the form ``[x, y, z]``. For a moving "
+        "platform it would contain position and velocity interleaved: "
+        "``[x, vx, y, vy, z, vz]``"
+    )
     position_mapping: Sequence[int] = Property(
         doc="Mapping between platform position and state vector. For a "
-            "position-only 3d platform this might be ``[0, 1, 2]``. For a "
-            "position and velocity platform: ``[0, 2, 4]``")
-    velocity_mapping: Optional[Sequence[int]] = Property(
+        "position-only 3d platform this might be ``[0, 1, 2]``. For a "
+        "position and velocity platform: ``[0, 2, 4]``"
+    )
+    velocity_mapping: Sequence[int] | None = Property(
         default=None,
         doc="Mapping between platform velocity and state dims. If not "
-            "set, it will default to ``[m+1 for m in position_mapping]``")
+        "set, it will default to ``[m+1 for m in position_mapping]``",
+    )
 
     # TODO: Determine where a platform coordinate frame should be maintained
 
@@ -47,7 +49,7 @@ class Movable(StateMutableSequence, Actionable, ABC):
         if self.velocity_mapping is None:
             self.velocity_mapping = [p + 1 for p in self.position_mapping]
         if not self.states:
-            raise ValueError('States must not be empty: it must contain least one state.')
+            raise ValueError("States must not be empty: it must contain least one state.")
 
     def validate_timestamp(self):
         pass
@@ -95,8 +97,7 @@ class Movable(StateMutableSequence, Actionable, ABC):
     @property
     @abstractmethod
     def is_moving(self) -> bool:
-        """Return the ``True`` if the platform is moving, ``False`` otherwise.
-        """
+        """Return the ``True`` if the platform is moving, ``False`` otherwise."""
         raise NotImplementedError
 
     @abstractmethod
@@ -125,7 +126,7 @@ class Movable(StateMutableSequence, Actionable, ABC):
         raise NotImplementedError
 
     def _get_rotated_offset(self, offset: StateVector) -> np.ndarray:
-        """ Determine the sensor mounting offset for the platforms relative
+        """Determine the sensor mounting offset for the platforms relative
         orientation.
 
         Parameters
@@ -147,8 +148,8 @@ class Movable(StateMutableSequence, Actionable, ABC):
         else:
             return offset
 
-    def range_and_angles_to_other(self, other: 'Movable') -> tuple[float, float, float]:
-        """ Calculate the range, azimuth and elevation of a given Movable relative to current
+    def range_and_angles_to_other(self, other: "Movable") -> tuple[float, float, float]:
+        """Calculate the range, azimuth and elevation of a given Movable relative to current
         Movable.
 
         Calculates the relative vector between the two Movables, and then converts this
@@ -189,19 +190,21 @@ class Movable(StateMutableSequence, Actionable, ABC):
 class FixedMovable(Movable):
     """Fixed platform base class
 
-        A platform represents a random object defined as a :class:`~.StateMutableSequence`
-        with fixed (but settable) position and orientation.
+    A platform represents a random object defined as a :class:`~.StateMutableSequence`
+    with fixed (but settable) position and orientation.
 
-        .. note:: Position and orientation are read/write properties in this class.
-        """
+    .. note:: Position and orientation are read/write properties in this class.
+    """
+
     orientation: StateVector = Property(
-        default_factory=lambda: StateVector([[0.], [0.], [0.]]),
-        doc='A fixed orientation of the static platform. Defaults to the zero vector')
+        default_factory=lambda: StateVector([[0.0], [0.0], [0.0]]),
+        doc="A fixed orientation of the static platform. Defaults to the zero vector",
+    )
 
     def __init__(self, *args, **kwargs):
-        velocity_mapping = kwargs.get('velocity_mapping', None)
+        velocity_mapping = kwargs.get("velocity_mapping")
         if velocity_mapping:
-            raise ValueError('Velocity mapping should not be set for a FixedMovable')
+            raise ValueError("Velocity mapping should not be set for a FixedMovable")
         super().__init__(*args, **kwargs)
         self.velocity_mapping = None
 
@@ -214,7 +217,7 @@ class FixedMovable(Movable):
 
         For a fixed platform this is always a zero vector of length :attr:`ndim`.
         """
-        return StateVector([0.] * self.ndim)
+        return StateVector([0.0] * self.ndim)
 
     @property
     def is_moving(self) -> bool:
@@ -234,6 +237,7 @@ class MovingMovable(Movable):
 
     .. note:: Position and orientation are a read only properties in this class.
     """
+
     transition_model: TransitionModel = Property(doc="Transition model")
 
     @property
@@ -247,7 +251,7 @@ class MovingMovable(Movable):
         try:
             return self.state_vector[self.velocity_mapping, :]
         except IndexError:
-            raise AttributeError('Velocity is not defined for this platform')
+            raise AttributeError("Velocity is not defined for this platform")
 
     @property
     def orientation(self) -> StateVector:
@@ -274,14 +278,16 @@ class MovingMovable(Movable):
         """
 
         if not self.is_moving:
-            self._property_orientation = StateVector([0., 0., 0.])
+            self._property_orientation = StateVector([0.0, 0.0, 0.0])
             warnings.warn(
-                'A default initial orientation has been set as StateVector([0., 0., 0.])')
+                "A default initial orientation has been set as StateVector([0., 0., 0.])",
+                stacklevel=2,
+            )
 
         # For low velocity platforms, calculate orientation based on previous position
         if len(self) >= 2 and np.linalg.norm(self.velocity) < 1e-6 and 2 <= self.ndim <= 3:
             c_pos = self.position
-            p_pos = self[-2].state_vector[self.position_mapping, ]
+            p_pos = self[-2].state_vector[self.position_mapping,]
             # If change in position is very small, return previous orientation
             if np.linalg.norm(c_pos - p_pos) < 1e-6:
                 return self._property_orientation
@@ -290,19 +296,20 @@ class MovingMovable(Movable):
                 elevation = 0
             else:
                 _, bearing, elevation = cart2sphere(*(c_pos - p_pos))
-            self._property_orientation = StateVector([0., elevation, bearing])
+            self._property_orientation = StateVector([0.0, elevation, bearing])
 
         elif self.is_moving:
             velocity = self.velocity
             if self.ndim == 3:
                 _, bearing, elevation = cart2sphere(*velocity.flat)
-                self._property_orientation = StateVector([0., elevation, bearing])
+                self._property_orientation = StateVector([0.0, elevation, bearing])
             elif self.ndim == 2:
                 _, bearing = cart2pol(*velocity.flat)
-                self._property_orientation = StateVector([0., 0., bearing])
+                self._property_orientation = StateVector([0.0, 0.0, bearing])
             else:
-                raise NotImplementedError('Orientation of a moving platform is only'
-                                          'implemented for 2 and 3 dimensions')
+                raise NotImplementedError(
+                    "Orientation of a moving platform is only" "implemented for 2 and 3 dimensions"
+                )
 
         return self._property_orientation
 
@@ -325,8 +332,9 @@ class MovingMovable(Movable):
         if self.transition_model is None:
             self.state_vector[self.position_mapping, :] = value
         else:
-            raise AttributeError('Cannot set the position of a moving platform with a '
-                                 'transition model')
+            raise AttributeError(
+                "Cannot set the position of a moving platform with a " "transition model"
+            )
 
     def move(self, timestamp=None, noise=True, **kwargs) -> None:
         """Propagate the platform position using the :attr:`transition_model`.
@@ -359,13 +367,15 @@ class MovingMovable(Movable):
             return
 
         if self.transition_model is None:
-            raise AttributeError('Platform without a transition model cannot be moved')
+            raise AttributeError("Platform without a transition model cannot be moved")
 
-        state_vector = self.transition_model.function(state=self.state,
-                                                      noise=noise,
-                                                      timestamp=timestamp,
-                                                      time_interval=time_interval,
-                                                      **kwargs)
+        state_vector = self.transition_model.function(
+            state=self.state,
+            noise=noise,
+            timestamp=timestamp,
+            time_interval=time_interval,
+            **kwargs,
+        )
         new_state = State.from_state(self.state, state_vector=state_vector, timestamp=timestamp)
         self.states.append(new_state)
 
@@ -378,13 +388,14 @@ class MultiTransitionMovable(MovingMovable):
     """
 
     transition_models: Sequence[TransitionModel] = Property(doc="list of transition models")
-    transition_times: Sequence[datetime.timedelta] = Property(doc="Durations for each listed "
-                                                                  "transition model")
+    transition_times: Sequence[datetime.timedelta] = Property(
+        doc="Durations for each listed " "transition model"
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if len(self.transition_models) != len(self.transition_times):
-            raise AttributeError('transition_models and transition_times must be same length')
+            raise AttributeError("transition_models and transition_times must be same length")
 
         self.transition_index = 0
         self.current_interval = self.transition_times[0]
@@ -433,14 +444,11 @@ class MultiTransitionMovable(MovingMovable):
             if time_interval >= self.current_interval:
 
                 temp_state_vector = self.transition_model.function(
-                    state=temp_state,
-                    noise=noise,
-                    time_interval=self.current_interval,
-                    **kwargs
+                    state=temp_state, noise=noise, time_interval=self.current_interval, **kwargs
                 )
-                temp_state = State.from_state(self.state,
-                                              state_vector=temp_state_vector,
-                                              timestamp=timestamp)
+                temp_state = State.from_state(
+                    self.state, state_vector=temp_state_vector, timestamp=timestamp
+                )
 
                 time_interval -= self.current_interval
                 self.transition_index = (self.transition_index + 1) % len(self.transition_models)
@@ -448,21 +456,18 @@ class MultiTransitionMovable(MovingMovable):
 
             else:
                 temp_state_vector = self.transition_model.function(
-                    state=temp_state,
-                    noise=noise,
-                    time_interval=time_interval,
-                    **kwargs
+                    state=temp_state, noise=noise, time_interval=time_interval, **kwargs
                 )
-                temp_state = State.from_state(self.state,
-                                              state_vector=temp_state_vector,
-                                              timestamp=timestamp)
+                temp_state = State.from_state(
+                    self.state, state_vector=temp_state_vector, timestamp=timestamp
+                )
                 self.current_interval -= time_interval
                 break
         self.states.append(temp_state)
 
 
 def _get_rotation_matrix(vel: StateVector) -> np.ndarray:
-    """ Generates a rotation matrix which can be used to determine the
+    """Generates a rotation matrix which can be used to determine the
     corrected sensor offsets.
 
     In the 2d case this returns the following rotation matrix
@@ -488,14 +493,13 @@ def _get_rotation_matrix(vel: StateVector) -> np.ndarray:
         theta = _get_angle(vel, np.array([[1, 0]]))
         if vel[1] < 0:
             theta *= -1
-        return np.array([[cos(theta), -sin(theta)],
-                         [sin(theta), cos(theta)]])
+        return np.array([[cos(theta), -sin(theta)], [sin(theta), cos(theta)]])
     else:
         raise NotImplementedError
 
 
 def _get_angle(vec: StateVector, axis: np.ndarray) -> float:
-    """ Returns the angle between a pair of vectors. Used to determine the
+    """Returns the angle between a pair of vectors. Used to determine the
     angle of rotation required between relative rectangular cartesian
     coordinate frame of reference and platform inertial frame of reference.
 
@@ -544,7 +548,7 @@ def _rot3d(vec: np.ndarray) -> np.ndarray:
 
 @lru_cache(maxsize=128)
 def _rot3d_tuple(vec: tuple) -> np.ndarray:
-    """ Private method. Should not be called directly, only from `_rot3d`
+    """Private method. Should not be called directly, only from `_rot3d`
 
     Params and returns as :func:`~_rot3d`
 
@@ -555,8 +559,7 @@ def _rot3d_tuple(vec: tuple) -> np.ndarray:
     """
     # TODO handle platform roll
     yaw = np.arctan2(vec[1], vec[0])
-    pitch = np.arctan2(vec[2],
-                       np.sqrt(vec[0] ** 2 + vec[1] ** 2)) * -1
+    pitch = np.arctan2(vec[2], np.sqrt(vec[0] ** 2 + vec[1] ** 2)) * -1
     rot_z = rotz(yaw)
     # Modify to correct for new y axis
     y_axis = np.array([0, 1, 0])

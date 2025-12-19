@@ -1,29 +1,29 @@
+import numpy as np
 import pytest
 from pytest import approx
-import numpy as np
 
 from ....types.angle import Bearing
 from ....types.array import CovarianceMatrix, StateVector, StateVectors
 from ....types.state import State
 from ..linear import LinearGaussian
-from ..nonlinear import (
-    CombinedReversibleGaussianMeasurementModel, CartesianToBearingRange)
+from ..nonlinear import CartesianToBearingRange, CombinedReversibleGaussianMeasurementModel
 
 
 @pytest.fixture(scope="module")
 def model():
-    return CombinedReversibleGaussianMeasurementModel([
-        CartesianToBearingRange(5, [0, 1], np.diag([1, 10])),
-        CartesianToBearingRange(5, [3, 4], np.diag([2, 20])),
-    ])
+    return CombinedReversibleGaussianMeasurementModel(
+        [
+            CartesianToBearingRange(5, [0, 1], np.diag([1, 10])),
+            CartesianToBearingRange(5, [3, 4], np.diag([2, 20])),
+        ]
+    )
 
 
 def test_non_linear(model):
     assert model.ndim_meas == 4
     assert model.ndim_state == 5
 
-    meas_vector = model.function(
-        State(StateVector([[0], [10], [10], [0], [-10]])))
+    meas_vector = model.function(State(StateVector([[0], [10], [10], [0], [-10]])))
 
     assert isinstance(meas_vector[0, 0], Bearing)
     assert not isinstance(meas_vector[1, 0], Bearing)
@@ -31,15 +31,15 @@ def test_non_linear(model):
     assert not isinstance(meas_vector[3, 0], Bearing)
     assert isinstance(meas_vector, StateVector)
 
-    assert np.array_equal(meas_vector,
-                          np.array([[np.pi/2], [10], [-np.pi/2], [10]]))
+    assert np.array_equal(meas_vector, np.array([[np.pi / 2], [10], [-np.pi / 2], [10]]))
 
     assert model.mapping == [0, 1, 3, 4]
 
 
 def test_non_linear_state_vectors(model):
     meas_vector = model.function(
-        State(StateVectors([[0, 0], [10, -10], [10, 10], [0, 0], [-10, 10]])))
+        State(StateVectors([[0, 0], [10, -10], [10, 10], [0, 0], [-10, 10]]))
+    )
 
     assert isinstance(meas_vector[0, 0], Bearing)
     assert not isinstance(meas_vector[1, 0], Bearing)
@@ -51,17 +51,25 @@ def test_non_linear_state_vectors(model):
     assert not isinstance(meas_vector[3, 1], Bearing)
     assert isinstance(meas_vector, StateVectors)
 
-    assert np.array_equal(meas_vector,
-                          np.array([[np.pi/2, -np.pi/2], [10, 10], [-np.pi/2, np.pi/2], [10, 10]]))
+    assert np.array_equal(
+        meas_vector,
+        np.array([[np.pi / 2, -np.pi / 2], [10, 10], [-np.pi / 2, np.pi / 2], [10, 10]]),
+    )
 
 
 def test_jacobian(model):
     state = State(StateVector([[10.0], [10.0], [0.0], [10.0], [0.0]]))
     jacobian = model.jacobian(state)
-    assert jacobian == approx(np.array([[-0.05,      0.05,       0, 0, 0],
-                                        [0.70710678, 0.70710678, 0, 0, 0],
-                                        [0,          0,          0, 0, 0.1],
-                                        [0,          0,          0, 1, 0]]))
+    assert jacobian == approx(
+        np.array(
+            [
+                [-0.05, 0.05, 0, 0, 0],
+                [0.70710678, 0.70710678, 0, 0, 0],
+                [0, 0, 0, 0, 0.1],
+                [0, 0, 0, 1, 0],
+            ]
+        )
+    )
 
 
 def test_covar(model):
@@ -95,16 +103,19 @@ def test_rvs(model):
 
 
 def test_pdf(model):
-    pdf = model.pdf(State(StateVector([[0], [10], [0], [10]])),
-                    State(StateVector([[10], [0], [0], [10], [0]])))
+    pdf = model.pdf(
+        State(StateVector([[0], [10], [0], [10]])), State(StateVector([[10], [0], [0], [10], [0]]))
+    )
     assert float(pdf) == approx(0.0012665, rel=1e-3)
 
 
 def test_non_linear_and_linear():
-    model = CombinedReversibleGaussianMeasurementModel([
-        CartesianToBearingRange(3, [0, 1], np.diag([1, 10])),
-        LinearGaussian(3, [2], np.array([[20]])),
-    ])
+    model = CombinedReversibleGaussianMeasurementModel(
+        [
+            CartesianToBearingRange(3, [0, 1], np.diag([1, 10])),
+            LinearGaussian(3, [2], np.array([[20]])),
+        ]
+    )
 
     state = State(StateVector([[0], [10], [20]]))
     meas_vector = model.function(state)
@@ -112,7 +123,7 @@ def test_non_linear_and_linear():
     assert not isinstance(meas_vector[1, 0], Bearing)
     assert not isinstance(meas_vector[2, 0], Bearing)
     assert isinstance(meas_vector, StateVector)
-    assert np.array_equal(meas_vector, np.array([[np.pi/2], [10], [20]]))
+    assert np.array_equal(meas_vector, np.array([[np.pi / 2], [10], [20]]))
 
     assert model.inverse_function(State(meas_vector)) == approx(state.state_vector)
 
@@ -121,15 +132,19 @@ def test_non_linear_and_linear():
 
 def test_mismatch_ndim_state():
     with pytest.raises(ValueError):
-        CombinedReversibleGaussianMeasurementModel([
-            CartesianToBearingRange(3, [0, 1], np.diag([1, 10])),
-            CartesianToBearingRange(4, [0, 1], np.diag([1, 10])),
-        ])
+        CombinedReversibleGaussianMeasurementModel(
+            [
+                CartesianToBearingRange(3, [0, 1], np.diag([1, 10])),
+                CartesianToBearingRange(4, [0, 1], np.diag([1, 10])),
+            ]
+        )
 
 
 def test_none_covar():
     with pytest.raises(ValueError, match="Covariance should have ndim of 2: got 0"):
-        CombinedReversibleGaussianMeasurementModel([
-            CartesianToBearingRange(4, [0, 1], None),
-            CartesianToBearingRange(4, [0, 1], np.diag([1, 10]))
-        ])
+        CombinedReversibleGaussianMeasurementModel(
+            [
+                CartesianToBearingRange(4, [0, 1], None),
+                CartesianToBearingRange(4, [0, 1], np.diag([1, 10])),
+            ]
+        )

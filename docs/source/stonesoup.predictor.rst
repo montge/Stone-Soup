@@ -54,3 +54,9 @@ Composite
 
 .. automodule:: stonesoup.predictor.composite
     :show-inheritance:
+
+Voxel
+-----
+
+.. automodule:: stonesoup.predictor.voxel
+    :show-inheritance:

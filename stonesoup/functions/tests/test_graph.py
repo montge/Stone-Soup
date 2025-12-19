@@ -8,10 +8,10 @@ except ImportError:
     pytest.skip(
         "Skipping due to missing optional dependencies. Usage of the road network classes requires"
         "that the optional package dependencies 'geopandas' and 'networkx' are installed.",
-        allow_module_level=True
+        allow_module_level=True,
     )
 
-from stonesoup.functions.graph import normalise_re, calc_edge_len, get_xy_from_range_edge
+from stonesoup.functions.graph import calc_edge_len, get_xy_from_range_edge, normalise_re
 
 
 # The next fixture defines a simple network with 4 nodes and 5 edges that looks like:
@@ -25,16 +25,20 @@ from stonesoup.functions.graph import normalise_re, calc_edge_len, get_xy_from_r
 @pytest.fixture()
 def graph():
     # Nodes are defined as a tuple of (node, {'pos': (x, y)})
-    nodes = [(1, {'pos': (0, 0)}),
-             (2, {'pos': (1, 0)}),
-             (3, {'pos': (0, 1)}),
-             (4, {'pos': (1, 1)})]
+    nodes = [
+        (1, {"pos": (0, 0)}),
+        (2, {"pos": (1, 0)}),
+        (3, {"pos": (0, 1)}),
+        (4, {"pos": (1, 1)}),
+    ]
     # Edges are defined as a tuple of (node1, node2, {'weight': weight})
-    edges = [(1, 2, {'weight': 1.}),
-             (1, 3, {'weight': .5}),
-             (2, 4, {'weight': 1.}),
-             (3, 4, {'weight': .25}),
-             (4, 2, {'weight': 1.})]
+    edges = [
+        (1, 2, {"weight": 1.0}),
+        (1, 3, {"weight": 0.5}),
+        (2, 4, {"weight": 1.0}),
+        (3, 4, {"weight": 0.25}),
+        (4, 2, {"weight": 1.0}),
+    ]
     # Create the network
     network = RoadNetwork()
     network.add_nodes_from(nodes)
@@ -43,27 +47,27 @@ def graph():
 
 
 @pytest.mark.parametrize(
-    'r_i, e_i, path, expected',
+    "r_i, e_i, path, expected",
     [
         # Particle is on the start node
-        (0., 0, [0, 2], (0., 0)),
+        (0.0, 0, [0, 2], (0.0, 0)),
         # Particle is on the end node
-        (1., 0, [0, 2], (1., 0)),
+        (1.0, 0, [0, 2], (1.0, 0)),
         # Particle is outside the path (before the start node)
-        (-0.2, 0, [0, 2], (0., 0)),
+        (-0.2, 0, [0, 2], (0.0, 0)),
         # Particle range is larger than the edge length
         (2.5, 1, [1, 4, 3], (0.5, 3)),
         # Particle range is negative (should transition to previous edge)
         (-0.2, 3, [1, 4, 3], (0.8, 4)),
         # Particle range is negative (should transition to previous edges)
-        (-5., 3, [1, 4, 3], (0., 1)),
+        (-5.0, 3, [1, 4, 3], (0.0, 1)),
         # Particle is outside the path (after the end node)
-        (5., 1, [1, 4, 3], (1.0, 3)),
+        (5.0, 1, [1, 4, 3], (1.0, 3)),
         # Particle is outside the path (after the end node)
-        (5., 3, [1, 4, 3], (1.0, 3)),
+        (5.0, 3, [1, 4, 3], (1.0, 3)),
         # Particle range is larger than the edge length and longer than the path
-        (5., 4, [1, 4, 3], (1.0, 3)),
-    ]
+        (5.0, 4, [1, 4, 3], (1.0, 3)),
+    ],
 )
 def test_normalise_re(r_i, e_i, path, expected, graph):
     """Test normalise_re function"""
@@ -80,35 +84,35 @@ def test_calc_edge_len(graph):
         assert edge_len == 1
 
     # Add a diagonal edge and test the edge length (should be sqrt(2))
-    graph.add_edge(1, 4, weight=2.)
+    graph.add_edge(1, 4, weight=2.0)
     edge_idx = np.flatnonzero(np.all(graph.edge_list == (1, 4), axis=1))[0]
     edge_len = calc_edge_len(edge_idx, graph)
     assert edge_len == np.sqrt(2)
 
 
 @pytest.mark.parametrize(
-    'r, e, expected',
+    "r, e, expected",
     [
         # Single range, single edge
-        (0., 0, (0., 0.)),
-        (1., 0, (1., 0.)),
-        (.5, 0, (.5, 0.)),
-        (0., 1, (0., 0.)),
-        (1., 1, (0., 1.)),
-        (.5, 1, (0., .5)),
-        (0., 2, (1., 0.)),
-        (1., 2, (1., 1.)),
-        (0.5, 2, (1., .5)),
-        (0., 3, (0., 1.)),
-        (1., 3, (1., 1.)),
-        (.5, 3, (.5, 1.)),
+        (0.0, 0, (0.0, 0.0)),
+        (1.0, 0, (1.0, 0.0)),
+        (0.5, 0, (0.5, 0.0)),
+        (0.0, 1, (0.0, 0.0)),
+        (1.0, 1, (0.0, 1.0)),
+        (0.5, 1, (0.0, 0.5)),
+        (0.0, 2, (1.0, 0.0)),
+        (1.0, 2, (1.0, 1.0)),
+        (0.5, 2, (1.0, 0.5)),
+        (0.0, 3, (0.0, 1.0)),
+        (1.0, 3, (1.0, 1.0)),
+        (0.5, 3, (0.5, 1.0)),
         # List of ranges, single edge
-        ([0., .5, 1.], 0, [[0., 0.], [.5, 0.], [1., 0.]]),
+        ([0.0, 0.5, 1.0], 0, [[0.0, 0.0], [0.5, 0.0], [1.0, 0.0]]),
         # Single range, list of edges
-        (0., [0, 1, 2, 3], [[0., 0.], [0., 0.], [1., 0.], [0., 1.]]),
+        (0.0, [0, 1, 2, 3], [[0.0, 0.0], [0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]),
         # List of ranges, list of edges
-        ([0., .5, 1.], [0, 1, 2], [[0., 0.], [0., .5], [1., 1.]]),
-    ]
+        ([0.0, 0.5, 1.0], [0, 1, 2], [[0.0, 0.0], [0.0, 0.5], [1.0, 1.0]]),
+    ],
 )
 def test_xy_from_range_edge(r, e, expected, graph):
     xy = get_xy_from_range_edge(r, e, graph)

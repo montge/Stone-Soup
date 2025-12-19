@@ -8,7 +8,7 @@ from .base import Deleter
 
 
 class CompositeDeleter(Deleter):
-    """ Track deleter composed of multiple deleters.
+    """Track deleter composed of multiple deleters.
 
     If :attr:`intersect` is True, deletes tracks if they satisfy the deletion conditions of each
     deleter listed in :attr:`deleters`. Otherwise deletes tracks if they satisfy the conditions of
@@ -19,16 +19,11 @@ class CompositeDeleter(Deleter):
     intersect: bool = Property(
         default=True,
         doc="Boolean that determines whether the composite deleter will intersect or unify "
-            "deletion results. Default is `True`, applying an intersection.")
+        "deletion results. Default is `True`, applying an intersection.",
+    )
 
     def check_for_deletion(self, track, **kwargs):
         if self.intersect:
-            for deleter in self.deleters:
-                if not deleter.check_for_deletion(track, **kwargs):
-                    return False
-            return True
+            return all(deleter.check_for_deletion(track, **kwargs) for deleter in self.deleters)
         else:
-            for deleter in self.deleters:
-                if deleter.check_for_deletion(track, **kwargs):
-                    return True
-            return False
+            return any(deleter.check_for_deletion(track, **kwargs) for deleter in self.deleters)

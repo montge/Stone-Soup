@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*"
+           Name="Stone Soup"
+           Language="1033"
+           Version="1.0.0.0"
+           Manufacturer="Defence Science and Technology Laboratory UK"
+           UpgradeCode="12345678-1234-1234-1234-123456789ABC">
+
+    <Package InstallerVersion="200"
+             Compressed="yes"
+             InstallScope="perMachine"
+             Description="Stone Soup - Target Tracking and State Estimation Framework"
+             Comments="https://github.com/dstl/Stone-Soup" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="ProductFeature"
+             Title="Stone Soup"
+             Level="1"
+             Description="Core Stone Soup Python library and tools">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="DocumentationComponents" />
+    </Feature>
+
+    <Feature Id="Examples"
+             Title="Examples and Tutorials"
+             Level="1"
+             Description="Example scripts and tutorial notebooks">
+      <ComponentGroupRef Id="ExampleComponents" />
+    </Feature>
+
+    <Feature Id="Development"
+             Title="Development Tools"
+             Level="2"
+             Description="Development headers and tools">
+      <ComponentGroupRef Id="DevelopmentComponents" />
+    </Feature>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="StoneSoup">
+          <Directory Id="LibFolder" Name="Lib">
+            <Directory Id="StoneSoupLib" Name="stonesoup" />
+          </Directory>
+          <Directory Id="DocsFolder" Name="Documentation" />
+          <Directory Id="ExamplesFolder" Name="Examples" />
+          <Directory Id="IncludeFolder" Name="Include" />
+        </Directory>
+      </Directory>
+
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="Stone Soup" />
+      </Directory>
+    </Directory>
+
+    <ComponentGroup Id="ProductComponents" Directory="StoneSoupLib">
+      <!-- Components will be auto-generated during build -->
+      <Component Id="StoneSoupCore" Guid="*">
+        <File Id="StoneSoupInit" Source="stonesoup\__init__.py" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="DocumentationComponents" Directory="DocsFolder">
+      <Component Id="DocumentationFiles" Guid="*">
+        <File Id="ReadmeFile" Source="README.md" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="ExampleComponents" Directory="ExamplesFolder">
+      <!-- Example files to be added -->
+    </ComponentGroup>
+
+    <ComponentGroup Id="DevelopmentComponents" Directory="IncludeFolder">
+      <!-- Development headers to be added -->
+    </ComponentGroup>
+
+    <Icon Id="StoneSoupIcon.exe" SourceFile="packaging\windows\icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="StoneSoupIcon.exe" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/dstl/Stone-Soup" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/dstl/Stone-Soup" />
+
+    <UI>
+      <UIRef Id="WixUI_FeatureTree" />
+      <UIRef Id="WixUI_ErrorProgressText" />
+    </UI>
+
+    <WixVariable Id="WixUILicenseRtf" Value="packaging\windows\license.rtf" />
+    <WixVariable Id="WixUIBannerBmp" Value="packaging\windows\banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="packaging\windows\dialog.bmp" />
+
+  </Product>
+</Wix>

@@ -1,24 +1,25 @@
 from collections import defaultdict
 from collections.abc import Sequence
 
-from .base import Hypothesiser
 from ..base import Property
 from ..predictor.composite import CompositePredictor
 from ..types.hypothesis import CompositeProbabilityHypothesis
 from ..types.multihypothesis import MultipleHypothesis
+from .base import Hypothesiser
 
 
 class CompositeHypothesiser(Hypothesiser):
     """Composite hypothesiser type
 
-        A composition of ordered sub-hyposisers (:class:`~.Hypothesiser`). Hypothesises each
-        sub-state of a track-detection pair using a corresponding sub-hypothesiser.
+    A composition of ordered sub-hyposisers (:class:`~.Hypothesiser`). Hypothesises each
+    sub-state of a track-detection pair using a corresponding sub-hypothesiser.
     """
 
     sub_hypothesisers: Sequence[Hypothesiser] = Property(
         doc="Sequence of sub-hypothesisers comprising the composite hypothesiser. Must not be "
-            "empty. These must be hypothesisers that return probability-weighted hypotheses, in "
-            "order for composite hypothesis weights to be calculated.")
+        "empty. These must be hypothesisers that return probability-weighted hypotheses, in "
+        "order for composite hypothesis weights to be calculated."
+    )
 
     def __init__(self, *args, **kwargs):
 
@@ -27,12 +28,14 @@ class CompositeHypothesiser(Hypothesiser):
         if len(self.sub_hypothesisers) == 0:
             raise ValueError("Cannot create an empty composite hypothesiser")
 
-        if any(not isinstance(sub_hypothesiser, Hypothesiser)
-               for sub_hypothesiser in self.sub_hypothesisers):
+        if any(
+            not isinstance(sub_hypothesiser, Hypothesiser)
+            for sub_hypothesiser in self.sub_hypothesisers
+        ):
             raise ValueError("All sub-hypothesisers must be a hypothesiser type")
 
         # create predictor as composition of sub-hypothesisers' predictors
-        sub_predictors = list()
+        sub_predictors = []
         for sub_hypothesiser in self.sub_hypothesisers:
             sub_predictors.append(sub_hypothesiser.predictor)
         self.predictor = CompositePredictor(sub_predictors)
@@ -62,25 +65,26 @@ class CompositeHypothesiser(Hypothesiser):
             sequence of :class:`~.SingleHypothesis` objects
         """
 
-        all_hypotheses = list()
+        all_hypotheses = []
 
         # Common state & measurement prediction
         prediction = self.predictor.predict(track, timestamp=timestamp)
 
-        null_sub_hypotheses = list()
+        null_sub_hypotheses = []
 
         # as each detection is composite, it will have a set of sub-hypotheses paired to it
         detections_hypotheses = defaultdict(list)
 
         # loop over the sub-states of the track and sub-hypothesisers
         for sub_state_index, (sub_state, sub_hypothesiser) in enumerate(
-                zip(track[-1].sub_states, self.sub_hypothesisers)):
+            zip(track[-1].sub_states, self.sub_hypothesisers, strict=False)
+        ):
             # store all sub-detections produced from sub-state index i
             sub_state_detections = set()
             # need way to get whole composite detections back from their i-th components
             # create dictionary, keyed by the i-th components, where the value is whole detection
             # will keep track of all detections that have an i-th component
-            relevant_detections = dict()
+            relevant_detections = {}
             for detection in detections:
                 try:
                     sub_detection_index = detection.mapping.index(sub_state_index)
@@ -91,8 +95,9 @@ class CompositeHypothesiser(Hypothesiser):
                 relevant_detections[sub_detection] = detection
 
             # get all hypotheses for the i-th component, considering i-th component of track state
-            sub_hypotheses = sub_hypothesiser.hypothesise(sub_state, sub_state_detections,
-                                                          timestamp=timestamp)
+            sub_hypotheses = sub_hypothesiser.hypothesise(
+                sub_state, sub_state_detections, timestamp=timestamp
+            )
             # get the set of single hypotheses back
             sub_hypotheses = sub_hypotheses.single_hypotheses
 
@@ -120,14 +125,18 @@ class CompositeHypothesiser(Hypothesiser):
             # get all sub-hypotheses for detection
             sub_hypotheses = detections_hypotheses[detection]
 
-            all_hypotheses.append(CompositeProbabilityHypothesis(prediction=prediction,
-                                                                 measurement=detection,
-                                                                 sub_hypotheses=sub_hypotheses))
+            all_hypotheses.append(
+                CompositeProbabilityHypothesis(
+                    prediction=prediction, measurement=detection, sub_hypotheses=sub_hypotheses
+                )
+            )
 
         # add null-hypothesis
-        all_hypotheses.append(CompositeProbabilityHypothesis(prediction=prediction,
-                                                             measurement=None,
-                                                             sub_hypotheses=null_sub_hypotheses))
+        all_hypotheses.append(
+            CompositeProbabilityHypothesis(
+                prediction=prediction, measurement=None, sub_hypotheses=null_sub_hypotheses
+            )
+        )
 
         return MultipleHypothesis(all_hypotheses, normalise=True, total_weight=1)
 

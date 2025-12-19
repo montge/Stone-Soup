@@ -9,7 +9,7 @@ def test_time_buffered_feeder_detections(detector):
     feeder = TimeBufferedFeeder(detector)
 
     prev_time = datetime.datetime(2019, 4, 1, 13, 59, 59)
-    for steps, (time, detections) in enumerate(feeder, 1):
+    for steps, (time, _detections) in enumerate(feeder, 1):
         assert time > prev_time
         prev_time = time
 
@@ -20,7 +20,7 @@ def test_time_buffered_feeder_groundtruth(groundtruth):
     feeder = TimeBufferedFeeder(groundtruth)
 
     prev_time = datetime.datetime(2019, 12, 31, 23, 59, 59)
-    for steps, (time, truths) in enumerate(feeder, 1):
+    for steps, (time, _truths) in enumerate(feeder, 1):
         assert time > prev_time
 
     assert steps == 3
@@ -54,8 +54,7 @@ def test_time_sync_feeder_detections(detector):
     prev_time = datetime.datetime(2019, 4, 1, 14) - feeder.time_window
     for steps, (time, detections) in enumerate(feeder, 1):
         assert time == prev_time + feeder.time_window
-        assert all(detection.timestamp >= prev_time
-                   for detection in detections)
+        assert all(detection.timestamp >= prev_time for detection in detections)
         prev_time = time
 
     assert steps == 4
@@ -67,8 +66,7 @@ def test_time_sync_feeder_groundtruth(groundtruth):
     prev_time = datetime.datetime(2020, 1, 1, 0) - feeder.time_window
     for steps, (time, detections) in enumerate(feeder, 1):
         assert time == prev_time + feeder.time_window
-        assert all(detection.timestamp >= prev_time
-                   for detection in detections)
+        assert all(detection.timestamp >= prev_time for detection in detections)
         prev_time = time
 
     assert steps == 2

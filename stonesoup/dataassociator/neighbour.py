@@ -3,11 +3,10 @@ import itertools
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-from .base import DataAssociator
 from ..base import Property
 from ..hypothesiser import Hypothesiser
-from ..types.hypothesis import SingleHypothesis, JointHypothesis, \
-    ProbabilityHypothesis
+from ..types.hypothesis import JointHypothesis, ProbabilityHypothesis, SingleHypothesis
+from .base import DataAssociator
 
 
 class NearestNeighbour(DataAssociator):
@@ -18,7 +17,8 @@ class NearestNeighbour(DataAssociator):
     """
 
     hypothesiser: Hypothesiser = Property(
-        doc="Generate a set of hypotheses for each prediction-detection pair")
+        doc="Generate a set of hypotheses for each prediction-detection pair"
+    )
 
     def associate(self, tracks, detections, timestamp, **kwargs):
 
@@ -26,9 +26,9 @@ class NearestNeighbour(DataAssociator):
         hypotheses = self.generate_hypotheses(tracks, detections, timestamp, **kwargs)
 
         # Only associate tracks with one or more hypotheses
-        associate_tracks = {track
-                            for track, track_hypotheses in hypotheses.items()
-                            if track_hypotheses}
+        associate_tracks = {
+            track for track, track_hypotheses in hypotheses.items() if track_hypotheses
+        }
 
         associations = {}
         associated_measurements = set()
@@ -41,8 +41,7 @@ class NearestNeighbour(DataAssociator):
                     if hypothesis.measurement in associated_measurements:
                         continue
                     # best_hypothesis is 'greater than' other
-                    if (best_hypothesis is None
-                            or hypothesis > best_hypothesis):
+                    if best_hypothesis is None or hypothesis > best_hypothesis:
                         best_hypothesis = hypothesis
                         best_hypothesis_track = track
 
@@ -61,7 +60,8 @@ class GlobalNearestNeighbour(DataAssociator):
     """
 
     hypothesiser: Hypothesiser = Property(
-        doc="Generate a set of hypotheses for each prediction-detection pair")
+        doc="Generate a set of hypotheses for each prediction-detection pair"
+    )
 
     def associate(self, tracks, detections, timestamp, **kwargs):
 
@@ -93,16 +93,12 @@ class GlobalNearestNeighbour(DataAssociator):
         """
 
         number_hypotheses = len(joint_hypothesis)
-        unique_hypotheses = len(
-            {hyp.measurement for hyp in joint_hypothesis if hyp})
+        unique_hypotheses = len({hyp.measurement for hyp in joint_hypothesis if hyp})
         number_null_hypotheses = sum(not hyp for hyp in joint_hypothesis)
 
         # joint_hypothesis is invalid if one detection is assigned to more than
         # one prediction. Multiple missed detections are valid.
-        if unique_hypotheses + number_null_hypotheses == number_hypotheses:
-            return True
-        else:
-            return False
+        return unique_hypotheses + number_null_hypotheses == number_hypotheses
 
     @classmethod
     def enumerate_joint_hypotheses(cls, hypotheses):
@@ -125,11 +121,10 @@ class GlobalNearestNeighbour(DataAssociator):
 
         # Create a list of dictionaries of valid track-hypothesis pairs
         joint_hypotheses = [
-            JointHypothesis({
-                track: hypothesis
-                for track, hypothesis in zip(hypotheses, joint_hypothesis)})
+            JointHypothesis(dict(zip(hypotheses, joint_hypothesis, strict=False)))
             for joint_hypothesis in itertools.product(*hypotheses.values())
-            if cls.isvalid(joint_hypothesis)]
+            if cls.isvalid(joint_hypothesis)
+        ]
 
         return joint_hypotheses
 
@@ -143,7 +138,8 @@ class GNNWith2DAssignment(DataAssociator):
     """
 
     hypothesiser: Hypothesiser = Property(
-        doc="Generate a set of hypotheses for each prediction-detection pair")
+        doc="Generate a set of hypotheses for each prediction-detection pair"
+    )
 
     def associate(self, tracks, detections, timestamp, **kwargs):
         """Associate a set of detections with predicted states.
@@ -170,9 +166,9 @@ class GNNWith2DAssignment(DataAssociator):
         associations = {}
 
         # Extract detected tracks
-        detected_tracks = [track
-                           for track, track_hypotheses in hypotheses.items()
-                           if any(track_hypotheses)]
+        detected_tracks = [
+            track for track, track_hypotheses in hypotheses.items() if any(track_hypotheses)
+        ]
 
         # Store associations for undetected/missed tracks
         # NOTE: It is assumed that if a track is undetected/missed, then it
@@ -190,11 +186,10 @@ class GNNWith2DAssignment(DataAssociator):
 
         # Generate 2d array "matrix" of hypotheses mapping track to detection
         hypothesis_matrix = np.empty(
-            (len(detected_tracks), len(detections) + len(detected_tracks)),
-            SingleHypothesis)
+            (len(detected_tracks), len(detections) + len(detected_tracks)), SingleHypothesis
+        )
         for i, track in enumerate(detected_tracks):
-            row = np.empty(
-                (hypothesis_matrix.shape[1]), SingleHypothesis)
+            row = np.empty((hypothesis_matrix.shape[1]), SingleHypothesis)
             for hypothesis in hypotheses[track]:
                 if not hypothesis:
                     row[len(detections) + i] = hypothesis
@@ -207,11 +202,12 @@ class GNNWith2DAssignment(DataAssociator):
         # Mixed hypotheses cannot be computed at this time
         hypothesis_types = {
             isinstance(hypothesis, ProbabilityHypothesis)
-            for row in hypothesis_matrix for hypothesis in row
-            if hypothesis is not None}
+            for row in hypothesis_matrix
+            for hypothesis in row
+            if hypothesis is not None
+        }
         if len(hypothesis_types) > 1:
-            raise RuntimeError(
-                "2d assignment does not support mixed hypothesis types")
+            raise RuntimeError("2d assignment does not support mixed hypothesis types")
         probability_flag = hypothesis_types.pop()
 
         # Generate 2d array "matrix" of distances
@@ -220,22 +216,19 @@ class GNNWith2DAssignment(DataAssociator):
         for x in range(hypothesis_matrix.shape[0]):
             for y in range(hypothesis_matrix.shape[1]):
                 if hypothesis_matrix[x][y] is None:
-                    distance_matrix[x][y] = -np.inf if probability_flag \
-                        else np.inf
+                    distance_matrix[x][y] = -np.inf if probability_flag else np.inf
                 else:
                     if probability_flag:
-                        distance_matrix[x][y] = \
-                            hypothesis_matrix[x][y].probability
+                        distance_matrix[x][y] = hypothesis_matrix[x][y].probability
                     else:
-                        distance_matrix[x][y] = \
-                            hypothesis_matrix[x][y].distance
+                        distance_matrix[x][y] = hypothesis_matrix[x][y].distance
 
         # Use "shortest path" assignment algorithm on distance matrix
         # to assign tracks to nearest detection
         # Maximise flag = true for probability instance
         # (converts minimisation problem to maximisation problem)
         try:
-            row4col, col4row = linear_sum_assignment(distance_matrix, probability_flag)
+            _row4col, col4row = linear_sum_assignment(distance_matrix, probability_flag)
         except ValueError:
             raise RuntimeError("Assignment was not feasible")
 

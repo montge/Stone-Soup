@@ -1,20 +1,21 @@
 import datetime
 
-import pytest
 import numpy as np
+import pytest
 
-from ..nonlinear import ConstantTurn
 from ....types.state import State
+from ..nonlinear import ConstantTurn
 
 
-@pytest.mark.parametrize('sign', [1, -1])
+@pytest.mark.parametrize("sign", [1, -1])
 def test_nlct(CT_model, sign):
     state = State(np.array([[3.0], [1.0], [2.0], [1.0], [-0.05]]))
     linear_noise_coeffs = np.array([0.1, 0.1])
     turn_noise_coeff = 0.01
     # Create an ConstantTurn model object
-    model_obj = ConstantTurn(linear_noise_coeffs=linear_noise_coeffs,
-                             turn_noise_coeff=turn_noise_coeff)
+    model_obj = ConstantTurn(
+        linear_noise_coeffs=linear_noise_coeffs, turn_noise_coeff=turn_noise_coeff
+    )
 
     # State related variables
     old_timestamp = datetime.datetime.now()
@@ -28,14 +29,12 @@ def test_nlct(CT_model, sign):
     Q = CT_model.covar(linear_noise_coeffs, turn_noise_coeff, time_interval)
 
     # Ensure ```model_obj.covar(time_interval)``` returns Q
-    assert np.array_equal(Q, model_obj.covar(
-        timestamp=new_timestamp, time_interval=time_interval))
+    assert np.array_equal(Q, model_obj.covar(timestamp=new_timestamp, time_interval=time_interval))
 
     # Propagate a state vector through the mode (without noise)
     new_state_vec_wo_noise = model_obj.function(
-        state,
-        timestamp=new_timestamp,
-        time_interval=time_interval)
+        state, timestamp=new_timestamp, time_interval=time_interval
+    )
 
     assert np.array_equal(new_state_vec_wo_noise, F)
 
@@ -45,18 +44,14 @@ def test_nlct(CT_model, sign):
     # Propagate a state vector throughout the model
     # (with internal noise)
     new_state_vec_w_inoise = model_obj.function(
-        state,
-        noise=True,
-        timestamp=new_timestamp,
-        time_interval=time_interval)
+        state, noise=True, timestamp=new_timestamp, time_interval=time_interval
+    )
     assert not np.array_equal(new_state_vec_w_inoise, F)
 
     # Propagate a state vector through the model
     # (with external noise)
     noise = model_obj.rvs(timestamp=new_timestamp, time_interval=time_interval)
     new_state_vec_w_enoise = model_obj.function(
-        state,
-        timestamp=new_timestamp,
-        time_interval=time_interval,
-        noise=noise)
+        state, timestamp=new_timestamp, time_interval=time_interval, noise=noise
+    )
     assert np.array_equal(new_state_vec_w_enoise, F + noise)

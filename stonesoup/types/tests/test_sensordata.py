@@ -1,6 +1,8 @@
+import datetime
+
 import numpy as np
 import pytest
-import datetime
+
 from stonesoup.types.sensordata import ImageFrame
 
 

@@ -4,10 +4,10 @@ from collections.abc import Sequence
 import numpy as np
 from scipy.linalg import block_diag
 
-from .base import TransitionModel
-from ..base import GaussianModel, TimeVariantModel
 from ...base import Property
 from ...types.array import CovarianceMatrix, StateVector, StateVectors
+from ..base import GaussianModel, TimeVariantModel
+from .base import TransitionModel
 
 
 class GaussianTransitionModel(TransitionModel, GaussianModel):
@@ -74,10 +74,11 @@ class ConstantTurn(GaussianTransitionModel, TimeVariantModel):
                           0 & 0 & 0 & 0 & q_\omega dt
                      \end{bmatrix}
     """
+
     linear_noise_coeffs: np.ndarray = Property(
-        doc=r"The acceleration noise diffusion coefficients :math:`[q_x, \: q_y]^T`")
-    turn_noise_coeff: float = Property(
-        doc=r"The turn rate noise coefficient :math:`q_\omega`")
+        doc=r"The acceleration noise diffusion coefficients :math:`[q_x, \: q_y]^T`"
+    )
+    turn_noise_coeff: float = Property(doc=r"The turn rate noise coefficient :math:`q_\omega`")
 
     @property
     def ndim_state(self):
@@ -91,29 +92,32 @@ class ConstantTurn(GaussianTransitionModel, TimeVariantModel):
         return 5
 
     def function(self, state, noise=False, **kwargs) -> StateVector:
-        time_interval_sec = kwargs['time_interval'].total_seconds()
+        time_interval_sec = kwargs["time_interval"].total_seconds()
         sv1 = state.state_vector
         turn_rate = sv1[4, :]
         # Avoid divide by zero in the function evaluation
         if turn_rate.dtype != float:
             turn_rate = turn_rate.astype(float)
-        turn_rate[turn_rate == 0.] = np.finfo(float).eps
+        # Use isclose for safe floating-point comparison to zero
+        turn_rate[np.isclose(turn_rate, 0.0)] = np.finfo(float).eps
         dAngle = turn_rate * time_interval_sec
         cos_dAngle = np.cos(dAngle)
         sin_dAngle = np.sin(dAngle)
         sv2 = StateVectors(
-            [sv1[0, :] + sin_dAngle/turn_rate * sv1[1, :] - sv1[3, :] / turn_rate *
-             (1. - cos_dAngle),
-             sv1[1, :] * cos_dAngle - sv1[3, :] * sin_dAngle,
-             sv1[1, :] / turn_rate * (1. - cos_dAngle) + sv1[2, :] + sv1[3, :] * sin_dAngle
-             / turn_rate,
-             sv1[1, :] * sin_dAngle + sv1[3, :] * cos_dAngle,
-             turn_rate])
+            [
+                sv1[0, :]
+                + sin_dAngle / turn_rate * sv1[1, :]
+                - sv1[3, :] / turn_rate * (1.0 - cos_dAngle),
+                sv1[1, :] * cos_dAngle - sv1[3, :] * sin_dAngle,
+                sv1[1, :] / turn_rate * (1.0 - cos_dAngle)
+                + sv1[2, :]
+                + sv1[3, :] * sin_dAngle / turn_rate,
+                sv1[1, :] * sin_dAngle + sv1[3, :] * cos_dAngle,
+                turn_rate,
+            ]
+        )
         if isinstance(noise, bool) or noise is None:
-            if noise:
-                noise = self.rvs(num_samples=state.state_vector.shape[1], **kwargs)
-            else:
-                noise = 0
+            noise = self.rvs(num_samples=state.state_vector.shape[1], **kwargs) if noise else 0
         return sv2 + noise
 
     def covar(self, time_interval, **kwargs):
@@ -129,9 +133,8 @@ class ConstantTurn(GaussianTransitionModel, TimeVariantModel):
         q = self.turn_noise_coeff
         dt = abs(time_interval.total_seconds())
 
-        Q = np.array([[dt**3 / 3., dt**2 / 2.],
-                      [dt**2 / 2., dt]])
-        C = block_diag(Q*q_x, Q*q_y, dt*q)
+        Q = np.array([[dt**3 / 3.0, dt**2 / 2.0], [dt**2 / 2.0, dt]])
+        C = block_diag(Q * q_x, Q * q_y, dt * q)
 
         return CovarianceMatrix(C)
 
@@ -149,8 +152,8 @@ class ConstantTurnSandwich(ConstantTurn):
     The target is assumed to move with (nearly) constant velocity and also
     unknown (nearly) constant turn rate.
     """
-    model_list: Sequence[GaussianTransitionModel] = Property(
-        doc="List of Transition Models.")
+
+    model_list: Sequence[GaussianTransitionModel] = Property(doc="List of Transition Models.")
 
     @property
     def ndim_state(self):
@@ -182,10 +185,7 @@ class ConstantTurnSandwich(ConstantTurn):
         sv_list.append(sv_ct[-3:, 0:])
         sv_out = StateVectors(np.concatenate(sv_list))
         if isinstance(noise, bool) or noise is None:
-            if noise:
-                noise = self.rvs(num_samples=state.state_vector.shape[1], **kwargs)
-            else:
-                noise = 0
+            noise = self.rvs(num_samples=state.state_vector.shape[1], **kwargs) if noise else 0
         return sv_out + noise
 
     def covar(self, time_interval, **kwargs):

@@ -1,5 +1,10 @@
 """Reader classes are used for getting data into the framework."""
-from .base import Reader, DetectionReader, GroundTruthReader, SensorDataReader
+
+from .base import DetectionReader, GroundTruthReader, Reader, SensorDataReader
 
 __all__ = [
-    'Reader', 'DetectionReader', 'GroundTruthReader', 'SensorDataReader']
+    "DetectionReader",
+    "GroundTruthReader",
+    "Reader",
+    "SensorDataReader",
+]

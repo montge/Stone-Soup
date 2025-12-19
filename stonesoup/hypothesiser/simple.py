@@ -3,7 +3,7 @@ import datetime
 from stonesoup.base import Property
 from stonesoup.hypothesiser import Hypothesiser
 from stonesoup.predictor import Predictor
-from stonesoup.types.detection import MissedDetection, Detection
+from stonesoup.types.detection import Detection, MissedDetection
 from stonesoup.types.hypothesis import SingleHypothesis
 from stonesoup.types.multihypothesis import MultipleHypothesis
 from stonesoup.types.track import Track
@@ -16,26 +16,29 @@ class SimpleHypothesiser(Hypothesiser):
     Generate track predictions at detection times and create hypotheses for
     each detection, as well as a missed detection hypothesis.
     """
+
     predictor: Predictor = Property(doc="Predict tracks to detection times")
     updater: Updater = Property(
         default=None,
         doc="Updater used to get measurement prediction. Only required if "
-            "`predict_measurement` is `True`. Default is `None`")
+        "`predict_measurement` is `True`. Default is `None`",
+    )
     check_timestamp: bool = Property(
-        default=True,
-        doc="Check that all detections have the same timestamp. Default is `True`")
+        default=True, doc="Check that all detections have the same timestamp. Default is `True`"
+    )
     predict_measurement: bool = Property(
-        default=False,
-        doc="Predict measurement for each detection. Default is `True`")
+        default=False, doc="Predict measurement for each detection. Default is `True`"
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.predict_measurement and self.updater is None:
             raise ValueError("Updater must be provided if `predict_measurement` is `True`")
 
-    def hypothesise(self, track: Track, detections: set[Detection], timestamp: datetime.datetime,
-                    **kwargs) -> MultipleHypothesis:
-        """ Evaluate and return all track association hypotheses.
+    def hypothesise(
+        self, track: Track, detections: set[Detection], timestamp: datetime.datetime, **kwargs
+    ) -> MultipleHypothesis:
+        """Evaluate and return all track association hypotheses.
 
         For a given track and a set of N available detections, return a
         MultipleHypothesis object with N+1 detections (first detection is
@@ -72,9 +75,7 @@ class SimpleHypothesiser(Hypothesiser):
         prediction = self.predictor.predict(track, timestamp=timestamp, **kwargs)
 
         # Missed detection hypothesis
-        hypotheses.append(
-            SingleHypothesis(prediction, MissedDetection(timestamp=timestamp))
-        )
+        hypotheses.append(SingleHypothesis(prediction, MissedDetection(timestamp=timestamp)))
 
         # True detection hypotheses
         for detection in detections:
@@ -85,12 +86,11 @@ class SimpleHypothesiser(Hypothesiser):
             # Compute measurement prediction
             if self.predict_measurement:
                 measurement_prediction = self.updater.predict_measurement(
-                    prediction, timestamp=detection.timestamp, **kwargs)
+                    prediction, timestamp=detection.timestamp, **kwargs
+                )
             else:
                 measurement_prediction = None
 
-            hypotheses.append(
-                SingleHypothesis(prediction, detection, measurement_prediction)
-            )
+            hypotheses.append(SingleHypothesis(prediction, detection, measurement_prediction))
 
         return MultipleHypothesis(hypotheses)

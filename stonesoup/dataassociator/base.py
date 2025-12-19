@@ -4,10 +4,10 @@ from collections.abc import Mapping
 
 from ..base import Base, Property
 from ..hypothesiser import Hypothesiser
+from ..types.association import AssociationSet
 from ..types.detection import Detection
 from ..types.hypothesis import Hypothesis
 from ..types.track import Track
-from ..types.association import AssociationSet
 
 
 class DataAssociator(Base):
@@ -20,16 +20,23 @@ class DataAssociator(Base):
     """
 
     hypothesiser: Hypothesiser = Property(
-        doc="Generate a set of hypotheses for each track-detection pair")
+        doc="Generate a set of hypotheses for each track-detection pair"
+    )
 
     def generate_hypotheses(self, tracks, detections, timestamp, **kwargs):
-        return {track: self.hypothesiser.hypothesise(
-                    track, detections, timestamp, **kwargs)
-                for track in tracks}
+        return {
+            track: self.hypothesiser.hypothesise(track, detections, timestamp, **kwargs)
+            for track in tracks
+        }
 
     @abstractmethod
-    def associate(self, tracks: set[Track], detections: set[Detection],
-                  timestamp: datetime.datetime, **kwargs) -> Mapping[Track, Hypothesis]:
+    def associate(
+        self,
+        tracks: set[Track],
+        detections: set[Detection],
+        timestamp: datetime.datetime,
+        **kwargs,
+    ) -> Mapping[Track, Hypothesis]:
         """Associate tracks and detections
 
         Parameters
@@ -63,8 +70,7 @@ class TrackToTrackAssociator(Associator):
     """Associates *n* sets of :class:`~.Track` objects together"""
 
     @abstractmethod
-    def associate_tracks(self, *tracks_sets: set[Track]) \
-            -> AssociationSet:
+    def associate_tracks(self, *tracks_sets: set[Track]) -> AssociationSet:
         """Associate *n* sets of tracks together.
 
         Parameters
@@ -79,8 +85,9 @@ class TrackToTrackAssociator(Associator):
 
         """
 
-    def associated_and_unassociated_tracks(self, *tracks_sets: set[Track]) \
-            -> tuple[AssociationSet, tuple[set[Track]]]:
+    def associated_and_unassociated_tracks(
+        self, *tracks_sets: set[Track]
+    ) -> tuple[AssociationSet, tuple[set[Track]]]:
         """Associate n sets of tracks together. The unassociated tracks are returned with
          the associated tracks.
 
@@ -99,9 +106,9 @@ class TrackToTrackAssociator(Associator):
         """
 
         associations = self.associate_tracks(*tracks_sets)
-        associated_tracks = {track
-                             for assoc in associations.associations
-                             for track in assoc.objects}
+        associated_tracks = {
+            track for assoc in associations.associations for track in assoc.objects
+        }
 
         unassociated_tracks = tuple(tracks_set - associated_tracks for tracks_set in tracks_sets)
         return associations, unassociated_tracks
@@ -111,8 +118,9 @@ class TwoTrackToTrackAssociator(TrackToTrackAssociator):
     """Associates two sets of :class:`~.Track` objects together"""
 
     @abstractmethod
-    def associate_tracks(self, tracks_set_1: set[Track], tracks_set_2: set[Track]) \
-            -> AssociationSet:
+    def associate_tracks(
+        self, tracks_set_1: set[Track], tracks_set_2: set[Track]
+    ) -> AssociationSet:
         """Associate two sets of tracks together.
 
         Parameters

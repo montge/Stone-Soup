@@ -5,8 +5,8 @@ import matplotlib
 import numpy as np
 from matplotlib import pyplot as plt
 
-from .base import MetricTableGenerator, MetricGenerator
 from ..base import Property
+from .base import MetricGenerator, MetricTableGenerator
 
 
 class RedGreenTableGenerator(MetricTableGenerator):
@@ -39,23 +39,22 @@ class RedGreenTableGenerator(MetricTableGenerator):
         cellText = [["Metric", "Description", "Target", "Value"]]
         cellColors = [[white, white, white, white]]
 
-        for metric in sorted(self.metrics, key=attrgetter('title')):
+        for metric in sorted(self.metrics, key=attrgetter("title")):
             #  Add metric details to table row
             metric_name = metric.title
             description = self.descriptions[metric_name]
             target = self.targets[metric_name]
             value = metric.value
-            cellText.append([metric_name, description, target, "{:.2f}".format(value)])
+            cellText.append([metric_name, description, target, f"{value:.2f}"])
 
             # Generate color for value cell based on closeness to target value
             # Closeness to infinity cannot be represented as a color
-            if target is not None and not target == np.inf:
+            if target is not None and target != np.inf:
                 red_value = 1
                 green_value = 1
                 # A value of 1 for both red & green produces yellow
 
-                metric_range = \
-                    self.ranges[metric_name][1] - self.ranges[metric_name][0]
+                metric_range = self.ranges[metric_name][1] - self.ranges[metric_name][0]
                 closeness = abs(value - self.targets[metric_name]) * (1 / metric_range)
 
                 if closeness > 1:  # Infinite range metric exceeded bound
@@ -65,17 +64,16 @@ class RedGreenTableGenerator(MetricTableGenerator):
                 elif closeness < 0.5:  # Closer to target
                     red_value = closeness
 
-                cellColors.append(
-                    [white, white, white, (red_value, green_value, 0, 0.5)])
+                cellColors.append([white, white, white, (red_value, green_value, 0, 0.5)])
             else:
                 cellColors.append([white, white, white, white])
 
         # "Plot" table
         scale = (1, 3)
-        fig = plt.figure(figsize=(len(cellText)*scale[0] + 1, len(cellText[0])*scale[1]/2))
+        fig = plt.figure(figsize=(len(cellText) * scale[0] + 1, len(cellText[0]) * scale[1] / 2))
         ax = fig.add_subplot(1, 1, 1)
-        ax.axis('off')
-        table = matplotlib.table.table(ax, cellText, cellColors, loc='center')
+        ax.axis("off")
+        table = matplotlib.table.table(ax, cellText, cellColors, loc="center")
         table.auto_set_column_width([0, 1, 2, 3])
         table.scale(*scale)
 
@@ -109,7 +107,7 @@ class SIAPTableGenerator(RedGreenTableGenerator):
             "SIAP Longest Track Segment": (0, 1),
             "SIAP ID Completeness": (0, 1),
             "SIAP ID Correctness": (0, 1),
-            "SIAP ID Ambiguity": (0, 1)
+            "SIAP ID Ambiguity": (0, 1),
         }
 
     def set_default_targets(self):
@@ -123,7 +121,7 @@ class SIAPTableGenerator(RedGreenTableGenerator):
             "SIAP Longest Track Segment": 1,
             "SIAP ID Completeness": 1,
             "SIAP ID Correctness": 1,
-            "SIAP ID Ambiguity": 0
+            "SIAP ID Ambiguity": 0,
         }
 
     def set_default_descriptions(self):
@@ -132,14 +130,14 @@ class SIAPTableGenerator(RedGreenTableGenerator):
             "SIAP Ambiguity": "Number of tracks assigned to a true object",
             "SIAP Spuriousness": "Fraction of tracks that are unassigned to a true object",
             "SIAP Position Accuracy": "Positional error of associated tracks to their respective "
-                                      "truths",
+            "truths",
             "SIAP Velocity Accuracy": "Velocity error of associated tracks to their respective "
-                                      "truths",
+            "truths",
             "SIAP Rate of Track Number Change": "Rate of number of track changes per truth",
             "SIAP Longest Track Segment": "Duration of longest associated track segment per truth",
             "SIAP ID Completeness": "Fraction of true objects with an assigned ID",
             "SIAP ID Correctness": "Fraction of true objects with correct ID assignment",
-            "SIAP ID Ambiguity": "Fraction of true objects with ambiguous ID assignment"
+            "SIAP ID Ambiguity": "Fraction of true objects with ambiguous ID assignment",
         }
 
 
@@ -148,16 +146,20 @@ class SIAPDiffTableGenerator(SIAPTableGenerator):
     Returns a table displaying the difference between two or more sets of metrics,
      allowing quick comparison.
     """
+
     metrics: list[Collection[MetricGenerator]] = Property(doc="Set of metrics to put in the table")
 
-    metrics_labels: Collection[str] = Property(doc='List of titles for metrics',
-                                               default=None)
-    atol: float = Property(doc="Absolute tolerance value used for assessing if two metric values "
-                               "are close enough that they pass as equal.",
-                           default=None)
-    rtol: float = Property(doc="Relative tolerance value used for assessing if two metric values "
-                               "are close enough that they pass as equal.",
-                           default=None)
+    metrics_labels: Collection[str] = Property(doc="List of titles for metrics", default=None)
+    atol: float = Property(
+        doc="Absolute tolerance value used for assessing if two metric values "
+        "are close enough that they pass as equal.",
+        default=None,
+    )
+    rtol: float = Property(
+        doc="Relative tolerance value used for assessing if two metric values "
+        "are close enough that they pass as equal.",
+        default=None,
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -166,8 +168,9 @@ class SIAPDiffTableGenerator(SIAPTableGenerator):
         self.set_default_targets()
         self.set_default_descriptions()
         if self.metrics_labels is None:
-            self.metrics_labels = ['Metrics ' + str(i) + ' Value'
-                                   for i in range(1, len(self.metrics) + 1)]
+            self.metrics_labels = [
+                "Metrics " + str(i) + " Value" for i in range(1, len(self.metrics) + 1)
+            ]
 
     def compute_metric(self, **kwargs):
         """Generate table method
@@ -179,16 +182,17 @@ class SIAPDiffTableGenerator(SIAPTableGenerator):
         displaying the difference between the pair of metric values."""
 
         if self.rtol is not None:
-            kwargs['rtol'] = self.rtol
+            kwargs["rtol"] = self.rtol
         if self.atol is not None:
-            kwargs['atol'] = self.atol
+            kwargs["atol"] = self.atol
 
         white = (1, 1, 1)
-        cellText = [["Metric", "Description", "Target"] + self.metrics_labels + ["Max Diff"]]
+        cellText = [["Metric", "Description", "Target", *self.metrics_labels, "Max Diff"]]
         cellColors = [[white] * (4 + len(self.metrics))]
 
-        sorted_metrics = [sorted(metric_gens, key=attrgetter('title'))
-                          for metric_gens in self.metrics]
+        sorted_metrics = [
+            sorted(metric_gens, key=attrgetter("title")) for metric_gens in self.metrics
+        ]
 
         for row_num in range(len(sorted_metrics[0])):
             row_metrics = [m[row_num] for m in sorted_metrics]
@@ -201,31 +205,34 @@ class SIAPDiffTableGenerator(SIAPTableGenerator):
 
             diff = round(max(values) - min(values), ndigits=3)
 
-            row_vals = [metric_name, description, target] + \
-                       ["{:.2f}".format(value) for value in values] + [diff]
+            row_vals = (
+                [metric_name, description, target] + [f"{value:.2f}" for value in values] + [diff]
+            )
 
             cellText.append(row_vals)
 
             colours = []
             for i, value in enumerate(values):
-                other_values = values[:i] + values[i+1:]
-                if all(abs(value - target) < abs(v - target) or
-                       np.isclose(abs(v - target), abs(value - target), **kwargs)
-                       for v in other_values):
+                other_values = values[:i] + values[i + 1 :]
+                if all(
+                    abs(value - target) < abs(v - target)
+                    or np.isclose(abs(v - target), abs(value - target), **kwargs)
+                    for v in other_values
+                ):
                     colours.append((0, 1, 0, 0.5))
                 elif all(abs(value - target) - abs(v - target) > 0 for v in other_values):
                     colours.append((1, 0, 0, 0.5))
                 else:
                     colours.append((1, 1, 0, 0.5))
 
-            cellColors.append([white, white, white] + colours + [white])
+            cellColors.append([white, white, white, *colours, white])
 
         # "Plot" table
         scale = (1, 3)
-        fig = plt.figure(figsize=(len(cellText)*scale[0] + 1, len(cellText[0])*scale[1]/2))
+        fig = plt.figure(figsize=(len(cellText) * scale[0] + 1, len(cellText[0]) * scale[1] / 2))
         ax = fig.add_subplot(1, 1, 1)
-        ax.axis('off')
-        table = matplotlib.table.table(ax, cellText, cellColors, loc='center')
+        ax.axis("off")
+        table = matplotlib.table.table(ax, cellText, cellColors, loc="center")
         table.auto_set_column_width([0, 1, 2, 3])
         table.scale(*scale)
 

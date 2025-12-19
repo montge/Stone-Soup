@@ -1,12 +1,12 @@
 import datetime
+from abc import abstractmethod
 from collections.abc import Iterator
 from copy import copy
-from abc import abstractmethod
 
 import numpy as np
 
-from ...sensormanager.action import Action, RealNumberActionGenerator
 from ...base import Property
+from ...sensormanager.action import Action, RealNumberActionGenerator
 from ...types.angle import Angle
 
 
@@ -14,10 +14,10 @@ class ChangeAngleAction(Action):
     """The base action for changing a sensor's :class:`~.ActionableProperty` where the property is
     described in terms of an angle."""
 
-    rotation_end_time: datetime.datetime = Property(readonly=True,
-                                                    doc="End time of rotation.")
-    increasing_angle: bool = Property(default=None, readonly=True,
-                                      doc="Indicates the direction of change in the angle.")
+    rotation_end_time: datetime.datetime = Property(readonly=True, doc="End time of rotation.")
+    increasing_angle: bool = Property(
+        default=None, readonly=True, doc="Indicates the direction of change in the angle."
+    )
 
     def act(self, current_time, timestamp, init_value, **kwargs):
         """Assumes that duration keeps within the action end time
@@ -66,12 +66,11 @@ class AngleActionsGenerator(RealNumberActionGenerator):
     """Generates possible actions for changing an actionable property of a sensor in a given
     time period."""
 
-    owner: object = Property(doc="Object with `timestamp`, `rpm` (revolutions per minute) and "
-                                 "`resolution`.")
-    resolution: Angle = Property(default=np.radians(1),
-                                 doc="Resolution of the action space.")
-    rpm: float = Property(default=60,
-                          doc="The number of rotations per minute (RPM).")
+    owner: object = Property(
+        doc="Object with `timestamp`, `rpm` (revolutions per minute) and " "`resolution`."
+    )
+    resolution: Angle = Property(default=np.radians(1), doc="Resolution of the action space.")
+    rpm: float = Property(default=60, doc="The number of rotations per minute (RPM).")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -140,16 +139,14 @@ class AngleActionsGenerator(RealNumberActionGenerator):
 
         angle = Angle(angle)
 
-        if self.initial_value - self.epsilon \
-                <= angle \
-                <= self.initial_value + self.epsilon:
+        if self.initial_value - self.epsilon <= angle <= self.initial_value + self.epsilon:
             return self.start_time, None  # no rotation, target bearing achieved
 
         angle_delta = np.abs(angle - self.initial_value)
 
         return (
             self.start_time + datetime.timedelta(seconds=angle_delta / (self.rps * 2 * np.pi)),
-            angle > self.initial_value
+            angle > self.initial_value,
         )
 
     @abstractmethod
@@ -182,17 +179,16 @@ class AngleActionsGenerator(RealNumberActionGenerator):
 
         # Find the number of resolutions that fit between initial value and target
         n = (value - self.initial_value) / self.resolution
-        if np.isclose(n, round(n), 1e-6):
-            n = round(n)
-        else:
-            n = int(n)
+        n = round(n) if np.isclose(n, round(n), 1e-06) else int(n)
 
         target_value = self.initial_value + self.resolution * n
 
         rot_end_time, increasing = self._end_time_direction(target_value)
 
-        return ChangeAngleAction(rotation_end_time=rot_end_time,
-                                 generator=self,
-                                 end_time=self.end_time,
-                                 target_value=target_value,
-                                 increasing_angle=increasing)
+        return ChangeAngleAction(
+            rotation_end_time=rot_end_time,
+            generator=self,
+            end_time=self.end_time,
+            target_value=target_value,
+            increasing_angle=increasing,
+        )

@@ -1,21 +1,19 @@
 import math
 from collections.abc import Sequence
-from numbers import Real
 from functools import lru_cache
+from numbers import Real
 
 import numpy as np
 from scipy.integrate import quad
 from scipy.linalg import block_diag
 
-from .base import TransitionModel, CombinedGaussianTransitionModel
-from ..base import (LinearModel, GaussianModel, TimeVariantModel,
-                    TimeInvariantModel)
 from ...base import Property
 from ...types.array import CovarianceMatrix
+from ..base import GaussianModel, LinearModel, TimeInvariantModel, TimeVariantModel
+from .base import CombinedGaussianTransitionModel, TransitionModel
 
 
-class LinearGaussianTransitionModel(
-        TransitionModel, LinearModel, GaussianModel):
+class LinearGaussianTransitionModel(TransitionModel, LinearModel, GaussianModel):
 
     @property
     def ndim_state(self):
@@ -48,20 +46,20 @@ class CombinedLinearGaussianTransitionModel(LinearModel, CombinedGaussianTransit
         (:py:attr:`~ndim_state`, :py:attr:`~ndim_state`)
         """
 
-        transition_matrices = [
-            model.matrix(**kwargs) for model in self.model_list]
+        transition_matrices = [model.matrix(**kwargs) for model in self.model_list]
         return block_diag(*transition_matrices)
 
 
-class LinearGaussianTimeInvariantTransitionModel(LinearGaussianTransitionModel,
-                                                 TimeInvariantModel):
+class LinearGaussianTimeInvariantTransitionModel(
+    LinearGaussianTransitionModel, TimeInvariantModel
+):
     r"""Generic Linear Gaussian Time Invariant Transition Model."""
 
     transition_matrix: np.ndarray = Property(doc="Transition matrix :math:`\\mathbf{F}`.")
-    control_matrix: np.ndarray = Property(
-        default=None, doc="Control matrix :math:`\\mathbf{B}`.")
+    control_matrix: np.ndarray = Property(default=None, doc="Control matrix :math:`\\mathbf{B}`.")
     covariance_matrix: CovarianceMatrix = Property(
-        doc="Transition noise covariance matrix :math:`\\mathbf{Q}`.")
+        doc="Transition noise covariance matrix :math:`\\mathbf{Q}`."
+    )
 
     def matrix(self, **kwargs):
         """Model matrix :math:`F`
@@ -114,19 +112,25 @@ class ConstantNthDerivative(LinearGaussianTransitionModel, TimeVariantModel):
 
     constant_derivative: int = Property(
         doc="The order of the derivative with respect to time to be kept constant, eg if 2 "
-            "identical to constant acceleration")
+        "identical to constant acceleration"
+    )
     noise_diff_coeff: float = Property(
-        doc="The Nth derivative noise diffusion coefficient (Variance) :math:`q`")
+        doc="The Nth derivative noise diffusion coefficient (Variance) :math:`q`"
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Check that the noise_diff_coeff is actually a float
-        if not (isinstance(self.noise_diff_coeff, self._properties['noise_diff_coeff'].cls) or
-                isinstance(self.noise_diff_coeff, Real)):
-            raise TypeError("'noise_diff_coeff' should be a {} instance. Instead it "
-                            "is {}".format(self._properties['noise_diff_coeff'].cls,
-                                           type(self.noise_diff_coeff)))
+        if not (
+            isinstance(self.noise_diff_coeff, (self._properties["noise_diff_coeff"].cls, Real))
+        ):
+            raise TypeError(
+                "'noise_diff_coeff' should be a {} instance. Instead it "
+                "is {}".format(
+                    self._properties["noise_diff_coeff"].cls, type(self.noise_diff_coeff)
+                )
+            )
 
     @property
     def ndim_state(self):
@@ -138,7 +142,7 @@ class ConstantNthDerivative(LinearGaussianTransitionModel, TimeVariantModel):
         Fmat = np.eye(N + 1)
         dt = time_interval_sec
         for i in range(0, N + 1):
-            for j in range(i+1, N + 1):
+            for j in range(i + 1, N + 1):
                 Fmat[i, j] = (dt ** (j - i)) / math.factorial(j - i)
 
         return Fmat
@@ -148,8 +152,7 @@ class ConstantNthDerivative(LinearGaussianTransitionModel, TimeVariantModel):
         dt = abs(time_interval_sec)
         N = self.constant_derivative
         if N == 1:
-            covar = np.array([[dt**3 / 3, dt**2 / 2],
-                              [dt**2 / 2, dt]])
+            covar = np.array([[dt**3 / 3, dt**2 / 2], [dt**2 / 2, dt]])
         else:
             Fmat = self.matrix(abs(time_interval), **kwargs)
             Q = np.zeros((N + 1, N + 1))
@@ -158,7 +161,7 @@ class ConstantNthDerivative(LinearGaussianTransitionModel, TimeVariantModel):
             covar = np.zeros((N + 1, N + 1))
             for l in range(0, N + 1):  # noqa: E741
                 for k in range(0, N + 1):
-                    covar[l, k] = (igrand[l, k]*dt / (1 + N*2 - l - k))
+                    covar[l, k] = igrand[l, k] * dt / (1 + N * 2 - l - k)
         covar *= self.noise_diff_coeff
         return CovarianceMatrix(covar)
 
@@ -169,7 +172,8 @@ class RandomWalk(ConstantNthDerivative):
 
         The target is assumed to be (almost) stationary, where
         target velocity is modelled as white noise.
-        """
+    """
+
     noise_diff_coeff: float = Property(doc="The position noise diffusion coefficient :math:`q`")
 
     @property
@@ -222,6 +226,7 @@ class ConstantVelocity(ConstantNthDerivative):
                         \frac{dt^2}{2} & dt
                 \end{bmatrix} q
     """
+
     noise_diff_coeff: float = Property(doc="The velocity noise diffusion coefficient :math:`q`")
 
     @property
@@ -280,8 +285,10 @@ class ConstantAcceleration(ConstantNthDerivative):
                         \frac{dt^3}{6} & \frac{dt^2}{2} & dt
                       \end{bmatrix} q
     """
+
     noise_diff_coeff: float = Property(
-        doc="The acceleration noise diffusion coefficient :math:`q`")
+        doc="The acceleration noise diffusion coefficient :math:`q`"
+    )
 
     @property
     def constant_derivative(self):
@@ -310,9 +317,11 @@ class NthDerivativeDecay(LinearGaussianTransitionModel, TimeVariantModel):
     simply, but examples for N=1 and N=2 are given in
     :class:`~.OrnsteinUhlenbeck` and :class:`~.Singer` respectively.
         """
+
     decay_derivative: int = Property(
         doc="The derivative with respect to time to decay exponentially, eg if 2 identical to "
-            "singer")
+        "singer"
+    )
     noise_diff_coeff: float = Property(doc="The noise diffusion coefficient :math:`q`")
     damping_coeff: float = Property(doc="The Nth derivative damping coefficient :math:`K`")
 
@@ -320,25 +329,27 @@ class NthDerivativeDecay(LinearGaussianTransitionModel, TimeVariantModel):
         super().__init__(*args, **kwargs)
 
         # Check that the noise_diff_coeff is actually a float
-        if not (isinstance(self.noise_diff_coeff, self._properties['noise_diff_coeff'].cls) or
-                isinstance(self.noise_diff_coeff, Real)):
-            raise TypeError("'noise_diff_coeff' should be a {} instance. Instead it "
-                            "is {}".format(float, type(self.noise_diff_coeff)))
+        if not (
+            isinstance(self.noise_diff_coeff, (self._properties["noise_diff_coeff"].cls, Real))
+        ):
+            raise TypeError(
+                f"'noise_diff_coeff' should be a {float} instance. Instead it "
+                f"is {type(self.noise_diff_coeff)}"
+            )
 
     @property
     def ndim_state(self):
         return self.decay_derivative + 1
 
     @staticmethod
-    @lru_cache()
+    @lru_cache
     def _continoustransitionmatrix(t, N, K):
         FCont = np.eye(N + 1)
         for i in range(0, N + 1):
             FCont[i, N] = np.exp(-K * t) * (-1) ** (N - i) / K ** (N - i)
             for n in range(1, N - i + 1):
-                FCont[i, N] -= (-1) ** n * t ** (N - i - n) /\
-                               (math.factorial(N - i - n) * K ** n)
-            for j in range(i+1, N):
+                FCont[i, N] -= (-1) ** n * t ** (N - i - n) / (math.factorial(N - i - n) * K**n)
+            for j in range(i + 1, N):
                 FCont[i, j] = (t ** (j - i)) / math.factorial(j - i)
         return FCont
 
@@ -357,13 +368,10 @@ class NthDerivativeDecay(LinearGaussianTransitionModel, TimeVariantModel):
         return CovarCont[k, l]
 
     @classmethod
-    @lru_cache()
+    @lru_cache
     def _covardiscrete(cls, N, q, K, dt):
         covar = np.zeros((N + 1, N + 1))
-        if dt >= 0:
-            bounds = (0, dt)
-        else:
-            bounds = (dt, 0)
+        bounds = (0, dt) if dt >= 0 else (dt, 0)
         for k in range(0, N + 1):
             for l in range(0, N + 1):  # noqa: E741
                 covar[k, l] = quad(cls._continouscovar, *bounds, args=(N, K, k, l))[0]
@@ -500,7 +508,8 @@ class Singer(NthDerivativeDecay):
     """
 
     noise_diff_coeff: float = Property(
-        doc="The acceleration noise diffusion coefficient :math:`q`")
+        doc="The acceleration noise diffusion coefficient :math:`q`"
+    )
     damping_coeff: float = Property(doc=r"The reciprocal of the decorrelation time :math:`\alpha`")
 
     @property
@@ -513,6 +522,7 @@ class SingerApproximate(Singer):
     @property
     def decay_derivative(self):
         return 2
+
     r"""This is a class implementation of a discrete, time-variant 1D Singer
     Transition Model, with covariance approximation applicable for smaller time
     intervals.
@@ -565,6 +575,7 @@ class SingerApproximate(Singer):
                         \frac{dt^3}{6} & \frac{dt^2}{2} & dt
                         \end{bmatrix}
     """
+
     def covar(self, time_interval, **kwargs):
         """Returns the transition model noise covariance matrix.
 
@@ -584,17 +595,20 @@ class SingerApproximate(Singer):
         time_interval_sec = abs(time_interval.total_seconds())
 
         # Only leading terms get calculated for speed.
-        covar = np.array(
-            [[time_interval_sec**5 / 20,
-              time_interval_sec**4 / 8,
-              time_interval_sec**3 / 6],
-             [time_interval_sec**4 / 8,
-              time_interval_sec**3 / 3,
-              time_interval_sec**2 / 2],
-             [time_interval_sec**3 / 6,
-              time_interval_sec**2 / 2,
-              time_interval_sec]]
-        ) * self.noise_diff_coeff
+        covar = (
+            np.array(
+                [
+                    [
+                        time_interval_sec**5 / 20,
+                        time_interval_sec**4 / 8,
+                        time_interval_sec**3 / 6,
+                    ],
+                    [time_interval_sec**4 / 8, time_interval_sec**3 / 3, time_interval_sec**2 / 2],
+                    [time_interval_sec**3 / 6, time_interval_sec**2 / 2, time_interval_sec],
+                ]
+            )
+            * self.noise_diff_coeff
+        )
 
         return CovarianceMatrix(covar)
 
@@ -614,11 +628,12 @@ class KnownTurnRateSandwich(LinearGaussianTransitionModel, TimeVariantModel):
     """
 
     turn_noise_diff_coeffs: np.ndarray = Property(
-        doc="The acceleration noise diffusion coefficients :math:`q`")
-    turn_rate: float = Property(
-        doc=r"The turn rate :math:`\omega`")
+        doc="The acceleration noise diffusion coefficients :math:`q`"
+    )
+    turn_rate: float = Property(doc=r"The turn rate :math:`\omega`")
     model_list: Sequence[LinearGaussianTransitionModel] = Property(
-        doc="List of Transition Models.")
+        doc="List of Transition Models."
+    )
 
     @property
     def ndim_state(self):
@@ -629,7 +644,7 @@ class KnownTurnRateSandwich(LinearGaussianTransitionModel, TimeVariantModel):
         : :class:`int`
             The number of combined model state dimensions.
         """
-        return sum(model.ndim_state for model in self.model_list)+4
+        return sum(model.ndim_state for model in self.model_list) + 4
 
     def matrix(self, time_interval, **kwargs):
         """Model matrix :math:`F`
@@ -642,19 +657,20 @@ class KnownTurnRateSandwich(LinearGaussianTransitionModel, TimeVariantModel):
         time_interval_sec = time_interval.total_seconds()
         turn_ratedt = self.turn_rate * time_interval_sec
         z = np.zeros([2, 2])
-        transition_matrices = [
-            model.matrix(time_interval) for model in self.model_list]
+        transition_matrices = [model.matrix(time_interval) for model in self.model_list]
         sandwich = block_diag(z, *transition_matrices, z)
-        sandwich[0:2, 0:2] = np.array([[1, np.sin(turn_ratedt)/self.turn_rate],
-                                      [0, np.cos(turn_ratedt)]])
+        sandwich[0:2, 0:2] = np.array(
+            [[1, np.sin(turn_ratedt) / self.turn_rate], [0, np.cos(turn_ratedt)]]
+        )
         sandwich[0:2, -2:] = np.array(
-            [[0, (np.cos(turn_ratedt)-1)/self.turn_rate],
-             [0, -np.sin(turn_ratedt)]])
+            [[0, (np.cos(turn_ratedt) - 1) / self.turn_rate], [0, -np.sin(turn_ratedt)]]
+        )
         sandwich[-2:, 0:2] = np.array(
-            [[0, (1-np.cos(turn_ratedt))/self.turn_rate],
-             [0, np.sin(turn_ratedt)]])
-        sandwich[-2:, -2:] = np.array([[1, np.sin(turn_ratedt)/self.turn_rate],
-                                       [0, np.cos(turn_ratedt)]])
+            [[0, (1 - np.cos(turn_ratedt)) / self.turn_rate], [0, np.sin(turn_ratedt)]]
+        )
+        sandwich[-2:, -2:] = np.array(
+            [[1, np.sin(turn_ratedt) / self.turn_rate], [0, np.cos(turn_ratedt)]]
+        )
         return sandwich
 
     def covar(self, time_interval, **kwargs):
@@ -669,10 +685,8 @@ class KnownTurnRateSandwich(LinearGaussianTransitionModel, TimeVariantModel):
         q1, q2 = self.turn_noise_diff_coeffs
         dt = abs(time_interval.total_seconds())
         covar_list = [model.covar(time_interval) for model in self.model_list]
-        ctc1 = np.array([[q1*dt**3/3, q1*dt**2/2],
-                         [q1*dt**2/2, q1*dt]])
-        ctc2 = np.array([[q2*dt**3/3, q2*dt**2/2],
-                         [q2*dt**2/2, q2*dt]])
+        ctc1 = np.array([[q1 * dt**3 / 3, q1 * dt**2 / 2], [q1 * dt**2 / 2, q1 * dt]])
+        ctc2 = np.array([[q2 * dt**3 / 3, q2 * dt**2 / 2], [q2 * dt**2 / 2, q2 * dt]])
         return CovarianceMatrix(block_diag(ctc1, *covar_list, ctc2))
 
 
@@ -740,5 +754,5 @@ class KnownTurnRate(KnownTurnRateSandwich):
     @property
     def model_list(self):
         """For a turn in adjacent state vectors,
-         no transition models go in between"""
+        no transition models go in between"""
         return []

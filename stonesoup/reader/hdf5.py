@@ -11,18 +11,16 @@ from datetime import datetime, timedelta, timezone
 try:
     import h5py
 except ImportError as error:  # pragma: no cover
-    raise ImportError(
-        "HDF5 Readers require the dependency 'h5py' to be installed."
-    ) from error
+    raise ImportError("HDF5 Readers require the dependency 'h5py' to be installed.") from error
 import numpy as np
 from dateutil.parser import parse
 
-from .base import GroundTruthReader, DetectionReader
-from .file import BinaryFileReader
 from ..base import Property
 from ..buffered_generator import BufferedGenerator
 from ..types.detection import Detection
 from ..types.groundtruth import GroundTruthPath, GroundTruthState
+from .base import DetectionReader, GroundTruthReader
+from .file import BinaryFileReader
 
 
 class _HDF5Reader(BinaryFileReader):
@@ -31,11 +29,10 @@ class _HDF5Reader(BinaryFileReader):
     )
     time_field: str = Property(doc="Path of dataset to be used as time field")
     time_field_format: str = Property(default=None, doc="Optional datetime format")
-    timestamp: bool = Property(
-        default=False, doc="Treat time field as a timestamp from epoch"
-    )
+    timestamp: bool = Property(default=False, doc="Treat time field as a timestamp from epoch")
     time_res_second: int = Property(
-        default=1, doc="Desired maximum resolution of time values in seconds",
+        default=1,
+        doc="Desired maximum resolution of time values in seconds",
     )
     time_res_micro: int = Property(
         default=1e6,
@@ -63,13 +60,12 @@ class _HDF5Reader(BinaryFileReader):
 
         for obj_path in obj_paths:
             obj = hdf5_file[obj_path]
-            if isinstance(obj, h5py.Dataset):
-                if (
-                    obj_path not in self.state_vector_fields
-                    and obj_path != self.time_field
-                    and len(obj) == record_count
-                ):
-                    self.metadata_fields.append(obj_path)
+            if isinstance(obj, h5py.Dataset) and (
+                obj_path not in self.state_vector_fields
+                and obj_path != self.time_field
+                and len(obj) == record_count
+            ):
+                self.metadata_fields.append(obj_path)
 
     def _get_metadata(self, hdf5_file, row):
         """Construct a dictionary of metadata values for a single record.
@@ -93,8 +89,7 @@ class _HDF5Reader(BinaryFileReader):
             **{
                 field: hdf5_file[field][row]
                 for field in self.metadata_fields
-                if field in hdf5_file
-                and h5py.check_string_dtype(hdf5_file[field].dtype) is None
+                if field in hdf5_file and h5py.check_string_dtype(hdf5_file[field].dtype) is None
             },  # Merge string and non-string fields into the same dict
             **{
                 field: hdf5_file[field].asstr()[row]
@@ -122,8 +117,9 @@ class _HDF5Reader(BinaryFileReader):
         if self.time_field_format is not None:
             time_field_value = datetime.strptime(raw_time_val, self.time_field_format)
         elif self.timestamp is True:
-            time_field_value = datetime.fromtimestamp(
-                raw_time_val, timezone.utc).replace(tzinfo=None)
+            time_field_value = datetime.fromtimestamp(raw_time_val, timezone.utc).replace(
+                tzinfo=None
+            )
         else:
             time_field_value = parse(raw_time_val, ignoretz=True)
 
@@ -174,10 +170,7 @@ class HDF5GroundTruthReader(GroundTruthReader, _HDF5Reader):
 
                 state = GroundTruthState(
                     np.array(
-                        [
-                            [hdf5_file[field_path][i]]
-                            for field_path in self.state_vector_fields
-                        ],
+                        [[hdf5_file[field_path][i]] for field_path in self.state_vector_fields],
                         dtype=np.float64,
                     ),
                     timestamp=time,

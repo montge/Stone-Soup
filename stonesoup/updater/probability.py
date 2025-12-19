@@ -1,12 +1,12 @@
-# -*- coding: utf-8 -*-
-import numpy as np
 from copy import copy
 
-from .kalman import ExtendedKalmanUpdater
+import numpy as np
+
 from ..base import Property
 from ..functions import gm_reduce_single
 from ..types.array import StateVectors
 from ..types.update import Update
+from .kalman import ExtendedKalmanUpdater
 
 
 class PDAUpdater(ExtendedKalmanUpdater):
@@ -56,10 +56,12 @@ class PDAUpdater(ExtendedKalmanUpdater):
            Control Systems Magazine
     .. [#] https://gist.github.com/jmbarr/92dc83e28c04026136d4f8706a1159c1
     """
+
     gm_method: bool = Property(
         default=False,
         doc="Use the innovation-based update method if False (default), "
-            "or the GM-reduction (True).")
+        "or the GM-reduction (True).",
+    )
 
     def update(self, hypotheses, gm_method=None, **kwargs):
         r"""The update step.
@@ -87,19 +89,24 @@ class PDAUpdater(ExtendedKalmanUpdater):
 
         """
         if (gm_method is not None and gm_method) or (gm_method is None and self.gm_method):
-            posterior_mean, posterior_covariance = self._update_via_GM_reduction(hypotheses,
-                                                                                 **kwargs)
+            posterior_mean, posterior_covariance = self._update_via_GM_reduction(
+                hypotheses, **kwargs
+            )
         else:
-            posterior_mean, posterior_covariance = self._update_via_innovation(hypotheses,
-                                                                               **kwargs)
+            posterior_mean, posterior_covariance = self._update_via_innovation(
+                hypotheses, **kwargs
+            )
 
         # Note that this does not check if all hypotheses are of the same type.
         # It also assumes that all measurements have the same timestamp (updates are
         # contemporaneous).
         return Update.from_state(
             hypotheses[0].prediction,
-            posterior_mean, posterior_covariance,
-            timestamp=hypotheses[0].measurement.timestamp, hypothesis=hypotheses)
+            posterior_mean,
+            posterior_covariance,
+            timestamp=hypotheses[0].measurement.timestamp,
+            hypothesis=hypotheses,
+        )
 
     def _update_via_GM_reduction(self, hypotheses, **kwargs):
         """This method delivers the same outcome as what's described above. It's slightly
@@ -165,30 +172,36 @@ class PDAUpdater(ExtendedKalmanUpdater):
         sum_of_innovations = 0
         sum_of_weighted_cov = 0
 
-        for n, hypothesis in enumerate(hypotheses):
+        for _n, hypothesis in enumerate(hypotheses):
             # Check for the existence of an associated measurement. Because of the way the
             # hypothesis is constructed, you can do this:
             if not hypothesis:
                 hypothesis.measurement_prediction = self.predict_measurement(
-                    hypothesis.prediction, **kwargs)
-                innovation = hypothesis.measurement_prediction.state_vector - \
-                    hypothesis.measurement_prediction.state_vector  # is zero in this case
+                    hypothesis.prediction, **kwargs
+                )
+                # Innovation is zero for missed detection (no measurement to compare)
+                innovation = np.zeros_like(hypothesis.measurement_prediction.state_vector)
                 posterior_covariance, kalman_gain = self._posterior_covariance(hypothesis)
                 # Add the weighted prediction to the weighted posterior
-                posterior_covariance = float(hypothesis.probability) * \
-                    hypothesis.prediction.covar + (1 - float(hypothesis.probability)) * \
-                    posterior_covariance
+                posterior_covariance = (
+                    float(hypothesis.probability) * hypothesis.prediction.covar
+                    + (1 - float(hypothesis.probability)) * posterior_covariance
+                )
                 posterior_mean = copy(hypothesis.prediction.state_vector)
             else:
-                innovation = hypothesis.measurement.state_vector - \
-                             hypothesis.measurement_prediction.state_vector
+                innovation = (
+                    hypothesis.measurement.state_vector
+                    - hypothesis.measurement_prediction.state_vector
+                )
 
             sum_of_innovations += hypothesis.probability * innovation
             sum_of_weighted_cov += hypothesis.probability * (innovation @ innovation.T)
 
         posterior_mean += kalman_gain @ sum_of_innovations
-        posterior_covariance += \
-            kalman_gain @ (sum_of_weighted_cov - sum_of_innovations @ sum_of_innovations.T) \
+        posterior_covariance += (
+            kalman_gain
+            @ (sum_of_weighted_cov - sum_of_innovations @ sum_of_innovations.T)
             @ kalman_gain.T
+        )
 
         return posterior_mean, posterior_covariance

@@ -4,15 +4,15 @@ from copy import copy
 import numpy as np
 from numpy.linalg import inv
 
-from .base import MetricGenerator
 from ..base import Property
-from ..types.state import GaussianState
-from ..types.groundtruth import GroundTruthState, GroundTruthPath
-from ..types.array import StateVectors
-from ..models.transition import TransitionModel
 from ..models.measurement import MeasurementModel
+from ..models.transition import TransitionModel
+from ..types.array import StateVectors
+from ..types.groundtruth import GroundTruthPath, GroundTruthState
 from ..types.metric import TimeRangeMetric
+from ..types.state import GaussianState
 from ..types.time import TimeRange
+from .base import MetricGenerator
 
 
 class PCRBMetric(MetricGenerator):
@@ -29,27 +29,36 @@ class PCRBMetric(MetricGenerator):
         discrete-time nonlinear filtering," in IEEE Transactions on Signal Processing, vol. 46,
         no. 5, pp. 1386-1396, May 1998, doi: 10.1109/78.668800.
     """
+
     prior: GaussianState = Property(doc="The prior used to initiate the track")
     transition_model: TransitionModel = Property(
-        doc="The transition model used to propagate the track's state")
+        doc="The transition model used to propagate the track's state"
+    )
     measurement_model: MeasurementModel = Property(
-        doc="The measurement model that projects a track into measurement space (and vice versa")
+        doc="The measurement model that projects a track into measurement space (and vice versa"
+    )
     sensor_locations: StateVectors = Property(
-        doc="The locations of the sensors (currently assuming sensors are static)")
+        doc="The locations of the sensors (currently assuming sensors are static)"
+    )
     position_mapping: Sequence[int] = Property(
         default=None,
         doc="Mapping for position coordinates. Default `None`, which uses the measurement model"
-            "mapping")
+        "mapping",
+    )
     velocity_mapping: Sequence[int] = Property(
         default=None,
         doc="Mapping for velocity coordinates. Default `None`, in which case velocity RMSE is not "
-            "computed")
-    irf: float = Property(doc="Information reduction factor. Default is 1", default=1.)
-    truths_key: str = Property(doc="Key to access set of ground truths added to MetricManager",
-                               default='groundtruth_paths')
-    generator_name: str = Property(doc="Unique identifier to use when accessing generated "
-                                       "metrics from MultiManager",
-                                   default='pcrb_generator')
+        "computed",
+    )
+    irf: float = Property(doc="Information reduction factor. Default is 1", default=1.0)
+    truths_key: str = Property(
+        doc="Key to access set of ground truths added to MetricManager",
+        default="groundtruth_paths",
+    )
+    generator_name: str = Property(
+        doc="Unique identifier to use when accessing generated " "metrics from MultiManager",
+        default="pcrb_generator",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -62,26 +71,40 @@ class PCRBMetric(MetricGenerator):
 
         # if groundtruth is a set of states not paths, make states into a path
         if isinstance(next(iter(groundtruth_paths)), GroundTruthState):
-            groundtruth_paths = sorted(list(groundtruth_paths), key=lambda x: x.timestamp)
+            groundtruth_paths = sorted(groundtruth_paths, key=lambda x: x.timestamp)
             groundtruth_paths = [GroundTruthPath(groundtruth_paths)]
 
         for gnd_path in groundtruth_paths:
-            pcrb_metric = self._compute_pcrb_single(self.prior, self.transition_model,
-                                                    self.measurement_model, gnd_path,
-                                                    self.sensor_locations, self.irf,
-                                                    self.position_mapping, self.velocity_mapping)
+            pcrb_metric = self._compute_pcrb_single(
+                self.prior,
+                self.transition_model,
+                self.measurement_model,
+                gnd_path,
+                self.sensor_locations,
+                self.irf,
+                self.position_mapping,
+                self.velocity_mapping,
+            )
             time_range = TimeRange(gnd_path.states[0].timestamp, gnd_path.timestamp)
-            pcrb_metrics.append(TimeRangeMetric(title='PCRB Metrics',
-                                                value=pcrb_metric,
-                                                time_range=time_range,
-                                                generator=self))
+            pcrb_metrics.append(
+                TimeRangeMetric(
+                    title="PCRB Metrics", value=pcrb_metric, time_range=time_range, generator=self
+                )
+            )
         return pcrb_metrics
 
     @classmethod
-    def _compute_pcrb_single(cls, prior: GaussianState, transition_model: TransitionModel,
-                             measurement_model: MeasurementModel, groundtruth: GroundTruthPath,
-                             sensor_locations: StateVectors, irf_overall: float,
-                             position_mapping: Sequence[int], velocity_mapping: Sequence[int]):
+    def _compute_pcrb_single(
+        cls,
+        prior: GaussianState,
+        transition_model: TransitionModel,
+        measurement_model: MeasurementModel,
+        groundtruth: GroundTruthPath,
+        sensor_locations: StateVectors,
+        irf_overall: float,
+        position_mapping: Sequence[int],
+        velocity_mapping: Sequence[int],
+    ):
         """ Compute the PCRB for a single Ground truth path
 
         Parameters
@@ -124,7 +147,7 @@ class PCRBMetric(MetricGenerator):
         inverse_j = np.zeros((num_timesteps, ndim_state, ndim_state))
         pos_rmse = np.zeros(num_timesteps)
         vel_rmse = np.zeros(num_timesteps)
-        irf = np.ones((num_sensors, num_timesteps))*irf_overall
+        irf = np.ones((num_sensors, num_timesteps)) * irf_overall
         j = np.zeros((num_timesteps + 1, ndim_state, ndim_state))
 
         # initialisation
@@ -166,11 +189,9 @@ class PCRBMetric(MetricGenerator):
             # Update previous time
             prev_time = curr_time
 
-        metric = {'track': groundtruth,
-                  'inverse_j': inverse_j,
-                  'position_RMSE': pos_rmse}
+        metric = {"track": groundtruth, "inverse_j": inverse_j, "position_RMSE": pos_rmse}
         if velocity_mapping:
-            metric['velocity_RMSE'] = vel_rmse
+            metric["velocity_RMSE"] = vel_rmse
 
         return metric
 
@@ -188,7 +209,7 @@ class PCRBMetric(MetricGenerator):
 
             sensor_location = sensor_locations[:, i]
             measurement_model_cp = copy(measurement_model)
-            if hasattr(measurement_model_cp, 'translation_offset'):
+            if hasattr(measurement_model_cp, "translation_offset"):
                 measurement_model_cp.translation_offset = sensor_location
 
             h_matrix = measurement_model_cp.jacobian(state)

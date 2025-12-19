@@ -2,25 +2,29 @@ import numpy as np
 import pytest
 
 from stonesoup.architecture.edge import FusionQueue
-from stonesoup.architecture.generator import InformationArchitectureGenerator, \
-    NetworkArchitectureGenerator
+from stonesoup.architecture.generator import (
+    InformationArchitectureGenerator,
+    NetworkArchitectureGenerator,
+)
 from stonesoup.sensor.sensor import Sensor
 from stonesoup.tracker import Tracker
 
 
 def test_info_arch_gen_init(generator_params):
-    start_time = generator_params['start_time']
-    base_sensor = generator_params['base_sensor']
-    base_tracker = generator_params['base_tracker']
+    start_time = generator_params["start_time"]
+    base_sensor = generator_params["base_sensor"]
+    base_tracker = generator_params["base_tracker"]
 
-    gen = InformationArchitectureGenerator(start_time=start_time,
-                                           mean_degree=2,
-                                           node_ratio=[3, 1, 1],
-                                           base_tracker=base_tracker,
-                                           base_sensor=base_sensor)
+    gen = InformationArchitectureGenerator(
+        start_time=start_time,
+        mean_degree=2,
+        node_ratio=[3, 1, 1],
+        base_tracker=base_tracker,
+        base_sensor=base_sensor,
+    )
 
     # Test default values
-    assert gen.arch_type == 'decentralised'
+    assert gen.arch_type == "decentralised"
     assert gen.iteration_limit == 10000
     assert gen.allow_invalid_graph is False
     assert gen.n_archs == 2
@@ -33,26 +37,30 @@ def test_info_arch_gen_init(generator_params):
     assert gen.sensor_max_distance == (0, 0)
 
     with pytest.raises(ValueError):
-        InformationArchitectureGenerator(arch_type='not_valid',
-                                         start_time=start_time,
-                                         mean_degree=2,
-                                         node_ratio=[3, 1, 1],
-                                         base_tracker=base_tracker,
-                                         base_sensor=base_sensor)
+        InformationArchitectureGenerator(
+            arch_type="not_valid",
+            start_time=start_time,
+            mean_degree=2,
+            node_ratio=[3, 1, 1],
+            base_tracker=base_tracker,
+            base_sensor=base_sensor,
+        )
 
 
 def test_info_generate_hierarchical(generator_params):
-    start_time = generator_params['start_time']
-    base_sensor = generator_params['base_sensor']
-    base_tracker = generator_params['base_tracker']
+    start_time = generator_params["start_time"]
+    base_sensor = generator_params["base_sensor"]
+    base_tracker = generator_params["base_tracker"]
 
-    gen = InformationArchitectureGenerator(arch_type='hierarchical',
-                                           start_time=start_time,
-                                           mean_degree=2,
-                                           node_ratio=[2, 2, 1],
-                                           base_tracker=base_tracker,
-                                           base_sensor=base_sensor,
-                                           n_archs=3)
+    gen = InformationArchitectureGenerator(
+        arch_type="hierarchical",
+        start_time=start_time,
+        mean_degree=2,
+        node_ratio=[2, 2, 1],
+        base_tracker=base_tracker,
+        base_sensor=base_sensor,
+        n_archs=3,
+    )
 
     archs = gen.generate()
 
@@ -80,19 +88,21 @@ def test_info_generate_hierarchical(generator_params):
 
 
 def test_info_generate_decentralised(generator_params):
-    start_time = generator_params['start_time']
-    base_sensor = generator_params['base_sensor']
-    base_tracker = generator_params['base_tracker']
+    start_time = generator_params["start_time"]
+    base_sensor = generator_params["base_sensor"]
+    base_tracker = generator_params["base_tracker"]
 
     mean_deg = 2.5
 
-    gen = InformationArchitectureGenerator(arch_type='decentralised',
-                                           start_time=start_time,
-                                           mean_degree=mean_deg,
-                                           node_ratio=[3, 1, 1],
-                                           base_tracker=base_tracker,
-                                           base_sensor=base_sensor,
-                                           n_archs=2)
+    gen = InformationArchitectureGenerator(
+        arch_type="decentralised",
+        start_time=start_time,
+        mean_degree=mean_deg,
+        node_ratio=[3, 1, 1],
+        base_tracker=base_tracker,
+        base_sensor=base_sensor,
+        n_archs=2,
+    )
 
     archs = gen.generate()
 
@@ -119,35 +129,39 @@ def test_info_generate_decentralised(generator_params):
 
 
 def test_info_generate_invalid(generator_params):
-    start_time = generator_params['start_time']
-    base_sensor = generator_params['base_sensor']
-    base_tracker = generator_params['base_tracker']
+    start_time = generator_params["start_time"]
+    base_sensor = generator_params["base_sensor"]
+    base_tracker = generator_params["base_tracker"]
 
     mean_deg = 2.5
 
     with pytest.raises(ValueError):
-        InformationArchitectureGenerator(arch_type='invalid',
-                                         start_time=start_time,
-                                         mean_degree=mean_deg,
-                                         node_ratio=[3, 1, 1],
-                                         base_tracker=base_tracker,
-                                         base_sensor=base_sensor,
-                                         n_archs=2)
+        InformationArchitectureGenerator(
+            arch_type="invalid",
+            start_time=start_time,
+            mean_degree=mean_deg,
+            node_ratio=[3, 1, 1],
+            base_tracker=base_tracker,
+            base_sensor=base_sensor,
+            n_archs=2,
+        )
 
 
 def test_net_arch_gen_init(generator_params):
-    start_time = generator_params['start_time']
-    base_sensor = generator_params['base_sensor']
-    base_tracker = generator_params['base_tracker']
+    start_time = generator_params["start_time"]
+    base_sensor = generator_params["base_sensor"]
+    base_tracker = generator_params["base_tracker"]
 
-    gen = NetworkArchitectureGenerator(start_time=start_time,
-                                       mean_degree=2,
-                                       node_ratio=[3, 1, 1],
-                                       base_tracker=base_tracker,
-                                       base_sensor=base_sensor)
+    gen = NetworkArchitectureGenerator(
+        start_time=start_time,
+        mean_degree=2,
+        node_ratio=[3, 1, 1],
+        base_tracker=base_tracker,
+        base_sensor=base_sensor,
+    )
 
     # Test default values
-    assert gen.arch_type == 'decentralised'
+    assert gen.arch_type == "decentralised"
     assert gen.iteration_limit == 10000
     assert gen.allow_invalid_graph is False
     assert gen.n_archs == 2
@@ -160,27 +174,31 @@ def test_net_arch_gen_init(generator_params):
     assert gen.sensor_max_distance == (0, 0)
 
     with pytest.raises(ValueError):
-        gen = NetworkArchitectureGenerator(arch_type='not_valid',
-                                           start_time=start_time,
-                                           mean_degree=2,
-                                           node_ratio=[3, 1, 1],
-                                           base_tracker=base_tracker,
-                                           base_sensor=base_sensor)
+        gen = NetworkArchitectureGenerator(
+            arch_type="not_valid",
+            start_time=start_time,
+            mean_degree=2,
+            node_ratio=[3, 1, 1],
+            base_tracker=base_tracker,
+            base_sensor=base_sensor,
+        )
         gen.generate()
 
 
 def test_net_generate_hierarchical(generator_params):
-    start_time = generator_params['start_time']
-    base_sensor = generator_params['base_sensor']
-    base_tracker = generator_params['base_tracker']
+    start_time = generator_params["start_time"]
+    base_sensor = generator_params["base_sensor"]
+    base_tracker = generator_params["base_tracker"]
 
-    gen = NetworkArchitectureGenerator(arch_type='hierarchical',
-                                       start_time=start_time,
-                                       mean_degree=2,
-                                       node_ratio=[3, 1, 1],
-                                       base_tracker=base_tracker,
-                                       base_sensor=base_sensor,
-                                       n_archs=3)
+    gen = NetworkArchitectureGenerator(
+        arch_type="hierarchical",
+        start_time=start_time,
+        mean_degree=2,
+        node_ratio=[3, 1, 1],
+        base_tracker=base_tracker,
+        base_sensor=base_sensor,
+        n_archs=3,
+    )
 
     archs = gen.generate()
 
@@ -207,17 +225,19 @@ def test_net_generate_hierarchical(generator_params):
 
 
 def test_net_generate_decentralised(generator_params):
-    start_time = generator_params['start_time']
-    base_sensor = generator_params['base_sensor']
-    base_tracker = generator_params['base_tracker']
+    start_time = generator_params["start_time"]
+    base_sensor = generator_params["base_sensor"]
+    base_tracker = generator_params["base_tracker"]
 
-    gen = NetworkArchitectureGenerator(arch_type='decentralised',
-                                       start_time=start_time,
-                                       mean_degree=2,
-                                       node_ratio=[3, 1, 1],
-                                       base_tracker=base_tracker,
-                                       base_sensor=base_sensor,
-                                       n_archs=3)
+    gen = NetworkArchitectureGenerator(
+        arch_type="decentralised",
+        start_time=start_time,
+        mean_degree=2,
+        node_ratio=[3, 1, 1],
+        base_tracker=base_tracker,
+        base_sensor=base_sensor,
+        n_archs=3,
+    )
 
     archs = gen.generate()
 

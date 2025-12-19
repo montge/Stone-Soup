@@ -2,18 +2,15 @@ from datetime import datetime
 
 import numpy as np
 
-from ..categorical import HMMSensor
 from ...models.measurement.categorical import MarkovianMeasurementModel
 from ...types.detection import TrueCategoricalDetection
 from ...types.groundtruth import CategoricalGroundTruthState, GroundTruthPath
+from ..categorical import HMMSensor
 
 
 def test_hmm_sensor():
     # 3 hidden categories, 4 measurement categories
-    E = np.array([[30, 25, 5],
-                  [20, 25, 10],
-                  [10, 25, 80],
-                  [40, 25, 5]])
+    E = np.array([[30, 25, 5], [20, 25, 10], [10, 25, 80], [40, 25, 5]])
 
     model = MarkovianMeasurementModel(E)
 
@@ -45,7 +42,7 @@ def test_hmm_sensor():
             assert detection.groundtruth_path in ground_truths
             assert detection.timestamp == now
             assert detection.measurement_model == model
-            assert detection.categories == ['0', '1', '2', '3']
+            assert detection.categories == ["0", "1", "2", "3"]
 
             if noise:
                 assert np.count_nonzero(detection.state_vector) == 1  # basis vector

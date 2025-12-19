@@ -1,9 +1,9 @@
 from collections.abc import Sequence
 
-from .base import Updater
 from ..base import Property
 from ..types.hypothesis import CompositeHypothesis
 from ..types.update import CompositeUpdate
+from .base import Updater
 
 
 class CompositeUpdater(Updater):
@@ -13,15 +13,18 @@ class CompositeUpdater(Updater):
     """
 
     sub_updaters: Sequence[Updater] = Property(
-        doc="Sequence of sub-updaters comprising the composite updater. Must not be empty.")
+        doc="Sequence of sub-updaters comprising the composite updater. Must not be empty."
+    )
 
     def __init__(self, *args, **kwargs):
 
         super().__init__(*args, **kwargs)
 
         if not isinstance(self.sub_updaters, Sequence):
-            raise ValueError(f"Sub-updaters must be defined as an ordered list, not "
-                             f"{type(self.sub_updaters)}")
+            raise ValueError(
+                f"Sub-updaters must be defined as an ordered list, not "
+                f"{type(self.sub_updaters)}"
+            )
 
         if len(self.sub_updaters) == 0:
             raise ValueError("Cannot create an empty composite updater")
@@ -66,17 +69,22 @@ class CompositeUpdater(Updater):
             raise ValueError("CompositeUpdater can only update with CompositeHypothesis types")
 
         if len(hypothesis) != len(self):
-            raise ValueError(f"Mismatch in number of sub-hypotheses {len(hypothesis)} and number "
-                             f"of sub-updaters {len(self)}")
+            raise ValueError(
+                f"Mismatch in number of sub-hypotheses {len(hypothesis)} and number "
+                f"of sub-updaters {len(self)}"
+            )
 
-        for sub_updater, sub_hypothesis in zip(self.sub_updaters, hypothesis.sub_hypotheses):
+        for sub_updater, sub_hypothesis in zip(
+            self.sub_updaters, hypothesis.sub_hypotheses, strict=False
+        ):
 
             sub_pred = sub_hypothesis.prediction
             sub_meas_model = sub_hypothesis.measurement.measurement_model
 
             if sub_hypothesis.measurement_prediction is None:
-                sub_hypothesis.measurement_prediction = \
-                    sub_updater.predict_measurement(sub_pred, sub_meas_model)
+                sub_hypothesis.measurement_prediction = sub_updater.predict_measurement(
+                    sub_pred, sub_meas_model
+                )
 
             if sub_hypothesis:
                 sub_update = sub_updater.update(sub_hypothesis, **kwargs)

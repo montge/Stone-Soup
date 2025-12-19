@@ -6,10 +6,7 @@ def _dict_set(my_dict, value, key1, key2=None):
     """Utility function to add value to my_dict at the specified key(s)
     Returns True if the set increased in size, i.e. the value was new to its position"""
     if not my_dict:
-        if key2:
-            my_dict = {key1: {key2: {value}}}
-        else:
-            my_dict = {key1: {value}}
+        my_dict = {key1: {key2: {value}}} if key2 else {key1: {value}}
     elif key2:
         if key1 in my_dict:
             if key2 in my_dict[key1]:

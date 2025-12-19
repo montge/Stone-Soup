@@ -7,14 +7,17 @@ from scipy.stats import multivariate_normal
 from ...buffered_generator import BufferedGenerator
 from ...reader import DetectionReader
 from ...types.array import StateVector, StateVectors
-from ...types.detection import MissedDetection, GaussianDetection
-from ...types.hypothesis import SingleDistanceHypothesis, \
-    SingleProbabilityHypothesis
+from ...types.detection import GaussianDetection, MissedDetection
+from ...types.hypothesis import SingleDistanceHypothesis, SingleProbabilityHypothesis
 from ...types.multihypothesis import MultipleHypothesis
 from ...types.numeric import Probability
-from ...types.prediction import StateMeasurementPrediction, \
-    GaussianStatePrediction, GaussianMeasurementPrediction, ParticleStatePrediction, \
-    ParticleMeasurementPrediction
+from ...types.prediction import (
+    GaussianMeasurementPrediction,
+    GaussianStatePrediction,
+    ParticleMeasurementPrediction,
+    ParticleStatePrediction,
+    StateMeasurementPrediction,
+)
 from ...types.state import ParticleState
 from ...types.track import Track
 from ...types.update import GaussianStateUpdate, ParticleStateUpdate
@@ -24,8 +27,8 @@ from ...types.update import GaussianStateUpdate, ParticleStateUpdate
 def initiator():
     class TestInitiator:
         def initiate(self, detections, timestamp):
-            return {Track([detection])
-                    for detection in detections}
+            return {Track([detection]) for detection in detections}
+
     return TestInitiator()
 
 
@@ -35,14 +38,18 @@ def particle_initiator(initiator):
         def initiate(self, detections, timestamp):
             tracks = set()
             for detection in detections:
-                samples = multivariate_normal.rvs(detection.state_vector.ravel(),
-                                                  np.eye(detection.state_vector.shape[0])*0.01,
-                                                  size=100)
+                samples = multivariate_normal.rvs(
+                    detection.state_vector.ravel(),
+                    np.eye(detection.state_vector.shape[0]) * 0.01,
+                    size=100,
+                )
                 state_vector = StateVectors(np.atleast_2d(samples))
-                state = ParticleState(state_vector, weight=np.ones(100)/100,
-                                      timestamp=detection.timestamp)
+                state = ParticleState(
+                    state_vector, weight=np.ones(100) / 100, timestamp=detection.timestamp
+                )
                 tracks.add(Track([state]))
             return tracks
+
     return TestParticleInitiator()
 
 
@@ -50,9 +57,8 @@ def particle_initiator(initiator):
 def deleter():
     class TestDeleter:
         def delete_tracks(self, tracks):
-            return {track
-                    for track in tracks
-                    if len(track.states) > 10}
+            return {track for track in tracks if len(track.states) > 10}
+
     return TestDeleter()
 
 
@@ -63,14 +69,16 @@ def detector():
         def detections_gen(self):
             time = datetime.datetime(2018, 1, 1, 14)
             for step in range(20):
-                yield time, {GaussianDetection(
-                    StateVector([[step + (10*i)]]), [[2]], timestamp=time)
-                             for i in range(3)
-                             if (step - i) % 5}
+                yield time, {
+                    GaussianDetection(StateVector([[step + (10 * i)]]), [[2]], timestamp=time)
+                    for i in range(3)
+                    if (step - i) % 5
+                }
                 time += datetime.timedelta(minutes=1)
             for step in range(3):
                 yield time, set()
                 time += datetime.timedelta(minutes=1)
+
     return TestDetector()
 
 
@@ -80,21 +88,18 @@ def data_associator():
         def associate(self, tracks, detections, timestamp):
             associations = {}
             for track in tracks:
-                prediction = GaussianStatePrediction(track.state_vector + 1,
-                                                     [[5]], timestamp)
-                measurement_prediction = StateMeasurementPrediction(
-                    prediction.state_vector)
+                prediction = GaussianStatePrediction(track.state_vector + 1, [[5]], timestamp)
+                measurement_prediction = StateMeasurementPrediction(prediction.state_vector)
                 for detection in detections:
-                    if np.array_equal(measurement_prediction.state_vector,
-                                      detection.state_vector):
-                        associations[track] = \
-                            SingleDistanceHypothesis(
-                            prediction, detection, 0, measurement_prediction)
+                    if np.array_equal(measurement_prediction.state_vector, detection.state_vector):
+                        associations[track] = SingleDistanceHypothesis(
+                            prediction, detection, 0, measurement_prediction
+                        )
                         break
                 else:
-                    associations[track] = SingleDistanceHypothesis(
-                        prediction, None, None, 1)
+                    associations[track] = SingleDistanceHypothesis(prediction, None, None, 1)
             return associations
+
     return TestDataAssociator()
 
 
@@ -104,37 +109,41 @@ def data_mixture_associator():
         def associate(self, tracks, detections, timestamp):
             associations = {}
             for track in tracks:
-                prediction = GaussianStatePrediction(track.state_vector + 1,
-                                                     [[5]], timestamp)
-                measurement_prediction = StateMeasurementPrediction(
-                    prediction.state_vector)
+                prediction = GaussianStatePrediction(track.state_vector + 1, [[5]], timestamp)
+                measurement_prediction = StateMeasurementPrediction(prediction.state_vector)
                 multihypothesis = []
                 for detection in detections:
-                    if np.array_equal(measurement_prediction.state_vector,
-                                      detection.state_vector):
+                    if np.array_equal(measurement_prediction.state_vector, detection.state_vector):
                         multihypothesis.append(
                             SingleProbabilityHypothesis(
-                                prediction, detection,
+                                prediction,
+                                detection,
                                 measurement_prediction=measurement_prediction,
-                                probability=0.9
-                            ))
+                                probability=0.9,
+                            )
+                        )
                         multihypothesis.append(
                             SingleProbabilityHypothesis(
-                                prediction, MissedDetection(timestamp=timestamp),
+                                prediction,
+                                MissedDetection(timestamp=timestamp),
                                 measurement_prediction=measurement_prediction,
-                                probability=0.1
-                            ))
+                                probability=0.1,
+                            )
+                        )
                         break
                 else:
                     multihypothesis.append(
                         SingleProbabilityHypothesis(
-                            prediction, MissedDetection(timestamp=timestamp),
+                            prediction,
+                            MissedDetection(timestamp=timestamp),
                             measurement_prediction=measurement_prediction,
-                            probability=0.1
-                        ))
+                            probability=0.1,
+                        )
+                    )
                 associations[track] = MultipleHypothesis(multihypothesis)
 
             return associations
+
     return TestDataMixtureAssociator()
 
 
@@ -144,38 +153,43 @@ def data_particle_associator():
         def associate(self, tracks, detections, timestamp):
             associations = {}
             for track in tracks:
-                prediction = ParticleStatePrediction(track.state_vector + 1,
-                                                     weight=track.weight,
-                                                     timestamp=timestamp)
-                measurement_prediction = StateMeasurementPrediction(
-                    prediction.mean)
+                prediction = ParticleStatePrediction(
+                    track.state_vector + 1, weight=track.weight, timestamp=timestamp
+                )
+                measurement_prediction = StateMeasurementPrediction(prediction.mean)
                 multihypothesis = []
                 for detection in detections:
-                    if np.allclose(measurement_prediction.state_vector,
-                                   detection.state_vector):
+                    if np.allclose(measurement_prediction.state_vector, detection.state_vector):
                         multihypothesis.append(
                             SingleProbabilityHypothesis(
-                                prediction, detection,
+                                prediction,
+                                detection,
                                 measurement_prediction=measurement_prediction,
-                                probability=Probability(0.9)
-                            ))
+                                probability=Probability(0.9),
+                            )
+                        )
                         multihypothesis.append(
                             SingleProbabilityHypothesis(
-                                prediction, MissedDetection(timestamp=timestamp),
+                                prediction,
+                                MissedDetection(timestamp=timestamp),
                                 measurement_prediction=measurement_prediction,
-                                probability=0.1
-                            ))
+                                probability=0.1,
+                            )
+                        )
                         break
                 else:
                     multihypothesis.append(
                         SingleProbabilityHypothesis(
-                            prediction, MissedDetection(timestamp=timestamp),
+                            prediction,
+                            MissedDetection(timestamp=timestamp),
                             measurement_prediction=measurement_prediction,
-                            probability=0.1
-                        ))
+                            probability=0.1,
+                        )
+                    )
                 associations[track] = MultipleHypothesis(multihypothesis)
 
             return associations
+
     return TestDataParticleAssociator()
 
 
@@ -183,17 +197,14 @@ def data_particle_associator():
 def updater():
     class TestUpdater:
         def update(self, hypothesis):
-            return GaussianStateUpdate(hypothesis.measurement.state_vector,
-                                       hypothesis.prediction.covar,
-                                       hypothesis,
-                                       0)
+            return GaussianStateUpdate(
+                hypothesis.measurement.state_vector, hypothesis.prediction.covar, hypothesis, 0
+            )
 
-        def predict_measurement(self, state_prediction,
-                                measurement_model=None, **kwargs):
+        def predict_measurement(self, state_prediction, measurement_model=None, **kwargs):
             return GaussianMeasurementPrediction(
-                    state_prediction.state_vector,
-                    state_prediction.covar,
-                    state_prediction.timestamp)
+                state_prediction.state_vector, state_prediction.covar, state_prediction.timestamp
+            )
 
     return TestUpdater()
 
@@ -204,17 +215,17 @@ def particle_updater():
         resampler = None
 
         def update(self, hypothesis):
-            return ParticleStateUpdate(hypothesis.measurement.state_vector,
-                                       weight=hypothesis.prediction.weight,
-                                       hypothesis=hypothesis,
-                                       timestamp=hypothesis.measurement.timestamp)
+            return ParticleStateUpdate(
+                hypothesis.measurement.state_vector,
+                weight=hypothesis.prediction.weight,
+                hypothesis=hypothesis,
+                timestamp=hypothesis.measurement.timestamp,
+            )
 
-        def predict_measurement(self, state_prediction,
-                                measurement_model=None, **kwargs):
+        def predict_measurement(self, state_prediction, measurement_model=None, **kwargs):
             return ParticleMeasurementPrediction(
-                    state_prediction.state_vector,
-                    state_prediction.weight,
-                    state_prediction.timestamp)
+                state_prediction.state_vector, state_prediction.weight, state_prediction.timestamp
+            )
 
     return TestParticleUpdater()
 
@@ -223,6 +234,6 @@ def particle_updater():
 def predictor():
     class TestGaussianPredictor:
         def predict(self, prior, control_input=None, timestamp=None, **kwargs):
-            return GaussianStatePrediction(prior.state_vector+1,
-                                           prior.covar*2, timestamp)
+            return GaussianStatePrediction(prior.state_vector + 1, prior.covar * 2, timestamp)
+
     return TestGaussianPredictor()

@@ -1,19 +1,20 @@
 import copy
 import datetime
 import warnings
-from collections.abc import Iterable, Callable
+from collections.abc import Callable, Iterable
 from itertools import pairwise
-from typing import Union
 
 import numpy as np
 
 from ..types.array import StateVectors
-from ..types.state import StateMutableSequence, State
+from ..types.state import State, StateMutableSequence
 
 
-def time_range(start_time: datetime.datetime, end_time: datetime.datetime,
-               timestep: datetime.timedelta = datetime.timedelta(seconds=1)) \
-        -> Iterable[datetime.datetime]:
+def time_range(
+    start_time: datetime.datetime,
+    end_time: datetime.datetime,
+    timestep: datetime.timedelta = datetime.timedelta(seconds=1),
+) -> Iterable[datetime.datetime]:
     """
     Produces a range of datetime object between ``start_time`` (inclusive) and ``end_time``
     (inclusive)
@@ -35,9 +36,10 @@ def time_range(start_time: datetime.datetime, end_time: datetime.datetime,
         yield start_time + x * timestep
 
 
-def interpolate_state_mutable_sequence(sms: StateMutableSequence,
-                                       times: Union[datetime.datetime, list[datetime.datetime]],
-                                       ) -> Union[StateMutableSequence, State]:
+def interpolate_state_mutable_sequence(
+    sms: StateMutableSequence,
+    times: datetime.datetime | list[datetime.datetime],
+) -> StateMutableSequence | State:
     """
     This function performs linear interpolation on a :class:`~.StateMutableSequence`. The function
     has two slightly different forms:
@@ -89,29 +91,31 @@ def interpolate_state_mutable_sequence(sms: StateMutableSequence,
     # Track metadata removed and no interpolation can be performed on the metadata
     new_sms = copy.copy(sms)
     if hasattr(new_sms, "metadatas"):
-        new_sms.metadatas = list()
+        new_sms.metadatas = []
 
     # This step ensure unique states for each timestamp. The last state for a timestamp is used
     # with earlier states not being used.
-    time_state_dict = {state.timestamp: state
-                       for state in sms}
+    time_state_dict = {state.timestamp: state for state in sms}
 
     # Filter times if required
     max_state_time = sms[-1].timestamp
     min_state_time = sms[0].timestamp
     if max(times) > max_state_time or min(times) < min_state_time:
-        new_times = [time
-                     for time in times
-                     if min_state_time <= time <= max_state_time]
+        new_times = [time for time in times if min_state_time <= time <= max_state_time]
 
         if len(new_times) == 0:
-            raise IndexError(f"All times are outside of the state mutable sequence's time range "
-                             f"({min_state_time} -> {max_state_time})")
+            raise IndexError(
+                f"All times are outside of the state mutable sequence's time range "
+                f"({min_state_time} -> {max_state_time})"
+            )
 
         removed_times = set(times).difference(new_times)
-        warnings.warn(f"Trying to interpolate states which are outside the time range "
-                      f"({min_state_time} -> {max_state_time}) of the state mutable sequence. The "
-                      f"following times aren't included in the output {removed_times}")
+        warnings.warn(
+            f"Trying to interpolate states which are outside the time range "
+            f"({min_state_time} -> {max_state_time}) of the state mutable sequence. The "
+            f"following times aren't included in the output {removed_times}",
+            stacklevel=2,
+        )
 
         times = new_times
 
@@ -125,14 +129,14 @@ def interpolate_state_mutable_sequence(sms: StateMutableSequence,
         # Needed for states with angles present
         state_vectors = state_vectors.astype(float)
 
-        state_timestamps = [time.timestamp() for time in time_state_dict.keys()]
+        state_timestamps = [time.timestamp() for time in time_state_dict]
         interp_timestamps = [time.timestamp() for time in times_to_interpolate]
 
         interp_output = np.empty((sms.state.ndim, len(times_to_interpolate)))
         for element_index in range(sms.state.ndim):
-            interp_output[element_index, :] = np.interp(x=interp_timestamps,
-                                                        xp=state_timestamps,
-                                                        fp=state_vectors[element_index, :])
+            interp_output[element_index, :] = np.interp(
+                x=interp_timestamps, xp=state_timestamps, fp=state_vectors[element_index, :]
+            )
 
         retrieve_previous_state_fun = _get_previous_state(sms)
         for state_index, time in enumerate(times_to_interpolate):
@@ -140,7 +144,8 @@ def interpolate_state_mutable_sequence(sms: StateMutableSequence,
             time_state_dict[time] = original_state_before.from_state(
                 state=original_state_before,
                 timestamp=time,
-                state_vector=interp_output[:, state_index])
+                state_vector=interp_output[:, state_index],
+            )
 
     new_sms.states = [time_state_dict[time] for time in times]
 

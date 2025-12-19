@@ -1,5 +1,4 @@
 from collections import defaultdict
-from typing import Optional, Union
 
 import numpy as np
 from scipy.linalg import block_diag
@@ -17,7 +16,7 @@ from stonesoup.types.state import State
 
 
 class OptimalPathToDestinationTransitionModel(TransitionModel, TimeVariantModel):
-    r""" Shortest path to destination transition model.
+    r"""Shortest path to destination transition model.
 
     A transition model that models a target travelling along the shortest path to a destination,
     on a given road network. The model is a generalised implementation of the transition model
@@ -47,26 +46,27 @@ class OptimalPathToDestinationTransitionModel(TransitionModel, TimeVariantModel)
               Fusion (FUSION), Rustenburg, South Africa, 2020, pp. 1-8,
               doi: 10.23919/FUSION45008.2020.9190463.
     """
+
     transition_model: LinearGaussianTransitionModel = Property(
         doc=r"A base transition model that models the movement of the target along a given edge. "
-            "This can be any model, with the restriction that the first state variable of the "
-            "transition model must be the distance travelled along the edge (i.e. :math:`r`).")
-    graph: RoadNetwork = Property(
-        doc="The road network that the target is moving on.")
+        "This can be any model, with the restriction that the first state variable of the "
+        "transition model must be the distance travelled along the edge (i.e. :math:`r`)."
+    )
+    graph: RoadNetwork = Property(doc="The road network that the target is moving on.")
     destination_resample_probability: Probability = Property(
         default=0.1,
         doc="The probability of resampling the destination. This is useful when the destination "
-            "node is unknown and needs to be estimated (e.g. using a particle filter). If None, "
-            "or 0, then the destination is not resampled.")
+        "node is unknown and needs to be estimated (e.g. using a particle filter). If None, "
+        "or 0, then the destination is not resampled.",
+    )
     possible_destinations: list = Property(
         default=None,
         doc="The possible destinations that the target can travel to. Restricting the possible "
-            "destinations can greatly speed up the destination sampling process, since the "
-            "shortest path algorithm does not need to search the entire graph. If None, then all "
-            "nodes in the graph are considered possible destinations.")
-    seed: Optional[int] = Property(
-        default=None,
-        doc="Seed for random number generation.")
+        "destinations can greatly speed up the destination sampling process, since the "
+        "shortest path algorithm does not need to search the entire graph. If None, then all "
+        "nodes in the graph are considered possible destinations.",
+    )
+    seed: int | None = Property(default=None, doc="Seed for random number generation.")
 
     @property
     def ndim_state(self):
@@ -84,10 +84,7 @@ class OptimalPathToDestinationTransitionModel(TransitionModel, TimeVariantModel)
         num_particles = state.state_vector.shape[1]
 
         if isinstance(noise, bool) or noise is None:
-            if noise:
-                noise = self.rvs(num_samples=num_particles, **kwargs)
-            else:
-                noise = 0
+            noise = self.rvs(num_samples=num_particles, **kwargs) if noise else 0
 
         # 1) CV (Position-Velocity) Propagation
         t_matrix = block_diag(*[self.transition_model.matrix(**kwargs), np.eye(3)])
@@ -99,8 +96,9 @@ class OptimalPathToDestinationTransitionModel(TransitionModel, TimeVariantModel)
             edges = new_state_vectors[-3, :].astype(int)
             unique_edges = np.unique(edges)
             sources = list(np.unique(new_state_vectors[-1, :].astype(int)))
-            s_paths = self.graph.shortest_path(sources, self.possible_destinations,
-                                               path_type='edge')
+            s_paths = self.graph.shortest_path(
+                sources, self.possible_destinations, path_type="edge"
+            )
             v_dest = defaultdict(set)
             for edge in unique_edges:
                 # Filter paths that contain the edge
@@ -109,8 +107,9 @@ class OptimalPathToDestinationTransitionModel(TransitionModel, TimeVariantModel)
 
             # Perform destination sampling
             resample_inds = np.flatnonzero(
-                self.random_state.binomial(1, float(self.destination_resample_probability),
-                                           num_particles)
+                self.random_state.binomial(
+                    1, float(self.destination_resample_probability), num_particles
+                )
             )
             for i in resample_inds:
                 dests = v_dest[edges[i]]
@@ -132,7 +131,7 @@ class OptimalPathToDestinationTransitionModel(TransitionModel, TimeVariantModel)
 
         for i in range(num_particles):
             try:
-                path = self.graph.shortest_path(s[i], d[i], path_type='edge')[(s[i], d[i])]
+                path = self.graph.shortest_path(s[i], d[i], path_type="edge")[(s[i], d[i])]
                 r_i, e_i = normalise_re(r[i], e[i], path, self.graph)
                 new_state_vectors[0, i] = r_i
                 new_state_vectors[-3, i] = e_i
@@ -141,8 +140,7 @@ class OptimalPathToDestinationTransitionModel(TransitionModel, TimeVariantModel)
 
         return new_state_vectors
 
-    def rvs(self, num_samples: int = 1, random_state=None, **kwargs) ->\
-            Union[StateVector, StateVectors]:
+    def rvs(self, num_samples: int = 1, random_state=None, **kwargs) -> StateVector | StateVectors:
 
         covar = self._covar(**kwargs)
 
@@ -153,7 +151,8 @@ class OptimalPathToDestinationTransitionModel(TransitionModel, TimeVariantModel)
         random_state = random_state if random_state is not None else self.random_state
 
         noise = multivariate_normal.rvs(
-            np.zeros(self.ndim), covar, num_samples, random_state=random_state)
+            np.zeros(self.ndim), covar, num_samples, random_state=random_state
+        )
 
         noise = np.atleast_2d(noise)
 
@@ -164,7 +163,7 @@ class OptimalPathToDestinationTransitionModel(TransitionModel, TimeVariantModel)
         else:
             return noise.view(StateVectors)
 
-    def logpdf(self, state1: State, state2: State, **kwargs) -> Union[Probability, np.ndarray]:
+    def logpdf(self, state1: State, state2: State, **kwargs) -> Probability | np.ndarray:
         covar = self._covar(**kwargs)
 
         # If model has None-type covariance or contains None, it does not represent a Gaussian
@@ -174,18 +173,22 @@ class OptimalPathToDestinationTransitionModel(TransitionModel, TimeVariantModel)
         # Calculate difference before to handle custom types (mean defaults to zero)
         # This is required as log pdf coverts arrays to floats
         likelihood = np.atleast_1d(
-            multivariate_normal.logpdf((state1.state_vector - self.function(state2, **kwargs)).T,
-                                       cov=covar, allow_singular=True))
+            multivariate_normal.logpdf(
+                (state1.state_vector - self.function(state2, **kwargs)).T,
+                cov=covar,
+                allow_singular=True,
+            )
+        )
 
         if len(likelihood) == 1:
             likelihood = likelihood[0]
 
         return likelihood
 
-    def pdf(self, state1: State, state2: State, **kwargs) -> Union[Probability, np.ndarray]:
+    def pdf(self, state1: State, state2: State, **kwargs) -> Probability | np.ndarray:
         return Probability.from_log_ufunc(self.logpdf(state1, state2, **kwargs))
 
     def _covar(self, **kwargs) -> np.ndarray:
-        """Model pseudo-covariance matrix calculation function (private) """
+        """Model pseudo-covariance matrix calculation function (private)"""
         covar_list = [self.transition_model.covar(**kwargs), np.zeros((3, 3))]
         return block_diag(*covar_list)

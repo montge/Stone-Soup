@@ -8,12 +8,13 @@ from ...types.track import Track
 from ..tracktotruthmetrics import IDSIAPMetrics, SIAPMetrics
 
 
-@pytest.mark.parametrize('measure_class', [Euclidean, Mahalanobis])
+@pytest.mark.parametrize("measure_class", [Euclidean, Mahalanobis])
 def test_siap(trial_manager, trial_truths, trial_tracks, trial_associations, measure_class):
     position_measure = measure_class((0, 2))
     velocity_measure = measure_class((1, 3))
-    siap_generator = SIAPMetrics(position_measure=position_measure,
-                                 velocity_measure=velocity_measure)
+    siap_generator = SIAPMetrics(
+        position_measure=position_measure, velocity_measure=velocity_measure
+    )
 
     trial_manager.generators = [siap_generator]
 
@@ -24,20 +25,28 @@ def test_siap(trial_manager, trial_truths, trial_tracks, trial_associations, mea
         assert siap_generator.num_tracks_at_time(trial_tracks, timestamp) == 3
 
     # Test num_associated_tracks_at_time
-    assert siap_generator.num_associated_tracks_at_time(trial_manager, trial_tracks,
-                                                        timestamps[0]) == 2
-    assert siap_generator.num_associated_tracks_at_time(trial_manager, trial_tracks,
-                                                        timestamps[1]) == 3
-    assert siap_generator.num_associated_tracks_at_time(trial_manager, trial_tracks,
-                                                        timestamps[2]) == 3
-    assert siap_generator.num_associated_tracks_at_time(trial_manager, trial_tracks,
-                                                        timestamps[3]) == 2
+    assert (
+        siap_generator.num_associated_tracks_at_time(trial_manager, trial_tracks, timestamps[0])
+        == 2
+    )
+    assert (
+        siap_generator.num_associated_tracks_at_time(trial_manager, trial_tracks, timestamps[1])
+        == 3
+    )
+    assert (
+        siap_generator.num_associated_tracks_at_time(trial_manager, trial_tracks, timestamps[2])
+        == 3
+    )
+    assert (
+        siap_generator.num_associated_tracks_at_time(trial_manager, trial_tracks, timestamps[3])
+        == 2
+    )
 
     # Test accuracy_at_time
-    assoc0_pos_accuracy = np.sqrt(0.1 ** 2 + 0.1 ** 2)
-    assoc1_pos_accuracy = np.sqrt(0.5 ** 2 + 0.5 ** 2)
-    assoc0_vel_accuracy = np.sqrt(0.2 ** 2 + 0.2 ** 2)
-    assoc1_vel_accuracy = np.sqrt(0.6 ** 2 + 0.6 ** 2)
+    assoc0_pos_accuracy = np.sqrt(0.1**2 + 0.1**2)
+    assoc1_pos_accuracy = np.sqrt(0.5**2 + 0.5**2)
+    assoc0_vel_accuracy = np.sqrt(0.2**2 + 0.2**2)
+    assoc1_vel_accuracy = np.sqrt(0.6**2 + 0.6**2)
     exp_pos_accuracy = assoc0_pos_accuracy + assoc1_pos_accuracy
     exp_vel_accuracy = assoc0_vel_accuracy + assoc1_vel_accuracy
 
@@ -81,12 +90,20 @@ def test_siap(trial_manager, trial_truths, trial_tracks, trial_associations, mea
 
     # Test compute_metric
     metrics = siap_generator.compute_metric(trial_manager)
-    expected_titles = ["SIAP Completeness", "SIAP Ambiguity", "SIAP Spuriousness",
-                       "SIAP Position Accuracy", "SIAP Velocity Accuracy",
-                       "SIAP Rate of Track Number Change", "SIAP Longest Track Segment",
-                       "SIAP Completeness at times", "SIAP Ambiguity at times",
-                       "SIAP Spuriousness at times", "SIAP Position Accuracy at times",
-                       "SIAP Velocity Accuracy at times"]
+    expected_titles = [
+        "SIAP Completeness",
+        "SIAP Ambiguity",
+        "SIAP Spuriousness",
+        "SIAP Position Accuracy",
+        "SIAP Velocity Accuracy",
+        "SIAP Rate of Track Number Change",
+        "SIAP Longest Track Segment",
+        "SIAP Completeness at times",
+        "SIAP Ambiguity at times",
+        "SIAP Spuriousness at times",
+        "SIAP Position Accuracy at times",
+        "SIAP Velocity Accuracy at times",
+    ]
 
     for expected_title in expected_titles:
         assert len({metric for metric in metrics if metric.title == expected_title}) == 1
@@ -110,15 +127,17 @@ def test_siap(trial_manager, trial_truths, trial_tracks, trial_associations, mea
             assert isinstance(metric.value, (float, int))
 
 
-@pytest.mark.parametrize('measure_class', [Euclidean, Mahalanobis])
+@pytest.mark.parametrize("measure_class", [Euclidean, Mahalanobis])
 def test_id_siap(trial_manager, trial_truths, trial_tracks, trial_associations, measure_class):
     position_measure = measure_class((0, 2))
     velocity_measure = measure_class((1, 3))
     truth_id = track_id = "colour"
-    siap_generator = IDSIAPMetrics(position_measure=position_measure,
-                                   velocity_measure=velocity_measure,
-                                   truth_id=truth_id,
-                                   track_id=track_id)
+    siap_generator = IDSIAPMetrics(
+        position_measure=position_measure,
+        velocity_measure=velocity_measure,
+        truth_id=truth_id,
+        track_id=track_id,
+    )
 
     trial_manager.generators = [siap_generator]
 
@@ -163,15 +182,26 @@ def test_id_siap(trial_manager, trial_truths, trial_tracks, trial_associations, 
 
     # Test compute_metric
     metrics = siap_generator.compute_metric(trial_manager)
-    expected_titles = ["SIAP Completeness", "SIAP Ambiguity", "SIAP Spuriousness",
-                       "SIAP Position Accuracy", "SIAP Velocity Accuracy",
-                       "SIAP Rate of Track Number Change", "SIAP Longest Track Segment",
-                       "SIAP Completeness at times", "SIAP Ambiguity at times",
-                       "SIAP Spuriousness at times", "SIAP Position Accuracy at times",
-                       "SIAP Velocity Accuracy at times",
-                       "SIAP ID Completeness", "SIAP ID Correctness", "SIAP ID Ambiguity",
-                       "SIAP ID Completeness at times", "SIAP ID Correctness at times",
-                       "SIAP ID Ambiguity at times"]
+    expected_titles = [
+        "SIAP Completeness",
+        "SIAP Ambiguity",
+        "SIAP Spuriousness",
+        "SIAP Position Accuracy",
+        "SIAP Velocity Accuracy",
+        "SIAP Rate of Track Number Change",
+        "SIAP Longest Track Segment",
+        "SIAP Completeness at times",
+        "SIAP Ambiguity at times",
+        "SIAP Spuriousness at times",
+        "SIAP Position Accuracy at times",
+        "SIAP Velocity Accuracy at times",
+        "SIAP ID Completeness",
+        "SIAP ID Correctness",
+        "SIAP ID Ambiguity",
+        "SIAP ID Completeness at times",
+        "SIAP ID Correctness at times",
+        "SIAP ID Ambiguity at times",
+    ]
 
     for expected_title in expected_titles:
         assert len({metric for metric in metrics if metric.title == expected_title}) == 1

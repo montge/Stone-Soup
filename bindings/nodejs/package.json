@@ -1,0 +1,68 @@
+{
+  "name": "@stonesoup/core",
+  "version": "0.1.0",
+  "description": "Node.js bindings for the Stone Soup tracking framework",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "napi": {
+    "name": "stonesoup-core",
+    "triples": {
+      "defaults": true,
+      "additional": [
+        "x86_64-unknown-linux-musl",
+        "aarch64-unknown-linux-gnu",
+        "armv7-unknown-linux-gnueabihf",
+        "aarch64-apple-darwin",
+        "x86_64-pc-windows-msvc"
+      ]
+    }
+  },
+  "scripts": {
+    "artifacts": "napi artifacts",
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform",
+    "prepublishOnly": "napi prepublish -t npm",
+    "test": "node --test",
+    "test:coverage": "c8 --reporter=lcov --reporter=text node --test",
+    "universal": "napi universal",
+    "version": "napi version"
+  },
+  "keywords": [
+    "tracking",
+    "kalman-filter",
+    "particle-filter",
+    "state-estimation",
+    "napi-rs",
+    "native"
+  ],
+  "author": "Stone Soup Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dstl/Stone-Soup.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dstl/Stone-Soup/issues"
+  },
+  "homepage": "https://github.com/dstl/Stone-Soup",
+  "devDependencies": {
+    "@napi-rs/cli": "^2.18.0",
+    "@types/node": "^20.10.0",
+    "c8": "^10.1.2",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">= 16"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "optionalDependencies": {
+    "@stonesoup/core-win32-x64-msvc": "0.1.0",
+    "@stonesoup/core-darwin-x64": "0.1.0",
+    "@stonesoup/core-darwin-arm64": "0.1.0",
+    "@stonesoup/core-linux-x64-gnu": "0.1.0",
+    "@stonesoup/core-linux-arm64-gnu": "0.1.0"
+  }
+}

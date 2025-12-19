@@ -1,4 +1,5 @@
 import datetime
+
 import numpy as np
 import pytest
 
@@ -9,12 +10,7 @@ from stonesoup.types.track import Track
 
 
 @pytest.mark.parametrize(
-    "check_timestamp, predict_measurement",
-    [
-     (True, False),
-     (False, True),
-     (False, False)
-    ]
+    "check_timestamp, predict_measurement", [(True, False), (False, True), (False, False)]
 )
 def test_simple(predictor, updater, check_timestamp, predict_measurement):
     timestamp = datetime.datetime.now()

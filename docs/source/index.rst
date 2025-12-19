@@ -71,10 +71,12 @@ Contents
 
     design
     stonesoup
+    requirements/index
     auto_tutorials/index
     auto_examples/index
     auto_demos/index
     contributing
+    security
     copyright
 
 Indices and tables
@@ -82,4 +84,3 @@ Indices and tables
 
 * :ref:`genindex`
 * :ref:`modindex`
-

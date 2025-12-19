@@ -57,13 +57,20 @@ def multidimensional_deconfliction(association_set):
             # Can't associate with self
             continue
         try:
-            assoc = next(iter(association_set_reduced.associations_including_objects(
-                {objects[i], objects[j]})))  # There should only be 1 association in this set
+            assoc = next(
+                iter(
+                    association_set_reduced.associations_including_objects(
+                        {objects[i], objects[j]}
+                    )
+                )
+            )  # There should only be 1 association in this set
         except StopIteration:
             # We took the association out previously in the loop
             continue
-        if all(assoc.duration > clean_assoc.duration or not conflicts(assoc, clean_assoc)
-               for clean_assoc in cleaned_set):
+        if all(
+            assoc.duration > clean_assoc.duration or not conflicts(assoc, clean_assoc)
+            for clean_assoc in cleaned_set
+        ):
             cleaned_set.add(copy.copy(assoc))
             association_set_reduced.remove(assoc)
 
@@ -92,13 +99,13 @@ def multidimensional_deconfliction(association_set):
 
 
 def conflicts(assoc1, assoc2):
-    if hasattr(assoc1, 'time_range') and hasattr(assoc2, 'time_range') and \
-            assoc1.objects.intersection(assoc2.objects) and \
-            assoc1.time_range & assoc2.time_range and \
-            assoc1 != assoc2:
-        return True
-    else:
-        return False
+    return bool(
+        hasattr(assoc1, "time_range")
+        and hasattr(assoc2, "time_range")
+        and assoc1.objects.intersection(assoc2.objects)
+        and assoc1.time_range & assoc2.time_range
+        and assoc1 != assoc2
+    )
 
 
 def check_if_no_conflicts(association_set):

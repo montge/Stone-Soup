@@ -109,6 +109,18 @@ OrbitalState Types
 .. automodule:: stonesoup.types.orbitalstate
     :show-inheritance:
 
+Coordinate Types
+################
+
+.. automodule:: stonesoup.types.coordinates
+    :show-inheritance:
+
+Voxel Types
+###########
+
+.. automodule:: stonesoup.types.voxel
+    :show-inheritance:
+
 Time Types
 ----------------
 

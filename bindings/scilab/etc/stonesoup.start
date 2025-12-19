@@ -1,0 +1,22 @@
+// Stone Soup module startup script
+// This file is executed when the module is loaded
+
+function stonesouplib = lib_stonesoup()
+    // Returns the path to the Stone Soup library
+    stonesouplib = get_absolute_file_path("stonesoup.start");
+    stonesouplib = getshortpathname(stonesouplib + "/../");
+endfunction
+
+// Display loading message
+mprintf("Loading Stone Soup tracking framework...\n");
+
+// Get module path
+stonesoup_path = lib_stonesoup();
+
+// Load gateway functions
+exec(stonesoup_path + "loader.sce", -1);
+
+// Load macros
+exec(stonesoup_path + "macros/loadmacros.sce", -1);
+
+mprintf("Stone Soup %s loaded successfully.\n", stonesoup_version());

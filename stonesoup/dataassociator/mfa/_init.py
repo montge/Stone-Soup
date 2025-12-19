@@ -59,25 +59,30 @@ def _add_dummy_tracks(hyps: list[Hyp], all_measurements: list[tuple[int, int]], 
     """
     zeros = np.zeros(slide_window, dtype=np.int32)
     for trackID, (time_index, measurement) in enumerate(
-            all_measurements, start=hyps[-1].trackID+1):
+        all_measurements, start=hyps[-1].trackID + 1
+    ):
         # Track without measurement assigned (allow measurement to be assigned to real track)
-        hyps.append(Hyp(
-            cost=0,
-            trackID=trackID,
-            measHistory=(),  # Not needed for dummy hypotheses
-            measHistorySlideWindow=zeros,
-            isDummy=True
-        ))
+        hyps.append(
+            Hyp(
+                cost=0,
+                trackID=trackID,
+                measHistory=(),  # Not needed for dummy hypotheses
+                measHistorySlideWindow=zeros,
+                isDummy=True,
+            )
+        )
         # Track with measurement assigned (measurement is false alarm)
         zeros_with_measurement = np.copy(zeros)
         zeros_with_measurement[time_index] = measurement
-        hyps.append(Hyp(
-            cost=_DUMMY_TRACK_ASSIGNMENT_COST,
-            trackID=trackID,
-            measHistory=(),  # Not needed for dummy hypotheses
-            measHistorySlideWindow=zeros_with_measurement,
-            isDummy=True
-        ))
+        hyps.append(
+            Hyp(
+                cost=_DUMMY_TRACK_ASSIGNMENT_COST,
+                trackID=trackID,
+                measHistory=(),  # Not needed for dummy hypotheses
+                measHistorySlideWindow=zeros_with_measurement,
+                isDummy=True,
+            )
+        )
 
 
 def _compact_measurement_indices(
@@ -92,14 +97,16 @@ def _compact_measurement_indices(
     """
     meas_true_to_packed_index = [{0: -1} for _ in range(slide_window)]
     for time_index, measurements in groupby(all_measurements, key=itemgetter(0)):
-        meas_true_to_packed_index[time_index].update({
-            index_original: index_packed
-            for index_packed, (t, index_original) in enumerate(measurements)
-        })
+        meas_true_to_packed_index[time_index].update(
+            {
+                index_original: index_packed
+                for index_packed, (t, index_original) in enumerate(measurements)
+            }
+        )
     for h in hyps:
         h.measHistorySlideWindow = np.array(
             [meas_true_to_packed_index[t][m] for t, m in enumerate(h.measHistorySlideWindow)],
-            dtype=np.int32
+            dtype=np.int32,
         )
 
 
@@ -110,6 +117,7 @@ class TimeStepIndices:
     Note that track numbers (trackID) are consistent across time steps but measurement numbers
     are per time step.
     """
+
     # trackNull_index[i] is list of indices that, at this time step, assign the null hypothesis to
     # track i (i.e. these hypotheses do not associate track i with any measurement)
     # Philosophically, Dict[int, List[int]] is perhaps more correct, but the keys (the track IDs)
@@ -172,7 +180,7 @@ def _get_constraints_matrix(hyps, time_step_indices, track_to_hyp_map):
     # Construct binary indicator matrix for constraint (2): each measurement in each scan should
     # only be used once
     for time_step_indices in time_step_indices:
-        for measurement, hyp_index_list in time_step_indices.measIndex.items():
+        for _measurement, hyp_index_list in time_step_indices.measIndex.items():
             this_row = np.zeros(len(hyps), dtype=np.int32)
             this_row[hyp_index_list] = 1
             constraint_matrix_rows.append(this_row)
@@ -197,12 +205,14 @@ class HypInfo:
 
 
 def init_hyp_info(hyps: list[Hyp], slide_window: int):
-    all_measurements = sorted(set(
-        (time_index, measurement)  # Time index is relative to start of sliding window
-        for hyp in hyps
-        for time_index, measurement in enumerate(hyp.measHistorySlideWindow)
-        if measurement != 0
-    ))
+    all_measurements = sorted(
+        {
+            (time_index, measurement)  # Time index is relative to start of sliding window
+            for hyp in hyps
+            for time_index, measurement in enumerate(hyp.measHistorySlideWindow)
+            if measurement != 0
+        }
+    )
     _add_dummy_tracks(hyps, all_measurements, slide_window)
     _compact_measurement_indices(hyps, all_measurements, slide_window)
     time_step_indices, track_to_hyp_map = _get_hyp_indices(hyps, slide_window)

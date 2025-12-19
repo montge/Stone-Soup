@@ -1,7 +1,11 @@
 import numpy as np
 
-from ..groundtruth import GroundTruthState, GroundTruthPath, CategoricalGroundTruthState, \
-    CompositeGroundTruthState
+from ..groundtruth import (
+    CategoricalGroundTruthState,
+    CompositeGroundTruthState,
+    GroundTruthPath,
+    GroundTruthState,
+)
 
 
 def test_groundtruthpath():
@@ -9,8 +13,7 @@ def test_groundtruthpath():
 
     assert len(empty_path) == 0
 
-    groundtruth_path = GroundTruthPath([
-        GroundTruthState(np.array([[0]])) for _ in range(10)])
+    groundtruth_path = GroundTruthPath([GroundTruthState(np.array([[0]])) for _ in range(10)])
 
     assert len(groundtruth_path) == 10
 
@@ -31,8 +34,8 @@ def test_groundtruthpath():
 
 
 def test_composite_groundtruth():
-    sub_state1 = GroundTruthState([0], metadata={'colour': 'red'})
-    sub_state2 = GroundTruthState([1], metadata={'speed': 'fast'})
-    sub_state3 = CategoricalGroundTruthState([0.6, 0.4], metadata={'shape': 'square'})
+    sub_state1 = GroundTruthState([0], metadata={"colour": "red"})
+    sub_state2 = GroundTruthState([1], metadata={"speed": "fast"})
+    sub_state3 = CategoricalGroundTruthState([0.6, 0.4], metadata={"shape": "square"})
     state = CompositeGroundTruthState(sub_states=[sub_state1, sub_state2, sub_state3])
-    assert state.metadata == {'colour': 'red', 'speed': 'fast', 'shape': 'square'}
+    assert state.metadata == {"colour": "red", "speed": "fast", "shape": "square"}

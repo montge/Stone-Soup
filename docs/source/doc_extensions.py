@@ -1,17 +1,23 @@
 import re
+import types
 from collections.abc import Sequence
 from pathlib import PurePosixPath
 from textwrap import indent
 
-import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
+import plotly.graph_objects as go
 from matplotlib.animation import Animation
 from matplotlib.figure import Figure
 from sphinx_gallery.scrapers import (
-    figure_rst, _anim_rst, _matplotlib_fig_titles, HLIST_HEADER,
-    HLIST_IMAGE_MATPLOTLIB)
-import plotly.graph_objects as go
+    HLIST_HEADER,
+    HLIST_IMAGE_MATPLOTLIB,
+    _anim_rst,
+    _matplotlib_fig_titles,
+    figure_rst,
+)
+
 try:
     import kaleido  # noqa: F401
 except ImportError:
@@ -21,8 +27,7 @@ else:
 
 from stonesoup.base import Base
 
-
-STONESOUP_TYPE_REGEX = re.compile(r'stonesoup\.(\w+\.)*')
+STONESOUP_TYPE_REGEX = re.compile(r"stonesoup\.(\w+\.)*")
 
 
 def _headings(heading, lines):
@@ -31,7 +36,7 @@ def _headings(heading, lines):
     except ValueError:
         # No placeholder found, so extend.
         # Numpydoc will ignore empty list: no need to check for contents
-        if lines and not lines[-1] == "":
+        if lines and lines[-1] != "":
             lines.append("")
         lines.extend([heading, "-" * len(heading)])
         index = len(lines)
@@ -46,13 +51,19 @@ def declarative_class(app, what, name, obj, options, lines):
         for name, property_ in obj.properties.items():
             # there may be a better way to do the check below, but the typing API is variable
             # across Python versions, making it tricky and this may do well enough.
-            if hasattr(property_.cls, '__module__') and property_.cls.__module__ == 'typing':
+            if hasattr(property_.cls, "__module__") and property_.cls.__module__ == "typing":
                 class_name = str(property_.cls)
-                class_name = class_name.replace('typing.', '')
-                class_name = STONESOUP_TYPE_REGEX.sub('', class_name)
+                class_name = class_name.replace("typing.", "")
+                class_name = STONESOUP_TYPE_REGEX.sub("", class_name)
                 is_sequence = False
             elif isinstance(property_.cls, str):
                 class_name = str(property_.cls)
+                is_sequence = False
+            elif isinstance(property_.cls, types.UnionType):
+                # Handle Python 3.10+ union types (X | Y syntax)
+                class_name = str(property_.cls)
+                class_name = class_name.replace("typing.", "")
+                class_name = STONESOUP_TYPE_REGEX.sub("", class_name)
                 is_sequence = False
             else:
                 is_sequence = isinstance(property_.cls, Sequence)
@@ -62,8 +73,7 @@ def declarative_class(app, what, name, obj, options, lines):
                     cls = property_.cls
                 module_name = cls.__module__
                 cls_name = cls.__name__
-                class_name = "{}.{}".format(
-                    module_name, cls_name)
+                class_name = f"{module_name}.{cls_name}"
             # To shorten names for builtins and also stonesoup components
             tild = class_name.split(".")[0] in ("stonesoup", "builtins")
             # To add optional if default value is defined.
@@ -75,29 +85,28 @@ def declarative_class(app, what, name, obj, options, lines):
                 ", optional" if is_optional else "",
             )
 
-            new_lines = "{} : {}\n    {}".format(
-                name, doc_type, property_.doc or "").split("\n")
+            new_lines = "{} : {}\n    {}".format(name, doc_type, property_.doc or "").split("\n")
             lines[param_index:param_index] = new_lines
             param_index += len(new_lines)
 
 
 def shorten_type_hints(app, what, name, obj, options, signature, return_annotation):
     if signature is not None:
-        signature = STONESOUP_TYPE_REGEX.sub('', signature)
+        signature = STONESOUP_TYPE_REGEX.sub("", signature)
     return signature, return_annotation
 
 
 def setup(app):
-    app.connect('autodoc-process-docstring', declarative_class)
-    app.connect('autodoc-process-signature', shorten_type_hints)
+    app.connect("autodoc-process-docstring", declarative_class)
+    app.connect("autodoc-process-signature", shorten_type_hints)
 
     return {
-        'parallel_read_safe': True,
-        'parallel_write_safe': True,
+        "parallel_read_safe": True,
+        "parallel_write_safe": True,
     }
 
 
-class GalleryScraper():
+class GalleryScraper:
     def __init__(self):
         self.plotted_figures = set()
         self.current_src_file = None
@@ -127,27 +136,27 @@ class GalleryScraper():
             the images. This is often produced by :func:`figure_rst`.
         """
         # New file, so close all currently open figures
-        if block_vars['src_file'] != self.current_src_file:
+        if block_vars["src_file"] != self.current_src_file:
             for fig in self.plotted_figures:
                 plt.close(fig)
             self.plotted_figures = set()
-            self.current_src_file = block_vars['src_file']
+            self.current_src_file = block_vars["src_file"]
 
-        image_path_iterator = block_vars['image_path_iterator']
+        image_path_iterator = block_vars["image_path_iterator"]
         image_rsts = []
 
         # Check for animations
         anims = {}
-        if gallery_conf['matplotlib_animations']:
-            for ani in block_vars['example_globals'].values():
+        if gallery_conf["matplotlib_animations"]:
+            for ani in block_vars["example_globals"].values():
                 if isinstance(ani, Animation):
                     anims[ani._fig] = ani
         # Then standard images
         new_figures = set(plt.get_fignums()) - self.plotted_figures
-        last_line = block[1].strip().split('\n')[-1]
+        last_line = block[1].strip().split("\n")[-1]
         variable, *attributes = last_line.split(".")
         try:
-            output = block_vars['example_globals'][variable]
+            output = block_vars["example_globals"][variable]
             for attribute in attributes:
                 output = getattr(output, attribute)
         except (KeyError, AttributeError):
@@ -159,7 +168,7 @@ class GalleryScraper():
                 image_path = PurePosixPath(next(image_path_iterator))
                 if "format" in kwargs:
                     image_path = image_path.with_suffix("." + kwargs["format"])
-                write_plotly_image(output, str(image_path), kwargs.get('format'))
+                write_plotly_image(output, str(image_path), kwargs.get("format"))
 
         for fig_num, image_path in zip(new_figures, image_path_iterator):
             image_path = PurePosixPath(image_path)
@@ -178,38 +187,35 @@ class GalleryScraper():
             # shallow copy should be fine here, just want to avoid changing
             # "kwargs" for subsequent figures processed by the loop
             these_kwargs = kwargs.copy()
-            for attr in ['facecolor', 'edgecolor']:
-                fig_attr = getattr(fig, 'get_' + attr)()
-                default_attr = matplotlib.rcParams['figure.' + attr]
+            for attr in ["facecolor", "edgecolor"]:
+                fig_attr = getattr(fig, "get_" + attr)()
+                default_attr = matplotlib.rcParams["figure." + attr]
                 if to_rgba(fig_attr) != to_rgba(default_attr) and attr not in kwargs:
                     these_kwargs[attr] = fig_attr
-            these_kwargs['bbox_inches'] = "tight"
+            these_kwargs["bbox_inches"] = "tight"
             fig.savefig(image_path, **these_kwargs)
-            image_rsts.append(
-                figure_rst([image_path], gallery_conf['src_dir'], fig_titles))
-        rst = ''
+            image_rsts.append(figure_rst([image_path], gallery_conf["src_dir"], fig_titles))
+        rst = ""
         if len(image_rsts) == 1:
             rst = image_rsts[0]
         elif len(image_rsts) > 1:
             image_rsts = [
-                re.sub(r':class: sphx-glr-single-img', ':class: sphx-glr-multi-img', image)
-                for image in image_rsts]
-            image_rsts = [
-                HLIST_IMAGE_MATPLOTLIB + indent(image, ' ' * 6) for image in image_rsts
+                re.sub(r":class: sphx-glr-single-img", ":class: sphx-glr-multi-img", image)
+                for image in image_rsts
             ]
-            rst = HLIST_HEADER + ''.join(image_rsts)
+            image_rsts = [HLIST_IMAGE_MATPLOTLIB + indent(image, " " * 6) for image in image_rsts]
+            rst = HLIST_HEADER + "".join(image_rsts)
         return rst
 
 
 class ResetNumPyRandomSeed:
-
     def __init__(self):
         self.state = None
 
     def __call__(self, gallery_conf, fname, when):
-        if when == 'before':
+        if when == "before":
             self.state = np.random.get_state()
-        elif when == 'after':
+        elif when == "after":
             # Set state attribute back to `None`
             self.state = np.random.set_state(self.state)
 

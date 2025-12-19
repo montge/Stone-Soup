@@ -1,6 +1,5 @@
 import datetime
 
-from .base import Tracker, _TrackerMixInNext
 from ..base import Property
 from ..hypothesiser.gaussianmixture import GaussianMixtureHypothesiser
 from ..mixturereducer.gaussianmixture import GaussianMixtureReducer
@@ -10,6 +9,7 @@ from ..types.numeric import Probability
 from ..types.state import TaggedWeightedGaussianState
 from ..types.track import Track
 from ..updater import Updater
+from .base import Tracker, _TrackerMixInNext
 
 
 class PointProcessMultiTargetTracker(_TrackerMixInNext, Tracker):
@@ -17,28 +17,30 @@ class PointProcessMultiTargetTracker(_TrackerMixInNext, Tracker):
     Base class for Gaussian Mixture (GM) style implementations of
     point process derived filters
     """
-    detector: DetectionReader = Property(
-        doc="Detector used to generate detection objects.")
-    updater: Updater = Property(
-        doc="Updater used to update the objects to their new state.")
+
+    detector: DetectionReader = Property(doc="Detector used to generate detection objects.")
+    updater: Updater = Property(doc="Updater used to update the objects to their new state.")
     hypothesiser: GaussianMixtureHypothesiser = Property(
-        doc="Association algorithm to pair predictions to detections")
+        doc="Association algorithm to pair predictions to detections"
+    )
     reducer: GaussianMixtureReducer = Property(
-        doc="Reducer used to reduce the number of components in the mixture.")
+        doc="Reducer used to reduce the number of components in the mixture."
+    )
     extraction_threshold: Probability = Property(
-        default=0.9,
-        doc="Threshold to extract components from the mixture.")
+        default=0.9, doc="Threshold to extract components from the mixture."
+    )
     birth_component: TaggedWeightedGaussianState = Property(
         default=None,
         doc="The birth component. The weight should be "
-            "equal to the mean of the expected number of "
-            "births per timestep (Poission distributed). "
-            "The tag should be "
-            ":attr:`TaggedWeightedGaussianState.BIRTH`")
+        "equal to the mean of the expected number of "
+        "births per timestep (Poission distributed). "
+        "The tag should be "
+        ":attr:`TaggedWeightedGaussianState.BIRTH`",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.target_tracks = dict()
+        self.target_tracks = {}
         self.gaussian_mixture = GaussianMixture()
 
     @property
@@ -71,8 +73,7 @@ class PointProcessMultiTargetTracker(_TrackerMixInNext, Tracker):
                 else:
                     # No Track found, so create a new one only if we are
                     # reasonably confident its a target
-                    if component.weight > \
-                            self.extraction_threshold:
+                    if component.weight > self.extraction_threshold:
                         self.target_tracks[tag] = Track([component], id=tag)
 
     def __next__(self) -> tuple[datetime.datetime, set[Track]]:
@@ -82,15 +83,12 @@ class PointProcessMultiTargetTracker(_TrackerMixInNext, Tracker):
         self.gaussian_mixture.append(self.birth_component)
         # Perform GM Prediction and generate hypotheses
         hypotheses = self.hypothesiser.hypothesise(
-                    self.gaussian_mixture.components,
-                    detections,
-                    time
-                    )
+            self.gaussian_mixture.components, detections, time
+        )
         # Perform GM Update
         self.gaussian_mixture = self.updater.update(hypotheses)
         # Reduce mixture - Pruning and Merging
-        self.gaussian_mixture.components = \
-            self.reducer.reduce(self.gaussian_mixture.components)
+        self.gaussian_mixture.components = self.reducer.reduce(self.gaussian_mixture.components)
         # Update the tracks
         self.update_tracks()
         self.end_tracks()
@@ -117,9 +115,11 @@ class PointProcessMultiTargetTracker(_TrackerMixInNext, Tracker):
         Extract all target states from the Gaussian Mixture that
         are above an extraction threshold.
         """
-        return [component
-                for component in self.gaussian_mixture
-                if component.weight > self.extraction_threshold]
+        return [
+            component
+            for component in self.gaussian_mixture
+            if component.weight > self.extraction_threshold
+        ]
 
     @property
     def estimated_number_of_targets(self):
@@ -127,8 +127,9 @@ class PointProcessMultiTargetTracker(_TrackerMixInNext, Tracker):
         The number of hypothesised targets.
         """
         if self.gaussian_mixture:
-            estimated_number_of_targets = sum(component.weight for component in
-                                              self.gaussian_mixture)
+            estimated_number_of_targets = sum(
+                component.weight for component in self.gaussian_mixture
+            )
         else:
             estimated_number_of_targets = 0
         return estimated_number_of_targets

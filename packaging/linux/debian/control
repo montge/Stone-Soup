@@ -1,0 +1,56 @@
+Source: stonesoup
+Section: python
+Priority: optional
+Maintainer: Stone Soup Developers <stonesoup@dstl.gov.uk>
+Build-Depends: debhelper (>= 11),
+               dh-python,
+               python3-all,
+               python3-setuptools,
+               python3-dev,
+               python3-numpy,
+               python3-scipy,
+               python3-matplotlib,
+               cmake
+Standards-Version: 4.5.1
+Homepage: https://github.com/dstl/Stone-Soup
+Vcs-Git: https://github.com/dstl/Stone-Soup.git
+Vcs-Browser: https://github.com/dstl/Stone-Soup
+
+Package: python3-stonesoup
+Architecture: all
+Depends: ${python3:Depends},
+         ${misc:Depends},
+         python3-numpy,
+         python3-scipy,
+         python3-matplotlib,
+         python3-ruamel.yaml
+Suggests: python3-pytest,
+          python3-flake8,
+          python3-sphinx
+Description: Framework for target tracking and state estimation
+ Stone Soup is a software project to provide the target tracking and state
+ estimation community with a framework for the development and testing of
+ tracking and state estimation algorithms.
+ .
+ This package contains the Python 3 library.
+
+Package: libstonesoup
+Architecture: any
+Depends: ${shlibs:Depends},
+         ${misc:Depends}
+Description: Stone Soup C/C++ runtime libraries
+ Stone Soup is a framework for target tracking and state estimation.
+ .
+ This package contains the C/C++ runtime libraries.
+
+Package: libstonesoup-dev
+Section: libdevel
+Architecture: any
+Depends: ${misc:Depends},
+         libstonesoup (= ${binary:Version}),
+         python3-dev
+Description: Stone Soup development files
+ Stone Soup is a framework for target tracking and state estimation.
+ .
+ This package contains the development files (headers, static libraries)
+ for building applications that use Stone Soup.

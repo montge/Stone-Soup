@@ -1,17 +1,15 @@
 from collections.abc import Sequence
-from typing import Union
 
 import numpy as np
-from scipy.stats import norm
 from scipy.special import erf
+from scipy.stats import norm
 
 from ...base import Property
+from ...types.array import CovarianceMatrix, StateVector, StateVectors
 from ...types.numeric import Probability
-
-from ...types.array import StateVector, CovarianceMatrix, StateVectors
+from ...types.state import State
 from ..base import GaussianModel
 from .base import MeasurementModel
-from ...types.state import State
 
 
 class IsotropicPlume(GaussianModel, MeasurementModel):
@@ -72,51 +70,47 @@ class IsotropicPlume(GaussianModel, MeasurementModel):
            Robotics, Vol. 36, 797-917, 2019
     """
 
-    ndim_state: int = Property(
-        default=8,
-        doc="Number of state dimensions"
-    )
+    ndim_state: int = Property(default=8, doc="Number of state dimensions")
 
     mapping: Sequence[int] = Property(
-        default=tuple(range(0, 8)),
-        doc="Mapping between measurement and state dims"
+        default=tuple(range(0, 8)), doc="Mapping between measurement and state dims"
     )
 
-    min_noise: float = Property(
-        default=1e-4,
-        doc="Minimum sensor noise"
-    )
+    min_noise: float = Property(default=1e-4, doc="Minimum sensor noise")
 
     standard_deviation_percentage: float = Property(
-        default=0.5,
-        doc="Standard deviation as a percentage of the concentration level"
+        default=0.5, doc="Standard deviation as a percentage of the concentration level"
     )
 
     translation_offset: StateVector = Property(
-        default_factory=lambda: StateVector([[0.], [0.], [0.]]),
+        default_factory=lambda: StateVector([[0.0], [0.0], [0.0]]),
         doc="A 3x1 array specifying the Cartesian origin offset in terms of :math:`x,y,z` "
-            "coordinates.")
+        "coordinates.",
+    )
 
     missed_detection_probability: Probability = Property(
         default=0.1,
-        doc="The probability that the detection has detection has been affected by turbulence."
+        doc="The probability that the detection has detection has been affected by turbulence.",
     )
 
     sensing_threshold: float = Property(
         default=0.1,
-        doc="Measurement threshold. Should be set high enough to minimise false detections."
+        doc="Measurement threshold. Should be set high enough to minimise false detections.",
     )
 
     def covar(self, **kwargs) -> CovarianceMatrix:
-        raise NotImplementedError('Covariance for IsotropicPlume is dependant on the '
-                                  'measurement as well as standard deviation!')
+        raise NotImplementedError(
+            "Covariance for IsotropicPlume is dependant on the "
+            "measurement as well as standard deviation!"
+        )
 
     @property
     def ndim_meas(self) -> int:
         return 1
 
-    def function(self, state: State, noise: Union[bool, np.ndarray] = False, random_state=None,
-                 **kwargs) -> Union[StateVector, StateVectors]:
+    def function(
+        self, state: State, noise: bool | np.ndarray = False, random_state=None, **kwargs
+    ) -> StateVector | StateVectors:
         r"""Model function :math:`h(\vec{x}_t,\vec{v}_t)`
 
         Parameters
@@ -137,38 +131,48 @@ class IsotropicPlume(GaussianModel, MeasurementModel):
             The model function evaluated with the provided source term
         """
 
-        x, y, z, Q, u, phi, ci, cii = state.state_vector[self.mapping, :].view(np.ndarray)
+        x, y, _z, Q, u, phi, ci, cii = state.state_vector[self.mapping, :].view(np.ndarray)
 
-        px, py, pz = self.translation_offset
-        lambda_ = np.sqrt((ci * cii)/(1 + (u**2 * cii)/(4 * ci)))
-        abs_dist = np.linalg.norm(state.state_vector[self.mapping[:3], :]
-                                  - self.translation_offset, axis=0)
+        px, py, _pz = self.translation_offset
+        lambda_ = np.sqrt((ci * cii) / (1 + (u**2 * cii) / (4 * ci)))
+        abs_dist = np.linalg.norm(
+            state.state_vector[self.mapping[:3], :] - self.translation_offset, axis=0
+        )
 
         # prevent divide by zero when converging on the source location
         abs_dist[abs_dist < 0.1] = 0.1
 
-        C = Q / (4 * np.pi * ci * abs_dist) * np.exp(
-            (-(px - x) * u * np.cos(phi) / (2 * ci)) + (-(py - y) * u * np.sin(phi) / (2 * ci))
-            + (-1 * abs_dist / lambda_))
+        C = (
+            Q
+            / (4 * np.pi * ci * abs_dist)
+            * np.exp(
+                (-(px - x) * u * np.cos(phi) / (2 * ci))
+                + (-(py - y) * u * np.sin(phi) / (2 * ci))
+                + (-1 * abs_dist / lambda_)
+            )
+        )
 
         C = np.atleast_2d(C)
 
         if noise:
-            C += self.rvs(state=C.view(StateVectors),
-                          num_samples=state.state_vector.shape[1],
-                          random_state=random_state,
-                          **kwargs)
+            C += self.rvs(
+                state=C.view(StateVectors),
+                num_samples=state.state_vector.shape[1],
+                random_state=random_state,
+                **kwargs,
+            )
             # measurement thresholding
-            C[C < self.sensing_threshold] = 0
+            C[self.sensing_threshold > C] = 0
             # missed detections
             rng = random_state or self.random_state or np.random
-            flag = rng.uniform(size=state.state_vector.shape[1]) \
-                > (1 - self.missed_detection_probability)
+            flag = rng.uniform(size=state.state_vector.shape[1]) > (
+                1 - self.missed_detection_probability
+            )
             C[:, flag] = 0
 
         return C.view(StateVectors)
 
-    def logpdf(self, state1: State, state2: State, **kwargs) -> Union[float, np.ndarray]:
+    def logpdf(self, state1: State, state2: State, **kwargs) -> float | np.ndarray:
         r"""Model log pdf/likelihood evaluation function
 
         Evaluates the log pdf/likelihood of ``state1``, given the state
@@ -192,23 +196,31 @@ class IsotropicPlume(GaussianModel, MeasurementModel):
         nd_sigma = self.sensing_threshold
         pred_meas = self.function(state2, **kwargs)
         if state1.state_vector[0] <= self.sensing_threshold:
-            pdf = p_m + ((1-p_m) * 1/2 * (1+erf((self.sensing_threshold - pred_meas)
-                                                / (nd_sigma * np.sqrt(2)))))
+            pdf = p_m + (
+                (1 - p_m)
+                * 1
+                / 2
+                * (1 + erf((self.sensing_threshold - pred_meas) / (nd_sigma * np.sqrt(2))))
+            )
             likelihood = np.atleast_1d(np.log(pdf)).view(np.ndarray)
 
         else:
             d_sigma = self.standard_deviation_percentage * pred_meas + self.min_noise
             with np.errstate(divide="ignore"):
-                likelihood = np.atleast_1d(np.log(1/(d_sigma*np.sqrt(2*np.pi)) *
-                                                  np.exp((-(state1.state_vector-pred_meas)
-                                                         ** 2)/(2*d_sigma**2)))).view(np.ndarray)
+                likelihood = np.atleast_1d(
+                    np.log(
+                        1
+                        / (d_sigma * np.sqrt(2 * np.pi))
+                        * np.exp((-((state1.state_vector - pred_meas) ** 2)) / (2 * d_sigma**2))
+                    )
+                ).view(np.ndarray)
 
         if len(likelihood) == 1:
             likelihood = likelihood[0]
 
         return likelihood
 
-    def pdf(self, state1: State, state2: State, **kwargs) -> Union[Probability, np.ndarray]:
+    def pdf(self, state1: State, state2: State, **kwargs) -> Probability | np.ndarray:
         r"""Model pdf/likelihood evaluation function
 
         Evaluates the pdf/likelihood of ``state1``, given the state
@@ -258,8 +270,9 @@ class IsotropicPlume(GaussianModel, MeasurementModel):
         """
         return super().pdf(state1, state2, **kwargs)
 
-    def rvs(self, state: Union[StateVector, StateVectors], num_samples: int = 1,
-            random_state=None, **kwargs) -> Union[StateVector, StateVectors]:
+    def rvs(
+        self, state: StateVector | StateVectors, num_samples: int = 1, random_state=None, **kwargs
+    ) -> StateVector | StateVectors:
         r"""Model noise/sample generation function
 
         Generates noise samples from the model. For this noise, the magnitude
@@ -285,10 +298,12 @@ class IsotropicPlume(GaussianModel, MeasurementModel):
 
         random_state = random_state if random_state is not None else self.random_state
 
-        noise = norm.rvs(loc=np.zeros(self.ndim_meas),
-                         scale=np.ravel(state*self.standard_deviation_percentage),
-                         size=num_samples,
-                         random_state=random_state)
+        noise = norm.rvs(
+            loc=np.zeros(self.ndim_meas),
+            scale=np.ravel(state * self.standard_deviation_percentage),
+            size=num_samples,
+            random_state=random_state,
+        )
 
         noise = np.atleast_2d(noise)
 

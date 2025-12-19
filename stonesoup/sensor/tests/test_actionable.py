@@ -3,33 +3,31 @@ from datetime import datetime, timedelta
 import numpy as np
 import pytest
 
-from ..action.dwell_action import DwellActionsGenerator, ChangeDwellAction
 from ...sensormanager.action import Actionable, ActionableProperty
-from ..base import Property
 from ...types.angle import Bearing
 from ...types.array import StateVector
+from ..action.dwell_action import ChangeDwellAction, DwellActionsGenerator
+from ..base import Property
 
 
 class DummyActionable(Actionable):
     dwell_centre: StateVector = ActionableProperty(
         doc="Actionable dwell centre.",
         generator_cls=DwellActionsGenerator,
-        generator_kwargs_mapping={'rpm': 'rpm'})
+        generator_kwargs_mapping={"rpm": "rpm"},
+    )
     timestamp: datetime = Property(doc="Current time that actionable exists at.")
     rpm: float = Property(doc="Dwell centre revolutions per minute")
 
     def validate_timestamp(self):
-        if self.timestamp:
-            return True
-        else:
-            return False
+        return bool(self.timestamp)
 
 
 def test_actionable():
     start = datetime.now()
-    actionable = DummyActionable(StateVector([Bearing(np.radians(90)), 0, 0]),
-                                 start,
-                                 0.25)  # 1 revolution every 4 minutes (90 degrees in a minute)
+    actionable = DummyActionable(
+        StateVector([Bearing(np.radians(90)), 0, 0]), start, 0.25
+    )  # 1 revolution every 4 minutes (90 degrees in a minute)
 
     # Test initial schedule
     assert isinstance(actionable.scheduled_actions, dict)  # dictionary schedule is present
@@ -39,19 +37,18 @@ def test_actionable():
     actionable_properties = actionable._actionable_properties
     assert isinstance(actionable_properties, dict)
     assert len(actionable_properties) == 1
-    assert 'dwell_centre' in actionable_properties.keys()
-    assert isinstance(actionable_properties['dwell_centre'], Property)
+    assert "dwell_centre" in actionable_properties
+    assert isinstance(actionable_properties["dwell_centre"], Property)
 
     end_time = start + timedelta(minutes=2)
 
     # Test default action(s)
-    default_action = actionable._default_action('dwell_centre',
-                                                actionable_properties['dwell_centre'],
-                                                end_time)
-    generator = actionable_properties['dwell_centre'].generator_cls(owner=actionable,
-                                                                    attribute='dwell_centre',
-                                                                    start_time=start,
-                                                                    end_time=end_time)
+    default_action = actionable._default_action(
+        "dwell_centre", actionable_properties["dwell_centre"], end_time
+    )
+    generator = actionable_properties["dwell_centre"].generator_cls(
+        owner=actionable, attribute="dwell_centre", start_time=start, end_time=end_time
+    )
     exp_default_action = generator.default_action
 
     # generators will be different (and not hashable), so not tested for equality
@@ -68,19 +65,21 @@ def test_actionable():
     assert generator.start_time == start
     assert generator.end_time == end_time
     assert generator.owner is actionable
-    assert generator.attribute == 'dwell_centre'
+    assert generator.attribute == "dwell_centre"
 
     # Test add actions
-    dwell_action = ChangeDwellAction(generator=generator,
-                                     end_time=end_time,
-                                     target_value=actionable.dwell_centre[0, 0] + np.radians(90),
-                                     rotation_end_time=start + timedelta(minutes=1),
-                                     increasing_angle=True)
+    dwell_action = ChangeDwellAction(
+        generator=generator,
+        end_time=end_time,
+        target_value=actionable.dwell_centre[0, 0] + np.radians(90),
+        rotation_end_time=start + timedelta(minutes=1),
+        increasing_angle=True,
+    )
     # action to rotate by 90 degrees anti-clockwise for 1 minute, then stay still for 1 minute
     actionable.add_actions([dwell_action])
 
     assert actionable.scheduled_actions
-    assert actionable.scheduled_actions['dwell_centre'] is dwell_action
+    assert actionable.scheduled_actions["dwell_centre"] is dwell_action
 
     actionable.act(start + timedelta(seconds=30))  # act for half the rotation time
     assert actionable.dwell_centre[0, 0] == Bearing(np.radians(135))
@@ -106,11 +105,13 @@ def test_actionable():
     generator = actionable.actions(next_end_time).pop()
 
     # Test actioning for longer than scheduled action
-    dwell_action = ChangeDwellAction(generator=generator,
-                                     end_time=next_end_time,
-                                     target_value=actionable.dwell_centre[0, 0] + np.radians(45),
-                                     rotation_end_time=start + timedelta(seconds=210),
-                                     increasing_angle=True)
+    dwell_action = ChangeDwellAction(
+        generator=generator,
+        end_time=next_end_time,
+        target_value=actionable.dwell_centre[0, 0] + np.radians(45),
+        rotation_end_time=start + timedelta(seconds=210),
+        increasing_angle=True,
+    )
     # action to rotate by 45 degrees anti-clockwise for 1 minute
     actionable.add_actions([dwell_action])
 
@@ -129,35 +130,43 @@ def test_actionable():
 
     # Test impossible actions
     bad_generator = actionable.actions(start + timedelta(minutes=1)).pop()
-    bad_action = ChangeDwellAction(generator=bad_generator,
-                                   end_time=next_end_time,
-                                   target_value=actionable.dwell_centre[0, 0] + np.radians(45),
-                                   rotation_end_time=start + timedelta(seconds=30),
-                                   increasing_angle=True)
-    with pytest.raises(ValueError,
-                       match="Cannot schedule an action that ends before the current time."):
+    bad_action = ChangeDwellAction(
+        generator=bad_generator,
+        end_time=next_end_time,
+        target_value=actionable.dwell_centre[0, 0] + np.radians(45),
+        rotation_end_time=start + timedelta(seconds=30),
+        increasing_angle=True,
+    )
+    with pytest.raises(
+        ValueError, match="Cannot schedule an action that ends before the current time."
+    ):
         actionable.add_actions([bad_action])
 
     next_next_end_time = start + timedelta(seconds=330)
     generator = actionable.actions(next_next_end_time).pop()
-    action1 = ChangeDwellAction(generator=generator,
-                                end_time=next_next_end_time,
-                                target_value=actionable.dwell_centre[0, 0] + np.radians(450),
-                                rotation_end_time=start + timedelta(seconds=300),
-                                increasing_angle=True)
-    action2 = ChangeDwellAction(generator=generator,
-                                end_time=next_next_end_time,
-                                target_value=actionable.dwell_centre[0, 0] + np.radians(450),
-                                rotation_end_time=start + timedelta(seconds=310),
-                                increasing_angle=True)
-    with pytest.raises(ValueError,
-                       match="Cannot schedule more actions than there are actionable properties."):
+    action1 = ChangeDwellAction(
+        generator=generator,
+        end_time=next_next_end_time,
+        target_value=actionable.dwell_centre[0, 0] + np.radians(450),
+        rotation_end_time=start + timedelta(seconds=300),
+        increasing_angle=True,
+    )
+    action2 = ChangeDwellAction(
+        generator=generator,
+        end_time=next_next_end_time,
+        target_value=actionable.dwell_centre[0, 0] + np.radians(450),
+        rotation_end_time=start + timedelta(seconds=310),
+        increasing_angle=True,
+    )
+    with pytest.raises(
+        ValueError, match="Cannot schedule more actions than there are actionable properties."
+    ):
         actionable.add_actions([action1, action2])
 
     # Test invalid timestamps
-    actionable = DummyActionable(StateVector([Bearing(np.radians(90)), 0, 0]),
-                                 None,  # no timestamp
-                                 0.25)
+    actionable = DummyActionable(
+        StateVector([Bearing(np.radians(90)), 0, 0]), None, 0.25  # no timestamp
+    )
 
     actionable.timestamp = None
     assert actionable.add_actions({}) is None  # returns early

@@ -9,6 +9,12 @@ Orbital
 .. automodule:: stonesoup.functions.orbital
 
 
+Coordinates
+-----------
+
+.. automodule:: stonesoup.functions.coordinates
+
+
 Interpolation
 -------------
 

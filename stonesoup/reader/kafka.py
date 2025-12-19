@@ -15,40 +15,42 @@ except ImportError as error:  # pragma: no cover
 import numpy as np
 from dateutil.parser import parse
 
-from .base import DetectionReader, Reader, GroundTruthReader
 from ..base import Property
 from ..buffered_generator import BufferedGenerator
 from ..types.array import StateVector
 from ..types.detection import Detection
 from ..types.groundtruth import GroundTruthPath, GroundTruthState
+from .base import DetectionReader, GroundTruthReader, Reader
 
 
 class _KafkaReader(Reader):
     topic: str = Property(doc="The Kafka topic on which to listen for messages.")
     kafka_config: dict[str, str] = Property(
         doc="Configuration properties for the underlying kafka consumer. See the "
-            "`confluent-kafka documentation <https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#kafka-client-configuration>`_ " # noqa
-            "for more details.")
+        "`confluent-kafka documentation <https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#kafka-client-configuration>`_ "
+        "for more details."
+    )
     state_vector_fields: list[str] = Property(
-        doc="List of columns names to be used in state vector.")
-    time_field: str = Property(
-        doc="Name of column to be used as time field.")
-    time_field_format: str = Property(
-        default=None, doc="Optional datetime format.")
-    timestamp: bool = Property(
-        default=False, doc="Treat time field as a timestamp from epoch.")
+        doc="List of columns names to be used in state vector."
+    )
+    time_field: str = Property(doc="Name of column to be used as time field.")
+    time_field_format: str = Property(default=None, doc="Optional datetime format.")
+    timestamp: bool = Property(default=False, doc="Treat time field as a timestamp from epoch.")
     metadata_fields: Collection[str] = Property(
-        default=None, doc="List of columns to be saved as metadata, default all.")
+        default=None, doc="List of columns to be saved as metadata, default all."
+    )
     buffer_size: int = Property(
         default=0,
         doc="Size of the frame buffer. The frame buffer is used to cache frames in "
-            "cases where the stream generates messages faster than they are ingested "
-            "by the reader. If `buffer_size` is less than or equal to zero, the buffer "
-            "size is infinite.")
+        "cases where the stream generates messages faster than they are ingested "
+        "by the reader. If `buffer_size` is less than or equal to zero, the buffer "
+        "size is infinite.",
+    )
     timeout: bool = Property(
         default=None,
         doc="Timeout (in seconds) when reading from buffer. Defaults to None in which case the "
-            "reader will block until new data becomes available.")
+        "reader will block until new data becomes available.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -78,13 +80,12 @@ class _KafkaReader(Reader):
 
     def _get_time(self, data):
         if self.time_field_format is not None:
-            time_field_value = datetime.strptime(
-                data[self.time_field], self.time_field_format
-            )
+            time_field_value = datetime.strptime(data[self.time_field], self.time_field_format)
         elif self.timestamp is True:
             fractional, timestamp = modf(float(data[self.time_field]))
-            time_field_value = datetime.fromtimestamp(
-                int(timestamp), timezone.utc).replace(tzinfo=None)
+            time_field_value = datetime.fromtimestamp(int(timestamp), timezone.utc).replace(
+                tzinfo=None
+            )
             time_field_value += timedelta(microseconds=fractional * 1e6)
         else:
             time_field_value = parse(data[self.time_field], ignoretz=True)
@@ -165,6 +166,7 @@ class KafkaGroundTruthReader(GroundTruthReader, _KafkaReader):
     Parameters
     ----------
     """
+
     path_id_field: str = Property(doc="Name of column to be used as path ID.")
 
     def __init__(self, *args, **kwargs):

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="50" height="50" xmlns="http://www.w3.org/2000/svg">
+  <rect x="2" y="2" width="46" height="46" rx="4" fill="#F0AD4E" stroke="#C87F0A" stroke-width="2"/>
+  <text x="25" y="18" text-anchor="middle" font-family="Arial" font-size="8" font-weight="bold" fill="white">Constant</text>
+  <text x="25" y="30" text-anchor="middle" font-family="Arial" font-size="8" font-weight="bold" fill="white">Velocity</text>
+  <path d="M 8 42 L 42 42" stroke="white" stroke-width="1"/>
+  <path d="M 8 42 L 8 38" stroke="white" stroke-width="1"/>
+  <path d="M 10 40 L 40 40" stroke="white" stroke-width="2" stroke-dasharray="2,2"/>
+  <polygon points="38,38 42,40 38,42" fill="white"/>
+</svg>

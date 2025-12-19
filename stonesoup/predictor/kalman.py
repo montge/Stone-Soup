@@ -3,18 +3,17 @@ from functools import partial
 import numpy as np
 import scipy.linalg as la
 
-from ..types.array import CovarianceMatrix, StateVector
-from .base import Predictor
-from ._utils import predict_lru_cache
 from ..base import Property
-from ..types.prediction import Prediction, SqrtGaussianStatePrediction
+from ..functions import cub_points_and_tf, cubature_transform, gauss2sigma, unscented_transform
 from ..models.base import LinearModel
-from ..models.transition import TransitionModel
-from ..models.transition.linear import LinearGaussianTransitionModel
 from ..models.control import ControlModel
 from ..models.control.linear import LinearControlModel
-from ..functions import (gauss2sigma, unscented_transform, cubature_transform,
-                         cub_points_and_tf)
+from ..models.transition import TransitionModel
+from ..models.transition.linear import LinearGaussianTransitionModel
+from ..types.array import CovarianceMatrix, StateVector
+from ..types.prediction import Prediction, SqrtGaussianStatePrediction
+from ._utils import predict_lru_cache
+from .base import Predictor
 
 
 class KalmanPredictor(Predictor):
@@ -38,11 +37,13 @@ class KalmanPredictor(Predictor):
     """
 
     transition_model: LinearGaussianTransitionModel = Property(
-        doc="The transition model to be used.")
+        doc="The transition model to be used."
+    )
     control_model: LinearControlModel = Property(
         default=None,
         doc="The control model to be used. Default `None` where the predictor "
-            "will create a zero-effect linear :class:`~.ControlModel`.")
+        "will create a zero-effect linear :class:`~.ControlModel`.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -51,8 +52,9 @@ class KalmanPredictor(Predictor):
         if self.control_model is None:
             ndims = self.transition_model.ndim_state
             ndimc = 2  # No control exerted so this doesn't matter.
-            self.control_model = LinearControlModel(np.zeros([ndims, ndimc]),
-                                                    control_noise=np.zeros([ndimc, ndimc]))
+            self.control_model = LinearControlModel(
+                np.zeros([ndims, ndimc]), control_noise=np.zeros([ndimc, ndimc])
+            )
 
     def _transition_matrix(self, **kwargs):
         """Return the transition matrix
@@ -147,15 +149,16 @@ class KalmanPredictor(Predictor):
 
         """
         prior_cov = prior.covar
-        trans_m = self._transition_matrix(prior=prior, time_interval=predict_over_interval,
-                                          **kwargs)
+        trans_m = self._transition_matrix(
+            prior=prior, time_interval=predict_over_interval, **kwargs
+        )
         trans_cov = self.transition_model.covar(time_interval=predict_over_interval, **kwargs)
 
         # As this is Kalman-like, the control model must be capable of
         # returning a control matrix (B)
-        ctrl_mat = self._control_matrix(control_input=control_input,
-                                        prior=prior,
-                                        time_interval=predict_over_interval, **kwargs)
+        ctrl_mat = self._control_matrix(
+            control_input=control_input, prior=prior, time_interval=predict_over_interval, **kwargs
+        )
         ctrl_noi = self.control_model.control_noise
 
         return trans_m @ prior_cov @ trans_m.T + trans_cov + ctrl_mat @ ctrl_noi @ ctrl_mat.T
@@ -190,18 +193,25 @@ class KalmanPredictor(Predictor):
 
         # Prediction of the mean
         x_pred = self._transition_function(
-            prior, time_interval=predict_over_interval, **kwargs) \
-            + self.control_model.function(
-                control_input, prior=prior, time_interval=predict_over_interval, **kwargs)
+            prior, time_interval=predict_over_interval, **kwargs
+        ) + self.control_model.function(
+            control_input, prior=prior, time_interval=predict_over_interval, **kwargs
+        )
 
         # Prediction of the covariance
-        p_pred = self._predicted_covariance(prior, predict_over_interval,
-                                            control_input=control_input,
-                                            **kwargs)
+        p_pred = self._predicted_covariance(
+            prior, predict_over_interval, control_input=control_input, **kwargs
+        )
 
         # And return the state in the correct form
-        return Prediction.from_state(prior, x_pred, p_pred, timestamp=timestamp,
-                                     transition_model=self.transition_model, prior=prior)
+        return Prediction.from_state(
+            prior,
+            x_pred,
+            p_pred,
+            timestamp=timestamp,
+            transition_model=self.transition_model,
+            prior=prior,
+        )
 
 
 class ExtendedKalmanPredictor(KalmanPredictor):
@@ -222,7 +232,8 @@ class ExtendedKalmanPredictor(KalmanPredictor):
     control_model: ControlModel = Property(
         default=None,
         doc="The control model to be used. Default `None` where the predictor "
-            "will create a zero-effect linear :class:`~.ControlModel`.")
+        "will create a zero-effect linear :class:`~.ControlModel`.",
+    )
 
     def _transition_matrix(self, prior, linearisation_point=None, **kwargs):
         r"""Returns the transition matrix, a matrix if the model is linear, or
@@ -296,23 +307,25 @@ class UnscentedKalmanPredictor(KalmanPredictor):
     Gaussian mean and covariance, then putting these through the (in general
     non-linear) transition function, then reconstructing the Gaussian.
     """
+
     transition_model: TransitionModel = Property(doc="The transition model to be used.")
     control_model: ControlModel = Property(
         default=None,
         doc="The control model to be used. Default `None` where the predictor "
-            "will create a zero-effect linear :class:`~.ControlModel`.")
+        "will create a zero-effect linear :class:`~.ControlModel`.",
+    )
     alpha: float = Property(
-        default=0.5,
-        doc="Primary sigma point spread scaling parameter. Default is 0.5.")
+        default=0.5, doc="Primary sigma point spread scaling parameter. Default is 0.5."
+    )
     beta: float = Property(
         default=2,
         doc="Used to incorporate prior knowledge of the distribution. If the "
-            "true distribution is Gaussian, the value of 2 is optimal. "
-            "Default is 2")
+        "true distribution is Gaussian, the value of 2 is optimal. "
+        "Default is 2",
+    )
     kappa: float = Property(
-        default=None,
-        doc="Secondary spread scaling parameter. Default is calculated as "
-            "3-Ns")
+        default=None, doc="Secondary spread scaling parameter. Default is calculated as " "3-Ns"
+    )
 
     def _transition_and_control_function(self, prior_state, noise=None, **kwargs):
         r"""Returns the result of applying the transition and control functions
@@ -331,8 +344,9 @@ class UnscentedKalmanPredictor(KalmanPredictor):
             The combined, noiseless, effect of applying the transition and
             control
         """
-        return self.transition_model.function(prior_state, noise, **kwargs) \
-            + self.control_model.function(prior=prior_state, **kwargs)
+        return self.transition_model.function(
+            prior_state, noise, **kwargs
+        ) + self.control_model.function(prior=prior_state, **kwargs)
 
     _control_matrix = ExtendedKalmanPredictor._control_matrix
 
@@ -367,15 +381,18 @@ class UnscentedKalmanPredictor(KalmanPredictor):
         # TODO: the sigma points and then just sticking them into the
         # TODO: unscented transform, and I haven't checked the statistics.
         ctrl_mat = self._control_matrix(
-            control_input, prior=prior, time_interval=predict_over_interval, **kwargs)
+            control_input, prior=prior, time_interval=predict_over_interval, **kwargs
+        )
         ctrl_noi = self.control_model.covar(time_interval=predict_over_interval, **kwargs)
-        total_noise_covar = \
-            self.transition_model.covar(time_interval=predict_over_interval, **kwargs) \
+        total_noise_covar = (
+            self.transition_model.covar(time_interval=predict_over_interval, **kwargs)
             + ctrl_mat @ ctrl_noi @ ctrl_mat.T
+        )
 
         # Get the sigma points from the prior mean and covariance.
         sigma_point_states, mean_weights, covar_weights = gauss2sigma(
-            prior, self.alpha, self.beta, self.kappa)
+            prior, self.alpha, self.beta, self.kappa
+        )
 
         # This ensures that function passed to unscented transform has the
         # correct time interval
@@ -383,18 +400,28 @@ class UnscentedKalmanPredictor(KalmanPredictor):
             self._transition_and_control_function,
             control_input=control_input,
             time_interval=predict_over_interval,
-            **kwargs)
+            **kwargs,
+        )
 
         # Put these through the unscented transform, together with the total
         # covariance to get the parameters of the Gaussian
         x_pred, p_pred, _, _, _, _ = unscented_transform(
-            sigma_point_states, mean_weights, covar_weights,
-            transition_and_control_function, covar_noise=total_noise_covar
+            sigma_point_states,
+            mean_weights,
+            covar_weights,
+            transition_and_control_function,
+            covar_noise=total_noise_covar,
         )
 
         # and return a Gaussian state based on these parameters
-        return Prediction.from_state(prior, x_pred, p_pred, timestamp=timestamp,
-                                     transition_model=self.transition_model, prior=prior)
+        return Prediction.from_state(
+            prior,
+            x_pred,
+            p_pred,
+            timestamp=timestamp,
+            transition_model=self.transition_model,
+            prior=prior,
+        )
 
 
 class SqrtKalmanPredictor(ExtendedKalmanPredictor):
@@ -419,10 +446,12 @@ class SqrtKalmanPredictor(ExtendedKalmanPredictor):
        Springfield, VA.
 
     """
+
     qr_method: bool = Property(
         default=False,
         doc="A switch to do the prediction via a QR decomposition, rather than using a Cholesky "
-            "decomposition.")
+        "decomposition.",
+    )
 
     # This predictor returns a square root form of the Gaussian state prediction
     _prediction_class = SqrtGaussianStatePrediction
@@ -447,37 +476,45 @@ class SqrtKalmanPredictor(ExtendedKalmanPredictor):
         """
         sqrt_prior_cov = prior.sqrt_covar
 
-        trans_m = self._transition_matrix(prior=prior, time_interval=predict_over_interval,
-                                          **kwargs)
+        trans_m = self._transition_matrix(
+            prior=prior, time_interval=predict_over_interval, **kwargs
+        )
         try:
-            sqrt_trans_cov = self.transition_model.sqrt_covar(time_interval=predict_over_interval,
-                                                              **kwargs)
+            sqrt_trans_cov = self.transition_model.sqrt_covar(
+                time_interval=predict_over_interval, **kwargs
+            )
         except AttributeError:
-            sqrt_trans_cov = la.sqrtm(self.transition_model.covar(
-                time_interval=predict_over_interval, **kwargs))
+            sqrt_trans_cov = la.sqrtm(
+                self.transition_model.covar(time_interval=predict_over_interval, **kwargs)
+            )
 
         # As this is Kalman-like, the control model must be capable of returning a control matrix
         # (B)
-        ctrl_mat = self._control_matrix(control_input=control_input,
-                                        prior=prior,
-                                        time_interval=predict_over_interval)
+        ctrl_mat = self._control_matrix(
+            control_input=control_input, prior=prior, time_interval=predict_over_interval
+        )
         try:
-            sqrt_ctrl_noi = self.control_model.sqrt_covar(time_interval=predict_over_interval,
-                                                          **kwargs)
+            sqrt_ctrl_noi = self.control_model.sqrt_covar(
+                time_interval=predict_over_interval, **kwargs
+            )
         except AttributeError:
-            sqrt_ctrl_noi = la.sqrtm(self.control_model.covar(time_interval=predict_over_interval,
-                                                              **kwargs))
+            sqrt_ctrl_noi = la.sqrtm(
+                self.control_model.covar(time_interval=predict_over_interval, **kwargs)
+            )
 
         if self.qr_method:
             # Note that the control matrix aspect of this hasn't been tested
-            m_sq_trans_cov = np.block([[trans_m @ sqrt_prior_cov, sqrt_trans_cov,
-                                        ctrl_mat@sqrt_ctrl_noi]])
+            m_sq_trans_cov = np.block(
+                [[trans_m @ sqrt_prior_cov, sqrt_trans_cov, ctrl_mat @ sqrt_ctrl_noi]]
+            )
             _, pred_sqrt_cov = np.linalg.qr(m_sq_trans_cov.T)
             return pred_sqrt_cov.T
         else:
-            return np.linalg.cholesky(trans_m@sqrt_prior_cov@sqrt_prior_cov.T@trans_m.T +
-                                      sqrt_trans_cov@sqrt_trans_cov.T +
-                                      ctrl_mat@sqrt_ctrl_noi@sqrt_ctrl_noi.T@ctrl_mat.T)
+            return np.linalg.cholesky(
+                trans_m @ sqrt_prior_cov @ sqrt_prior_cov.T @ trans_m.T
+                + sqrt_trans_cov @ sqrt_trans_cov.T
+                + ctrl_mat @ sqrt_ctrl_noi @ sqrt_ctrl_noi.T @ ctrl_mat.T
+            )
 
 
 class CubatureKalmanPredictor(KalmanPredictor):
@@ -489,15 +526,18 @@ class CubatureKalmanPredictor(KalmanPredictor):
     :meth:`cubature_transform` function.
 
     """
+
     transition_model: TransitionModel = Property(doc="The transition model to be used.")
     control_model: ControlModel = Property(
         default=None,
         doc="The control model to be used. Default `None` where the predictor "
-            "will create a zero-effect linear :class:`~.ControlModel`.")
+        "will create a zero-effect linear :class:`~.ControlModel`.",
+    )
     alpha: float = Property(
         default=1.0,
         doc="Scaling parameter. Default is 1.0. Lower values select points closer to the mean and "
-            "vice versa.")
+        "vice versa.",
+    )
 
     _control_matrix = ExtendedKalmanPredictor._control_matrix
     _transition_and_control_function = UnscentedKalmanPredictor._transition_and_control_function
@@ -530,24 +570,34 @@ class CubatureKalmanPredictor(KalmanPredictor):
         # The covariance on the transition model + the control model
         # TODO: See equivalent note to unscented transform.
         ctrl_mat = self._control_matrix(
-            control_input, prior=prior, time_interval=predict_over_interval, **kwargs)
+            control_input, prior=prior, time_interval=predict_over_interval, **kwargs
+        )
         ctrl_noi = self.control_model.covar(time_interval=predict_over_interval, **kwargs)
-        total_noise_covar = \
-            self.transition_model.covar(time_interval=predict_over_interval, **kwargs) \
-            + ctrl_mat@ctrl_noi@ctrl_mat.T
+        total_noise_covar = (
+            self.transition_model.covar(time_interval=predict_over_interval, **kwargs)
+            + ctrl_mat @ ctrl_noi @ ctrl_mat.T
+        )
 
         # This ensures that function passed to transform has the correct time interval and control
         # input
         transition_and_control_function = partial(
             self._transition_and_control_function,
             control_input=control_input,
-            time_interval=predict_over_interval)
+            time_interval=predict_over_interval,
+        )
 
-        x_pred, p_pred, _, _ = cubature_transform(prior, transition_and_control_function,
-                                                  covar_noise=total_noise_covar, alpha=self.alpha)
+        x_pred, p_pred, _, _ = cubature_transform(
+            prior, transition_and_control_function, covar_noise=total_noise_covar, alpha=self.alpha
+        )
 
-        return Prediction.from_state(prior, x_pred, p_pred, timestamp=timestamp,
-                                     transition_model=self.transition_model, prior=prior)
+        return Prediction.from_state(
+            prior,
+            x_pred,
+            p_pred,
+            timestamp=timestamp,
+            transition_model=self.transition_model,
+            prior=prior,
+        )
 
 
 class StochasticIntegrationPredictor(KalmanPredictor):
@@ -569,9 +619,7 @@ class StochasticIntegrationPredictor(KalmanPredictor):
         doc="minimal number of iterations of stochastic integration rule (SIR)",
     )
     Eps: float = Property(default=5e-3, doc="allowed threshold for integration error")
-    SIorder: int = Property(
-        default=5, doc="order of SIR (orders 1, 3, 5 are currently supported)"
-    )
+    SIorder: int = Property(default=5, doc="order of SIR (orders 1, 3, 5 are currently supported)")
 
     _control_matrix = ExtendedKalmanPredictor._control_matrix
     _transition_and_control_function = UnscentedKalmanPredictor._transition_and_control_function
@@ -620,15 +668,14 @@ class StochasticIntegrationPredictor(KalmanPredictor):
 
         # - SIR recursion for state predictive moments computation
         # -- until either max iterations or threshold is reached
-        while N < self.Nmin or (N < self.Nmax and np.linalg.norm(Vx) > self.Eps):
+        while self.Nmin > N or (self.Nmax > N and np.linalg.norm(Vx) > self.Eps):
             N += 1
 
             # -- cubature points and weights computation (for standard normal PDF)
             # -- points transformation for given filtering mean and covariance matrix
-            xpoints, w, fpoints = cub_points_and_tf(nx, self.SIorder, Sp,
-                                                    prior.mean,
-                                                    transition_and_control_function,
-                                                    prior)
+            _xpoints, w, fpoints = cub_points_and_tf(
+                nx, self.SIorder, Sp, prior.mean, transition_and_control_function, prior
+            )
             # Stochastic integration rule for predictive state mean and
             # covariance matrix
             SumRx = np.average(fpoints, axis=1, weights=w)
@@ -636,21 +683,20 @@ class StochasticIntegrationPredictor(KalmanPredictor):
             # --- update mean Ix
             Dx = (SumRx - Ix) / N
             Ix += Dx
-            Vx = (N - 2) * Vx / N + Dx ** 2
+            Vx = (N - 2) * Vx / N + Dx**2
 
         xp = Ix
 
         N = 0
         # - SIR recursion for state predictive moments computation
         # -- until max iterations are reached or threshold is reached
-        while N < self.Nmin or (N < self.Nmax and np.linalg.norm(VPx) > self.Eps):
+        while self.Nmin > N or (self.Nmax > N and np.linalg.norm(VPx) > self.Eps):
             N += 1
             # -- cubature points and weights computation (for standard normal PDF)
             # -- points transformation for given filtering mean and covariance matrix
-            xpoints, w, fpoints = cub_points_and_tf(nx, self.SIorder, Sp,
-                                                    prior.mean,
-                                                    transition_and_control_function,
-                                                    prior)
+            _xpoints, w, fpoints = cub_points_and_tf(
+                nx, self.SIorder, Sp, prior.mean, transition_and_control_function, prior
+            )
 
             # -- stochastic integration rule for predictive state mean and covariance
             #    matrix
@@ -660,14 +706,17 @@ class StochasticIntegrationPredictor(KalmanPredictor):
             # --- update covariance matrix IPx
             DPx = (SumRPx - IPx) / N
             IPx += DPx
-            VPx = (N - 2) * VPx / N + DPx ** 2
+            VPx = (N - 2) * VPx / N + DPx**2
 
         # TODO: See equivalent note to unscented transform.
         ctrl_mat = self._control_matrix(
-            control_input, prior=prior, time_interval=predict_over_interval, **kwargs)
+            control_input, prior=prior, time_interval=predict_over_interval, **kwargs
+        )
         ctrl_noi = self.control_model.covar(time_interval=predict_over_interval, **kwargs)
-        Q = self.transition_model.covar(time_interval=predict_over_interval, **kwargs) \
-            + ctrl_mat@ctrl_noi@ctrl_mat.T
+        Q = (
+            self.transition_model.covar(time_interval=predict_over_interval, **kwargs)
+            + ctrl_mat @ ctrl_noi @ ctrl_mat.T
+        )
 
         Pp = IPx + Q + np.diag(Vx.ravel())
         Pp = (Pp + Pp.T) / 2

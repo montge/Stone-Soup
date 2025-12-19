@@ -1,22 +1,21 @@
+import datetime
 import itertools
 
-import datetime
 import numpy as np
 import pytest
 
-# Import the proposals
-from stonesoup.proposal.simple import DynamicsProposal, KalmanProposal
 from stonesoup.models.control.linear import LinearControlModel
+from stonesoup.models.measurement.linear import LinearGaussian
 from stonesoup.models.transition.linear import ConstantVelocity
+from stonesoup.predictor.kalman import KalmanPredictor
+from stonesoup.predictor.particle import ParticlePredictor
+from stonesoup.proposal.simple import DynamicsProposal, KalmanProposal
+from stonesoup.types.detection import Detection
+from stonesoup.types.hypothesis import SingleHypothesis
 from stonesoup.types.particle import Particle
 from stonesoup.types.prediction import ParticleStatePrediction
-from stonesoup.predictor.kalman import KalmanPredictor
+from stonesoup.types.state import GaussianState, ParticleState, State
 from stonesoup.updater.kalman import KalmanUpdater
-from stonesoup.types.state import ParticleState, GaussianState, State
-from stonesoup.predictor.particle import ParticlePredictor
-from stonesoup.types.detection import Detection
-from stonesoup.models.measurement.linear import LinearGaussian
-from stonesoup.types.hypothesis import SingleHypothesis
 
 
 @pytest.fixture(params=[True, False])
@@ -47,8 +46,10 @@ def test_prior_proposal(control_model, control_input):
     num_particles = 9  # Number of particles
 
     # Define prior state
-    prior_particles = [Particle(np.array([[i], [j]]), 1/num_particles)
-                       for i, j in itertools.product([10, 20, 30], [10, 20, 30])]
+    prior_particles = [
+        Particle(np.array([[i], [j]]), 1 / num_particles)
+        for i, j in itertools.product([10, 20, 30], [10, 20, 30])
+    ]
     prior = ParticleState(None, particle_list=prior_particles, timestamp=timestamp)
 
     # predictors prior and standard stone soup
@@ -79,14 +80,22 @@ def test_prior_proposal(control_model, control_input):
     prediction_prior = predictor_prior.predict(
         prior, timestamp=new_timestamp, control_input=control_input)
 
-    assert np.all([eval_prediction.state_vector[:, i] ==
-                   prediction_base.state_vector[:, i] for i in range(9)])
+    assert np.all(
+        [
+            eval_prediction.state_vector[:, i] == prediction_base.state_vector[:, i]
+            for i in range(9)
+        ]
+    )
     assert np.all([prediction_base.weight[i] == 1 / 9 for i in range(9)])
 
     assert np.allclose(prediction_prior.mean, eval_mean)
     assert prediction_prior.timestamp == new_timestamp
-    assert np.all([eval_prediction.state_vector[:, i] ==
-                   prediction_prior.state_vector[:, i] for i in range(9)])
+    assert np.all(
+        [
+            eval_prediction.state_vector[:, i] == prediction_prior.state_vector[:, i]
+            for i in range(9)
+        ]
+    )
     assert np.all([prediction_prior.weight[i] == 1 / 9 for i in range(9)])
 
 
@@ -96,9 +105,7 @@ def test_kf_proposal(control_model, control_input):
     cv = ConstantVelocity(noise_diff_coeff=0.1)
 
     # initialise the measurement model
-    lg = LinearGaussian(ndim_state=2,
-                        mapping=[0],
-                        noise_covar=np.diag([0.1]))
+    lg = LinearGaussian(ndim_state=2, mapping=[0], noise_covar=np.diag([0.1]))
 
     # Define time related variables
     timestamp = datetime.datetime.now()
@@ -109,8 +116,10 @@ def test_kf_proposal(control_model, control_input):
     num_particles = 9  # Number of particles
 
     # Define prior state
-    prior_particles = [Particle(np.array([[i], [j]]), 1/num_particles)
-                       for i, j in itertools.product([1, 2, 3], [1, 2, 3])]
+    prior_particles = [
+        Particle(np.array([[i], [j]]), 1 / num_particles)
+        for i, j in itertools.product([1, 2, 3], [1, 2, 3])
+    ]
 
     prior = ParticleState(None, particle_list=prior_particles, timestamp=timestamp)
 
@@ -134,10 +143,9 @@ def test_kf_proposal(control_model, control_input):
     if control_model and control_input:
         new_state.state_vector += control_model.function(control_input)
 
-    detection = Detection(lg.function(new_state,
-                                      noise=True),
-                          timestamp=new_timestamp,
-                          measurement_model=lg)
+    detection = Detection(
+        lg.function(new_state, noise=True), timestamp=new_timestamp, measurement_model=lg
+    )
 
     eval_state = kf_updater.update(SingleHypothesis(prediction, detection))
 

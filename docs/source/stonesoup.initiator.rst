@@ -28,3 +28,9 @@ Composite
 
 .. automodule:: stonesoup.initiator.composite
     :show-inheritance:
+
+Viterbi
+-------
+
+.. automodule:: stonesoup.initiator.viterbi
+    :show-inheritance:

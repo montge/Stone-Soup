@@ -2,7 +2,7 @@ import numpy as np
 
 from ...base import Property
 from ...types.array import CovarianceMatrix
-from ..base import LinearModel, GaussianModel
+from ..base import GaussianModel, LinearModel
 from .base import MeasurementModel
 
 
@@ -77,12 +77,9 @@ class LinearGaussian(MeasurementModel, LinearModel, GaussianModel):
         """
 
         if isinstance(noise, bool) or noise is None:
-            if noise:
-                noise = self.rvs(num_samples=state.state_vector.shape[1], **kwargs)
-            else:
-                noise = 0
+            noise = self.rvs(num_samples=state.state_vector.shape[1], **kwargs) if noise else 0
 
-        return self.matrix(**kwargs)@state.state_vector + noise
+        return self.matrix(**kwargs) @ state.state_vector + noise
 
     def covar(self, **kwargs):
         """Returns the measurement model noise covariance matrix.

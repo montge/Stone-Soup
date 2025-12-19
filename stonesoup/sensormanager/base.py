@@ -1,6 +1,6 @@
-import random
 import itertools as it
-from abc import abstractmethod, ABC
+import random
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -9,8 +9,8 @@ import numpy as np
 from ..base import Base, Property
 
 if TYPE_CHECKING:
-    from ..sensor.sensor import Sensor
     from ..platform.base import Platform
+    from ..sensor.sensor import Sensor
 
 
 class SensorManager(Base, ABC):
@@ -28,26 +28,33 @@ class SensorManager(Base, ABC):
     which communicate with other sensor managers in a networked fashion.
 
     """
-    sensors: set['Sensor'] = Property(
-        default_factory=set, doc="The sensor(s) which the sensor manager is managing.")
 
-    platforms: set['Platform'] = Property(
-        default_factory=set, doc="The platform(s) which the sensor manager is managing.")
+    sensors: set["Sensor"] = Property(
+        default_factory=set, doc="The sensor(s) which the sensor manager is managing."
+    )
+
+    platforms: set["Platform"] = Property(
+        default_factory=set, doc="The platform(s) which the sensor manager is managing."
+    )
 
     reward_function: Callable = Property(
-        default=None, doc="A function or class designed to work out the reward associated with an "
-                          "action or set of actions. For an example see :class:`~.RewardFunction`."
-                          " This may also incorporate a notion of the "
-                          "cost of making a measurement. The values returned may be scalar or "
-                          "vector in the case of multi-objective optimisation. Metrics may be of "
-                          "any type and in any units.")
+        default=None,
+        doc="A function or class designed to work out the reward associated with an "
+        "action or set of actions. For an example see :class:`~.RewardFunction`."
+        " This may also incorporate a notion of the "
+        "cost of making a measurement. The values returned may be scalar or "
+        "vector in the case of multi-objective optimisation. Metrics may be of "
+        "any type and in any units.",
+    )
 
     take_sensors_from_platforms: bool = Property(
-        default=True, doc="Whether to include sensors that are on the "
-                          "platform(s) but not explicitly passed to the sensor manager. "
-                          "Any sensors not added "
-                          "will not be considered by the sensor manager or "
-                          "reward function.")
+        default=True,
+        doc="Whether to include sensors that are on the "
+        "platform(s) but not explicitly passed to the sensor manager. "
+        "Any sensors not added "
+        "will not be considered by the sensor manager or "
+        "reward function.",
+    )
 
     @sensors.getter
     def sensors(self):
@@ -103,13 +110,14 @@ class RandomSensorManager(SensorManager):
             The pairs of :class:`~.Sensor`: [:class:`~.Action`] selected
         """
 
-        configs = [dict() for _ in range(nchoose)]
+        configs = [{} for _ in range(nchoose)]
         for config in configs:
             for actionable in self.actionables:
                 action_generators = actionable.actions(timestamp)
                 chosen_actions = []
                 for action_gen in action_generators:
-                    chosen_actions.append(random.choice(list(action_gen)))
+                    # nosec B311 - PRNG used for action selection simulation, not cryptography
+                    chosen_actions.append(random.choice(list(action_gen)))  # nosec B311 # NOSONAR
                 config[actionable] = chosen_actions
 
         return configs
@@ -148,7 +156,7 @@ class BruteForceSensorManager(SensorManager):
             the corresponding reward.
         """
 
-        all_action_choices = dict()
+        all_action_choices = {}
 
         for actionable in self.actionables:
             # get action 'generator(s)'
@@ -159,9 +167,10 @@ class BruteForceSensorManager(SensorManager):
             all_action_choices[actionable] = action_choices
 
         # get tuple of dictionaries of sensors: actions
-        configs = ({sensor: action
-                    for sensor, action in zip(all_action_choices.keys(), actionconfig)}
-                   for actionconfig in it.product(*all_action_choices.values()))
+        configs = (
+            dict(zip(all_action_choices.keys(), actionconfig, strict=False))
+            for actionconfig in it.product(*all_action_choices.values())
+        )
 
         best_rewards = np.zeros(nchoose) - np.inf
         selected_configs = [None] * nchoose
@@ -206,7 +215,7 @@ class GreedySensorManager(SensorManager):
             The pairs of :class:`~.Sensor`: [:class:`~.Action`] selected
         """
 
-        chosen_actions = dict()
+        chosen_actions = {}
 
         for actionable in self.actionables:
             # get action 'generator(s)'
@@ -228,9 +237,10 @@ class GreedySensorManager(SensorManager):
 
         # convert from single dict of actionable: list(actions) to list of dicts of
         # actionables: actions
-        selected_configs = [{actionable: chosen_actions[actionable][i]
-                             for actionable in chosen_actions}
-                            for i in range(nchoose)]
+        selected_configs = [
+            {actionable: chosen_actions[actionable][i] for actionable in chosen_actions}
+            for i in range(nchoose)
+        ]
 
         # Return mapping of sensors and chosen actions for sensors
         return selected_configs

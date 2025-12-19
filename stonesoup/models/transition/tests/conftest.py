@@ -1,23 +1,30 @@
-import pytest
 import numpy as np
+import pytest
 from scipy.linalg import block_diag
 
 
 class CT_helper:
     @staticmethod
     def function(state, **kwargs):
-        time_interval_sec = kwargs['time_interval'].total_seconds()
+        time_interval_sec = kwargs["time_interval"].total_seconds()
         sv1 = state.state_vector
         turn_rate = sv1[4, :]
         # Avoid divide by zero in the function evaluation
-        turn_rate[turn_rate == 0.] = np.finfo(float).eps
+        turn_rate[turn_rate == 0.0] = np.finfo(float).eps
         dAngle = turn_rate * time_interval_sec
         sv2 = np.array(
-            [sv1[0] + np.sin(dAngle)/turn_rate * sv1[1] - sv1[3]/turn_rate*(1. - np.cos(dAngle)),
-             sv1[1] * np.cos(dAngle) - sv1[3] * np.sin(dAngle),
-             sv1[1]/turn_rate * (1. - np.cos(dAngle)) + sv1[2] + sv1[3]*np.sin(dAngle)/turn_rate,
-             sv1[1] * np.sin(dAngle) + sv1[3] * np.cos(dAngle),
-             turn_rate])
+            [
+                sv1[0]
+                + np.sin(dAngle) / turn_rate * sv1[1]
+                - sv1[3] / turn_rate * (1.0 - np.cos(dAngle)),
+                sv1[1] * np.cos(dAngle) - sv1[3] * np.sin(dAngle),
+                sv1[1] / turn_rate * (1.0 - np.cos(dAngle))
+                + sv1[2]
+                + sv1[3] * np.sin(dAngle) / turn_rate,
+                sv1[1] * np.sin(dAngle) + sv1[3] * np.cos(dAngle),
+                turn_rate,
+            ]
+        )
 
         return sv2
 
@@ -35,9 +42,8 @@ class CT_helper:
         q = turn_noise_coeff
         dt = abs(time_interval.total_seconds())
 
-        Q = np.array([[dt**3 / 3., dt**2 / 2.],
-                      [dt**2 / 2., dt]])
-        C = block_diag(Q*q_x, Q*q_y, q*dt)
+        Q = np.array([[dt**3 / 3.0, dt**2 / 2.0], [dt**2 / 2.0, dt]])
+        C = block_diag(Q * q_x, Q * q_y, q * dt)
 
         return C
 

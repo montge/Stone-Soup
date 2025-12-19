@@ -1,12 +1,12 @@
 from collections.abc import Sequence
 
-from .detection import MissedDetection
-from .numeric import Probability
 from ..base import Property
 from ..types import Type
 from ..types.detection import Detection
-from ..types.hypothesis import SingleHypothesis, CompositeHypothesis
+from ..types.hypothesis import CompositeHypothesis, SingleHypothesis
 from ..types.prediction import Prediction
+from .detection import MissedDetection
+from .numeric import Probability
 
 
 class MultipleHypothesis(Type, Sequence):
@@ -18,22 +18,23 @@ class MultipleHypothesis(Type, Sequence):
     single_hypotheses: Sequence[SingleHypothesis] = Property(
         default_factory=list,
         doc="The initial list of :class:`~.SingleHypothesis`. Default `None` "
-            "which initialises with empty list.")
+        "which initialises with empty list.",
+    )
     normalise: bool = Property(
         default=False,
-        doc="Normalise probabilities of :class:`~.SingleHypothesis`. Default "
-            "is `False`.")
+        doc="Normalise probabilities of :class:`~.SingleHypothesis`. Default is `False`.",
+    )
     total_weight: float = Property(
-        default=1,
-        doc="When normalising, weights will sum to this. Default is 1.")
+        default=1, doc="When normalising, weights will sum to this. Default is 1."
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if any(not isinstance(hypothesis, SingleHypothesis)
-               for hypothesis in self.single_hypotheses):
-            raise ValueError("Cannot form MultipleHypothesis out of "
-                             "non-SingleHypothesis inputs!")
+        if any(
+            not isinstance(hypothesis, SingleHypothesis) for hypothesis in self.single_hypotheses
+        ):
+            raise ValueError("Cannot form MultipleHypothesis out of non-SingleHypothesis inputs!")
 
         # normalise the weights of 'single_hypotheses', if indicated
         if self.normalise:
@@ -46,18 +47,12 @@ class MultipleHypothesis(Type, Sequence):
         # check if 'single_hypotheses' contains any SingleHypotheses with
         # Detection matching 'index'
         if isinstance(index, Detection):
-            for hypothesis in self.single_hypotheses:
-                if hypothesis.measurement is index:
-                    return True
-            return False
+            return any(hypothesis.measurement is index for hypothesis in self.single_hypotheses)
 
         # check if 'single_hypotheses' contains any SingleHypotheses with
         # Prediction matching 'index'
         if isinstance(index, Prediction):
-            for hypothesis in self.single_hypotheses:
-                if hypothesis.prediction is index:
-                    return True
-            return False
+            return any(hypothesis.prediction is index for hypothesis in self.single_hypotheses)
 
         # check if 'single_hypotheses' contains any SingleHypotheses
         # matching 'index'
@@ -65,11 +60,9 @@ class MultipleHypothesis(Type, Sequence):
             return index in self.single_hypotheses
 
     def __iter__(self):
-        for hypothesis in self.single_hypotheses:
-            yield hypothesis
+        yield from self.single_hypotheses
 
     def __getitem__(self, index):
-
         # retrieve SingleHypothesis by array index
         if isinstance(index, int):
             return self.single_hypotheses[index]
@@ -94,22 +87,20 @@ class MultipleHypothesis(Type, Sequence):
 
         # verify that SingleHypotheses composing this MultipleHypothesis
         # all have Probabilities
-        if any(not hasattr(hypothesis, 'probability')
-               for hypothesis in self.single_hypotheses):
-            raise ValueError("MultipleHypothesis not composed of Probability"
-                             " hypotheses!")
+        if any(not hasattr(hypothesis, "probability") for hypothesis in self.single_hypotheses):
+            raise ValueError("MultipleHypothesis not composed of Probability hypotheses!")
 
         sum_weights = Probability.sum(
-            hypothesis.probability for hypothesis in self.single_hypotheses)
+            hypothesis.probability for hypothesis in self.single_hypotheses
+        )
 
         for hypothesis in self.single_hypotheses:
-            hypothesis.probability =\
-                (hypothesis.probability * total_weight)/sum_weights
+            hypothesis.probability = (hypothesis.probability * total_weight) / sum_weights
 
     def get_missed_detection_probability(self):
         for hypothesis in self.single_hypotheses:
             if isinstance(hypothesis.measurement, MissedDetection):
-                if hasattr(hypothesis, 'probability'):
+                if hasattr(hypothesis, "probability"):
                     return hypothesis.probability
         return None
 
@@ -126,21 +117,25 @@ class MultipleCompositeHypothesis(Type, Sequence):
     single_hypotheses: Sequence[CompositeHypothesis] = Property(
         default_factory=list,
         doc="The initial list of :class:`~.CompositeHypothesis`. Default `None` which initialises "
-            "with empty list.")
+        "with empty list.",
+    )
     normalise: bool = Property(
         default=False,
-        doc="Normalise probabilities of :class:`~.CompositeHypothesis`. Default is `False`.")
+        doc="Normalise probabilities of :class:`~.CompositeHypothesis`. Default is `False`.",
+    )
     total_weight: float = Property(
-        default=1,
-        doc="When normalising, weights will sum to this. Default is 1.")
+        default=1, doc="When normalising, weights will sum to this. Default is 1."
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if not all(isinstance(hypothesis, CompositeHypothesis)
-                   for hypothesis in self.single_hypotheses):
-            raise ValueError("Cannot form MultipleHypothesis out of "
-                             "non-CompositeHypothesis inputs!")
+        if not all(
+            isinstance(hypothesis, CompositeHypothesis) for hypothesis in self.single_hypotheses
+        ):
+            raise ValueError(
+                "Cannot form MultipleHypothesis out of non-CompositeHypothesis inputs!"
+            )
 
         # normalise the weights of 'single_hypotheses', if indicated
         if self.normalise:
@@ -157,7 +152,6 @@ class MultipleCompositeHypothesis(Type, Sequence):
             return any(index is single_hypothesis for single_hypothesis in self.single_hypotheses)
 
     def __getitem__(self, index):
-
         return self.single_hypotheses.__getitem__(index)
 
     def __iter__(self):
@@ -172,21 +166,21 @@ class MultipleCompositeHypothesis(Type, Sequence):
 
         # verify that SingleHypotheses composing this MultipleHypothesis
         # all have Probabilities
-        if any(not hasattr(hypothesis, 'probability')
-               for hypothesis in self.single_hypotheses):
+        if any(not hasattr(hypothesis, "probability") for hypothesis in self.single_hypotheses):
             raise ValueError(
-                "MultipleHypothesis not composed of composite hypotheses with probabilities")
+                "MultipleHypothesis not composed of composite hypotheses with probabilities"
+            )
 
         sum_weights = Probability.sum(
-            hypothesis.probability for hypothesis in self.single_hypotheses)
+            hypothesis.probability for hypothesis in self.single_hypotheses
+        )
 
         # this will NOT affect the probabilities of each composite hypothesis' sub-hypotheses
         for hypothesis in self.single_hypotheses:
-            hypothesis.probability = \
-                (hypothesis.probability * total_weight) / sum_weights
+            hypothesis.probability = (hypothesis.probability * total_weight) / sum_weights
 
     def get_missed_detection_probability(self):
         for hypothesis in self.single_hypotheses:
-            if hasattr(hypothesis, 'probability') and not hypothesis:
+            if hasattr(hypothesis, "probability") and not hypothesis:
                 return hypothesis.probability
         return None

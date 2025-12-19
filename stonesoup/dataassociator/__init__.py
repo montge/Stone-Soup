@@ -1,3 +1,3 @@
-from .base import DataAssociator, Associator, TrackToTrackAssociator
+from .base import Associator, DataAssociator, TrackToTrackAssociator
 
-__all__ = ['DataAssociator', 'Associator', 'TrackToTrackAssociator']
+__all__ = ["Associator", "DataAssociator", "TrackToTrackAssociator"]

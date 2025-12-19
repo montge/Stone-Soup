@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from datetime import datetime
 from enum import Enum
 from typing import Any
 
@@ -7,17 +8,24 @@ import numpy as np
 from ..base import Property
 from ..functions import dotproduct
 from ..functions.orbital import keplerian_to_rv, tru_anom_from_mean_anom
-from . import Type
-from .array import StateVector, StateVectors, Matrix
-from .state import State, GaussianState, ParticleState
-from .angle import Inclination, EclipticLongitude
 from ..reader.astronomical import TLEDictReader
+from . import Type
+from .angle import EclipticLongitude, Inclination
+from .array import Matrix, StateVector, StateVectors
+from .coordinates import (
+    GCRS,
+    ICRS,
+    J2000,
+    ReferenceFrame,
+)
+from .state import GaussianState, ParticleState, State
 
 
 class CoordinateSystem(Enum):
     """Enumerates the allowable coordinate systems. See OrbitalState help for full explanation of
     what each of the elements does.
     """
+
     CARTESIAN = "Cartesian"
     KEPLERIAN = "Keplerian"
     TLE = "TLE"
@@ -33,7 +41,7 @@ class CoordinateSystem(Enum):
             if element.value == "TLE" and value.lower() == "twolineelement":
                 return element
 
-        raise ValueError("%r is not a valid %s" % (value, cls.__name__))
+        raise ValueError(f"{value!r} is not a valid {cls.__name__}")
 
 
 class Orbital(Type):
@@ -122,48 +130,62 @@ class Orbital(Type):
     coordinates: CoordinateSystem = Property(
         default=CoordinateSystem.CARTESIAN,
         doc="The parameterisation used on initiation. Acceptable values "
-            "are 'CARTESIAN' (default), 'KEPLERIAN', 'TLE', or 'EQUINOCTIAL'. "
-            "All other inputs will return errors. Will accept string inputs."
+        "are 'CARTESIAN' (default), 'KEPLERIAN', 'TLE', or 'EQUINOCTIAL'. "
+        "All other inputs will return errors. Will accept string inputs.",
     )
 
     grav_parameter: float = Property(
         default=3.986004418e14,
         doc=r"Standard gravitational parameter :math:`\mu = G M`. The default "
-            r"is :math:`3.986004418 \times 10^{14} \,` "
-            r":math:`\mathrm{m}^3 \mathrm{s}^{-2}`.")
+        r"is :math:`3.986004418 \times 10^{14} \,` "
+        r":math:`\mathrm{m}^3 \mathrm{s}^{-2}`.",
+    )
 
     # The following nine attributes provide support for two-line element representations
     catalogue_number: int = Property(
-        default=None, doc="NORAD Catalog Number: a unique identifier for each earth-orbiting "
-                          "artificial satellite")
+        default=None,
+        doc="NORAD Catalog Number: a unique identifier for each earth-orbiting "
+        "artificial satellite",
+    )
 
     classification: str = Property(
-        default=None, doc="Classification (U=Unclassified, C=Classified, S=Secret")
+        default=None, doc="Classification (U=Unclassified, C=Classified, S=Secret"
+    )
 
     international_designator: str = Property(
-        default=None, doc="International designator incorporates the year of launch, launch "
-                          "number that year and place of launch.")
+        default=None,
+        doc="International designator incorporates the year of launch, launch "
+        "number that year and place of launch.",
+    )
 
     ballistic_coefficient: float = Property(
-        default=None, doc=r"The ballistic coefficient is the first derivative of the mean "
-                          r"motion. (units of :math:`mathrm{rad s}^{-2}`)")
+        default=None,
+        doc=r"The ballistic coefficient is the first derivative of the mean "
+        r"motion. (units of :math:`mathrm{rad s}^{-2}`)",
+    )
 
     second_derivative_mean_motion: float = Property(
-        default=None, doc=r"The second derivative of the mean motion. "
-                          r"(:math:`mathrm{rad s}^{-3}`)")
+        default=None,
+        doc=r"The second derivative of the mean motion. " r"(:math:`mathrm{rad s}^{-3}`)",
+    )
 
     bstar: float = Property(
-        default=None, doc=r"The TLE drag coefficient. :math:`B* = \frac{B \rho_0}{2}` where "
-                          r":math:`\rho_0` is density of a standard atmosphere and "
-                          r":math:B = \frac{C_D A}{m}` for coefficient of drag :math:`C_D`, "
-                          r"cross-sectional area :math:`A` and mass :math:`m` is the mass.")
+        default=None,
+        doc=r"The TLE drag coefficient. :math:`B* = \frac{B \rho_0}{2}` where "
+        r":math:`\rho_0` is density of a standard atmosphere and "
+        r":math:B = \frac{C_D A}{m}` for coefficient of drag :math:`C_D`, "
+        r"cross-sectional area :math:`A` and mass :math:`m` is the mass.",
+    )
 
     ephemeris_type: int = Property(
-        default=None, doc="Ephemeris type (NORAD use). Zero in distributed TLE data.")
+        default=None, doc="Ephemeris type (NORAD use). Zero in distributed TLE data."
+    )
 
     element_set_number: int = Property(
-        default=None, doc="Element set number in the TLE. Incremented when a new TLE is "
-                          "generated for this object.")
+        default=None,
+        doc="Element set number in the TLE. Incremented when a new TLE is "
+        "generated for this object.",
+    )
 
     revolution_number: int = Property(default=None, doc="Number of revolutions at the epoch")
 
@@ -176,26 +198,38 @@ class Orbital(Type):
 
         super().__init__(*args, **kwargs)
 
-        if 'coordinates' in kwargs:
-            coordinates = CoordinateSystem(kwargs['coordinates'])
+        if "coordinates" in kwargs:
+            coordinates = CoordinateSystem(kwargs["coordinates"])
         else:
             coordinates = CoordinateSystem.CARTESIAN
 
         # Check to see if the initialisation is via metadata
-        if coordinates.name == 'TLE' and \
-                (self.state_vector is None or len(self.state_vector) == 0):
-            if 'metadata' in kwargs and kwargs['metadata'] is not None:
-                tle = TLEDictReader({'line_1': kwargs['metadata']['line_1'],
-                                     'line_2': kwargs['metadata']['line_2']})
+        if coordinates.name == "TLE" and (
+            self.state_vector is None or len(self.state_vector) == 0
+        ):
+            if "metadata" in kwargs and kwargs["metadata"] is not None:
+                tle = TLEDictReader(
+                    {
+                        "line_1": kwargs["metadata"]["line_1"],
+                        "line_2": kwargs["metadata"]["line_2"],
+                    }
+                )
 
                 # In this instance when we're initialising from a TLE we can't (yet) initialise an
                 # array of vectors (because the information exists in the catalogue). Future
                 # instances will have to work out how to sample from a mean TLE. So this is just
                 # a StateVector
-                self.state_vector = StateVector([tle.inclination, tle.longitude_of_ascending_node,
-                                                 tle.eccentricity, tle.arg_periapsis,
-                                                 tle.mean_anomaly, tle.mean_motion])
-                kwargs['timestamp'] = tle.epoch
+                self.state_vector = StateVector(
+                    [
+                        tle.inclination,
+                        tle.longitude_of_ascending_node,
+                        tle.eccentricity,
+                        tle.arg_periapsis,
+                        tle.mean_anomaly,
+                        tle.mean_motion,
+                    ]
+                )
+                kwargs["timestamp"] = tle.epoch
 
                 # super().__init__(state_vector, *args, **kwargs)
 
@@ -204,18 +238,18 @@ class Orbital(Type):
 
         # Otherwise check that the state vector is the right size
         elif np.shape(self.state_vector)[0] != 6:
-            raise ValueError(
-                "State vector shape should be 6xn : got {}".format(self.state_vector.shape))
+            raise ValueError(f"State vector shape should be 6xn : got {self.state_vector.shape}")
 
         # Coordinate type checks
-        if coordinates.name == 'CARTESIAN':
+        if coordinates.name == "CARTESIAN":
             pass
 
-        elif coordinates.name == 'KEPLERIAN':
+        elif coordinates.name == "KEPLERIAN":
 
             if np.any(self.state_vector[0] < 0.0) | np.any(self.state_vector[0] > 1.0):
-                raise ValueError("Eccentricity should be between 0 and 1: got {}"
-                                 .format(self.state_vector[0]))
+                raise ValueError(
+                    f"Eccentricity should be between 0 and 1: got {self.state_vector[0]}"
+                )
 
             # Convert Keplerian elements to Cartesian
             # First enforce the correct type (should be a way to unify this)
@@ -230,18 +264,24 @@ class Orbital(Type):
                 self.state_vector[4] = EclipticLongitude(self.state_vector[4])
                 self.state_vector[5] = EclipticLongitude(self.state_vector[5])
 
-            self.state_vector = keplerian_to_rv(self.state_vector,
-                                                grav_parameter=self.grav_parameter)
+            self.state_vector = keplerian_to_rv(
+                self.state_vector, grav_parameter=self.grav_parameter
+            )
 
-        elif coordinates.name == 'TLE':
+        elif coordinates.name == "TLE":
 
             if np.any(self.state_vector[2] < 0.0) | np.any(self.state_vector[2] > 1.0):
-                raise ValueError("Eccentricity should be between 0 and 1: got {}"
-                                 .format(self.state_vector[0]))
+                raise ValueError(
+                    f"Eccentricity should be between 0 and 1: got {self.state_vector[0]}"
+                )
 
-            if 'metadata' in kwargs and kwargs['metadata']:
-                tle = TLEDictReader({'line_1': kwargs['metadata']['line_1'],
-                                     'line_2': kwargs['metadata']['line_2']})
+            if kwargs.get("metadata"):
+                tle = TLEDictReader(
+                    {
+                        "line_1": kwargs["metadata"]["line_1"],
+                        "line_2": kwargs["metadata"]["line_2"],
+                    }
+                )
 
                 # Note that this overwrites any timestamp you pass as an argument
                 self.timestamp = tle.epoch
@@ -264,8 +304,9 @@ class Orbital(Type):
                 mean_motion = self.state_vector[5].astype(float)
                 # True anomaly from mean anomaly
                 tru_anom = np.zeros(np.shape(mean_motion))
-                for i, (mean_anom, ecc) in \
-                        enumerate(zip(self.state_vector[4], self.state_vector[2])):
+                for i, (mean_anom, ecc) in enumerate(
+                    zip(self.state_vector[4], self.state_vector[2], strict=False)
+                ):
                     tru_anom[i] = tru_anom_from_mean_anom(mean_anom, ecc)
             else:  # StateVector
                 self.state_vector[0] = Inclination(self.state_vector[0])
@@ -277,35 +318,50 @@ class Orbital(Type):
                 tru_anom = tru_anom_from_mean_anom(self.state_vector[4], self.state_vector[2])
 
             # Get the semi-major axis from the mean motion
-            semimajor_axis = np.cbrt(self.grav_parameter / mean_motion ** 2)
+            semimajor_axis = np.cbrt(self.grav_parameter / mean_motion**2)
 
             # Use given and derived quantities to convert from Keplarian to Cartesian
             self.state_vector = keplerian_to_rv(
-                StateVectors([np.array(self.state_vector[2]).flatten(),
-                              np.array(semimajor_axis).flatten(),
-                              np.array(self.state_vector[0]).flatten(),
-                              np.array(self.state_vector[1]).flatten(),
-                              np.array(self.state_vector[3]).flatten(),
-                              np.array(tru_anom).flatten()]), grav_parameter=self.grav_parameter)
+                StateVectors(
+                    [
+                        np.array(self.state_vector[2]).flatten(),
+                        np.array(semimajor_axis).flatten(),
+                        np.array(self.state_vector[0]).flatten(),
+                        np.array(self.state_vector[1]).flatten(),
+                        np.array(self.state_vector[3]).flatten(),
+                        np.array(tru_anom).flatten(),
+                    ]
+                ),
+                grav_parameter=self.grav_parameter,
+            )
 
-        elif coordinates.name == 'EQUINOCTIAL':
+        elif coordinates.name == "EQUINOCTIAL":
 
             if np.any(self.state_vector[1] < -1.0) | np.any(self.state_vector[1] > 1.0):
-                raise ValueError("Horizontal Eccentricity should be between -1 "
-                                 "and 1: got {}".format(self.state_vector[1]))
+                raise ValueError(
+                    "Horizontal Eccentricity should be between -1 "
+                    f"and 1: got {self.state_vector[1]}"
+                )
             if np.any(self.state_vector[2] < -1.0) | np.any(self.state_vector[2] > 1.0):
-                raise ValueError("Vertical Eccentricity should be between -1 and "
-                                 "1: got {}".format(self.state_vector[2]))
+                raise ValueError(
+                    "Vertical Eccentricity should be between -1 and "
+                    f"1: got {self.state_vector[2]}"
+                )
 
             # First enforce the correct type for mean longitude, then compute intermediate
             # quantities
             if type(self.state_vector) is StateVectors:
                 self.state_vector[5] = self.state_vector[5].astype(EclipticLongitude)
-                raan = np.arctan2(self.state_vector[3].astype(float),
-                                  self.state_vector[4].astype(float))
+                raan = np.arctan2(
+                    self.state_vector[3].astype(float), self.state_vector[4].astype(float)
+                )
                 inclination = 2 * np.arctan(self.state_vector[3].astype(float) / np.sin(raan))
-                arg_per = np.arctan2(self.state_vector[1].astype(float),
-                                     self.state_vector[2].astype(float)) - raan
+                arg_per = (
+                    np.arctan2(
+                        self.state_vector[1].astype(float), self.state_vector[2].astype(float)
+                    )
+                    - raan
+                )
             else:  # StateVector
                 self.state_vector[5] = EclipticLongitude(self.state_vector[5])
                 raan = np.arctan2(self.state_vector[3], self.state_vector[4])
@@ -320,19 +376,27 @@ class Orbital(Type):
             # True anomaly from mean anomaly
             if type(self.state_vector) is StateVectors:
                 tru_anom = np.zeros(np.shape(eccentricity))
-                for i, (mean_anom, ecc) in enumerate(zip(mean_anomaly, eccentricity)):
+                for i, (mean_anom, ecc) in enumerate(
+                    zip(mean_anomaly, eccentricity, strict=False)
+                ):
                     tru_anom[i] = tru_anom_from_mean_anom(mean_anom, ecc)
             else:
                 tru_anom = tru_anom_from_mean_anom(mean_anomaly, eccentricity)
 
             # Convert from Keplarian to Cartesian
-            self.state_vector = keplerian_to_rv(StateVectors([np.array(eccentricity).flatten(),
-                                                              np.array(semimajor_axis).flatten(),
-                                                              np.array(inclination).flatten(),
-                                                              np.array(raan).flatten(),
-                                                              np.array(arg_per).flatten(),
-                                                              np.array(tru_anom).flatten()]),
-                                                grav_parameter=self.grav_parameter)
+            self.state_vector = keplerian_to_rv(
+                StateVectors(
+                    [
+                        np.array(eccentricity).flatten(),
+                        np.array(semimajor_axis).flatten(),
+                        np.array(inclination).flatten(),
+                        np.array(raan).flatten(),
+                        np.array(arg_per).flatten(),
+                        np.array(tru_anom).flatten(),
+                    ]
+                ),
+                grav_parameter=self.grav_parameter,
+            )
 
     # Some vector quantities
     @property
@@ -357,16 +421,16 @@ class Orbital(Type):
 
     @property
     def _eccentricity_vector(self):
-        r""" The eccentricity vector :math:`\mathbf{e}`"""
+        r"""The eccentricity vector :math:`\mathbf{e}`"""
 
         rang = self.range
         speed = self.speed
         radial_velocity = dotproduct(self.state_vector[0:3], self.state_vector[3:6]) / rang
 
-        return (1 / self.grav_parameter) * ((speed ** 2 - self.grav_parameter / rang)
-                                            * self.state_vector[0:3] - rang *
-                                            radial_velocity *
-                                            self.state_vector[3:6])
+        return (1 / self.grav_parameter) * (
+            (speed**2 - self.grav_parameter / rang) * self.state_vector[0:3]
+            - rang * radial_velocity * self.state_vector[3:6]
+        )
 
     @property
     def specific_angular_momentum(self):
@@ -411,16 +475,18 @@ class Orbital(Type):
         # return np.sqrt(np.dot(self._eccentricity_vector.T,
         # self._eccentricity_vector).item())
         # or
-        return np.sqrt(1 + (self.mag_specific_angular_momentum ** 2 /
-                            self.grav_parameter ** 2) *
-                       (self.speed ** 2 - 2 * self.grav_parameter /
-                        self.range))
+        return np.sqrt(
+            1
+            + (self.mag_specific_angular_momentum**2 / self.grav_parameter**2)
+            * (self.speed**2 - 2 * self.grav_parameter / self.range)
+        )
 
     @property
     def semimajor_axis(self):
         """The orbital semi-major axis."""
-        return (self.mag_specific_angular_momentum ** 2 / self.grav_parameter) * \
-               (1 / (1 - self.eccentricity ** 2))
+        return (self.mag_specific_angular_momentum**2 / self.grav_parameter) * (
+            1 / (1 - self.eccentricity**2)
+        )
 
         # Used to be this
         # return 1/((2/self.range) - (self.speed**2)/self.grav_parameter)
@@ -508,8 +574,16 @@ class Orbital(Type):
         # mitigate against floating-point errors which push the ratio outside
         # the -1,1 region.
         radial_velocity = dotproduct(self.state_vector[0:3], self.state_vector[3:6]) / self.speed
-        tru_ano = np.arccos(np.clip(dotproduct(self._eccentricity_vector / self.eccentricity,
-                                               self.state_vector[0:3] / self.range), -1, 1))
+        tru_ano = np.arccos(
+            np.clip(
+                dotproduct(
+                    self._eccentricity_vector / self.eccentricity,
+                    self.state_vector[0:3] / self.range,
+                ),
+                -1,
+                1,
+            )
+        )
         out = np.empty(tru_ano.shape).astype(EclipticLongitude)
 
         if type(tru_ano) is np.ndarray:  # StateVectors
@@ -538,10 +612,14 @@ class Orbital(Type):
 
         """
         # A numpy oddity requires messing with the true anomaly to get tan to work
-        ecc_ano = np.remainder(2 * np.arctan(np.sqrt((1 - self.eccentricity) /
-                                                     (1 + self.eccentricity)) *
-                                             np.tan(np.array(self.true_anomaly).astype(float) /
-                                                    2)), 2 * np.pi)
+        ecc_ano = np.remainder(
+            2
+            * np.arctan(
+                np.sqrt((1 - self.eccentricity) / (1 + self.eccentricity))
+                * np.tan(np.array(self.true_anomaly).astype(float) / 2)
+            ),
+            2 * np.pi,
+        )
 
         if type(ecc_ano) is np.ndarray:  # StateVectors
             out = np.empty(ecc_ano.shape).astype(EclipticLongitude)
@@ -567,8 +645,7 @@ class Orbital(Type):
     @property
     def period(self):
         """Orbital period, :math:`T` ([time])."""
-        return ((2 * np.pi) / np.sqrt(self.grav_parameter)) * \
-            np.power(self.semimajor_axis, 3 / 2)
+        return ((2 * np.pi) / np.sqrt(self.grav_parameter)) * np.power(self.semimajor_axis, 3 / 2)
 
     @property
     def mean_motion(self):
@@ -597,30 +674,30 @@ class Orbital(Type):
         r"""The horizontal component of the eccentricity in equinoctial coordinates is
         :math:`h = e \sin (\omega + \Omega)`."""
 
-        return self.eccentricity * np.sin(self.argument_periapsis +
-                                          self.longitude_ascending_node)
+        return self.eccentricity * np.sin(self.argument_periapsis + self.longitude_ascending_node)
 
     @property
     def equinoctial_k(self):
         r"""The vertical component of the eccentricity in equinoctial coordinates is
         :math:`k = e \cos (\omega + \Omega)`."""
 
-        return self.eccentricity * np.cos(self.argument_periapsis +
-                                          self.longitude_ascending_node)
+        return self.eccentricity * np.cos(self.argument_periapsis + self.longitude_ascending_node)
 
     @property
     def equinoctial_p(self):
         r"""The horizontal component of the inclination in equinoctial coordinates is
         :math:`p = \tan (i/2) \sin \Omega`."""
-        return np.tan(np.array(self.inclination).astype(float) / 2) * \
-            np.sin(self.longitude_ascending_node)
+        return np.tan(np.array(self.inclination).astype(float) / 2) * np.sin(
+            self.longitude_ascending_node
+        )
 
     @property
     def equinoctial_q(self):
         r"""The vertical component of the inclination in equinoctial coordinates is
         :math:`q = \tan (i/2) \cos \Omega`."""
-        return np.tan(np.array(self.inclination).astype(float) / 2) * \
-            np.cos(self.longitude_ascending_node)
+        return np.tan(np.array(self.inclination).astype(float) / 2) * np.cos(
+            self.longitude_ascending_node
+        )
 
     @property
     def mean_longitude(self):
@@ -641,12 +718,16 @@ class Orbital(Type):
         ([length]), :math:`i` the inclination (radian), :math:`\Omega` is the longitude of the
         ascending node (radian), :math:`\omega` the argument of periapsis (radian), and
         :math:`\theta` the true anomaly (radian)."""
-        return StateVectors([self.eccentricity.flatten(),
-                             self.semimajor_axis.flatten(),
-                             np.array(self.inclination).flatten(),
-                             np.array(self.longitude_ascending_node).flatten(),
-                             np.array(self.argument_periapsis).flatten(),
-                             np.array(self.true_anomaly).flatten()])
+        return StateVectors(
+            [
+                self.eccentricity.flatten(),
+                self.semimajor_axis.flatten(),
+                np.array(self.inclination).flatten(),
+                np.array(self.longitude_ascending_node).flatten(),
+                np.array(self.argument_periapsis).flatten(),
+                np.array(self.true_anomaly).flatten(),
+            ]
+        )
 
     @property
     def two_line_element(self):
@@ -655,12 +736,16 @@ class Orbital(Type):
         (radian), :math:`e` is the orbital eccentricity (unitless), :math:`\omega` the argument of
         periapsis (radian), :math:`M_0` the mean anomaly (radian) :math:`n` the mean motion
         (rad/[time]). [3]_"""
-        return StateVectors([np.array(self.inclination).flatten(),
-                             np.array(self.longitude_ascending_node).flatten(),
-                             self.eccentricity.flatten(),
-                             np.array(self.argument_periapsis).flatten(),
-                             np.array(self.mean_anomaly).flatten(),
-                             self.mean_motion.flatten()])
+        return StateVectors(
+            [
+                np.array(self.inclination).flatten(),
+                np.array(self.longitude_ascending_node).flatten(),
+                self.eccentricity.flatten(),
+                np.array(self.argument_periapsis).flatten(),
+                np.array(self.mean_anomaly).flatten(),
+                self.mean_motion.flatten(),
+            ]
+        )
 
     @property
     def equinoctial_elements(self):
@@ -670,12 +755,16 @@ class Orbital(Type):
         horizontal and vertical components of the inclination respectively (radian) and
         :math:`\lambda` is the mean longitude (radian). [4]_
         """
-        return StateVectors([self.semimajor_axis.flatten(),
-                             self.equinoctial_h.flatten(),
-                             self.equinoctial_k.flatten(),
-                             self.equinoctial_p.flatten(),
-                             self.equinoctial_q.flatten(),
-                             np.array(self.mean_longitude).flatten()])
+        return StateVectors(
+            [
+                self.semimajor_axis.flatten(),
+                self.equinoctial_h.flatten(),
+                self.equinoctial_k.flatten(),
+                self.equinoctial_p.flatten(),
+                self.equinoctial_q.flatten(),
+                np.array(self.mean_longitude).flatten(),
+            ]
+        )
 
     @property
     def tle_dict(self):
@@ -692,44 +781,106 @@ class Orbital(Type):
             if number < 0:
                 return nstr[0] + nstr[2:]
             else:
-                return ' ' + nstr[1:]
+                return " " + nstr[1:]
 
         def _tlefmt2(number):
             """TLE format for second derivative mean motion and B*"""
             if number == 0:
-                return ' 00000+0'
+                return " 00000+0"
             else:
-                nstr = '{:5.5e}'.format(number)
+                nstr = f"{number:5.5e}"
                 mantissa, exponent = nstr.split("e")
                 outstr = f"{float(mantissa) / 10:5.5f}" + f"{int(exponent) + 1:+1.0f}"
                 if number < 0:
                     return outstr[0] + outstr[3:]
                 else:
-                    return ' ' + outstr[2:]
+                    return " " + outstr[2:]
 
         tst = self.timestamp
-        timest = str(tst.year)[2:4] + str(tst.timetuple().tm_yday + tst.hour / 24 + tst.minute /
-                                          (60 * 24) + tst.second / (3600 * 24) + tst.microsecond /
-                                          (1e6 * 3600 * 24))
+        timest = str(tst.year)[2:4] + str(
+            tst.timetuple().tm_yday
+            + tst.hour / 24
+            + tst.minute / (60 * 24)
+            + tst.second / (3600 * 24)
+            + tst.microsecond / (1e6 * 3600 * 24)
+        )
 
-        line1 = "1 " + f"{self.catalogue_number:5}" + self.classification + ' ' + \
-                f"{self.international_designator:8}" + ' ' + f"{float(timest):014.8f}" + ' ' + \
-                _tlefmt1(self.ballistic_coefficient/(4 * np.pi) * 86400**2) + ' ' + \
-                _tlefmt2(self.second_derivative_mean_motion/(6 * np.pi) * 86400**3) + ' ' + \
-                _tlefmt2(self.bstar * 6.371e6) + ' ' + f"{self.ephemeris_type:1}" + ' ' + \
-                f"{self.element_set_number:4}"
+        line1 = (
+            "1 "
+            + f"{self.catalogue_number:5}"
+            + self.classification
+            + " "
+            + f"{self.international_designator:8}"
+            + " "
+            + f"{float(timest):014.8f}"
+            + " "
+            + _tlefmt1(self.ballistic_coefficient / (4 * np.pi) * 86400**2)
+            + " "
+            + _tlefmt2(self.second_derivative_mean_motion / (6 * np.pi) * 86400**3)
+            + " "
+            + _tlefmt2(self.bstar * 6.371e6)
+            + " "
+            + f"{self.ephemeris_type:1}"
+            + " "
+            + f"{self.element_set_number:4}"
+        )
 
-        line2 = "2 " + f"{self.catalogue_number:5}" + ' ' + f"{self.inclination*180/np.pi:8.4f}" \
-                + ' ' + f"{self.longitude_ascending_node*180/np.pi:8.4f}" + ' ' \
-                + f"{self.eccentricity:7.7f}"[2:] + ' ' \
-                + f"{self.argument_periapsis*180/np.pi:8.4f}" + ' ' \
-                + f"{self.mean_anomaly*180/np.pi:8.4f}" + ' ' \
-                + f"{self.mean_motion/(2*np.pi)*3600*24:11.8f}" + f"{self.revolution_number:5.0f}"
+        line2 = (
+            "2 "
+            + f"{self.catalogue_number:5}"
+            + " "
+            + f"{self.inclination*180/np.pi:8.4f}"
+            + " "
+            + f"{self.longitude_ascending_node*180/np.pi:8.4f}"
+            + " "
+            + f"{self.eccentricity:7.7f}"[2:]
+            + " "
+            + f"{self.argument_periapsis*180/np.pi:8.4f}"
+            + " "
+            + f"{self.mean_anomaly*180/np.pi:8.4f}"
+            + " "
+            + f"{self.mean_motion/(2*np.pi)*3600*24:11.8f}"
+            + f"{self.revolution_number:5.0f}"
+        )
 
         line1 = line1 + str(TLEDictReader.checksum(line1))
         line2 = line2 + str(TLEDictReader.checksum(line2))
 
-        return {'line_1': line1, 'line_2': line2}
+        return {"line_1": line1, "line_2": line2}
+
+
+class ReferenceFrameType(Enum):
+    """Enumerates the allowable reference frames for orbital states.
+
+    The default frame is J2000 (mean equator and equinox at J2000.0 epoch),
+    which is the classical inertial frame used in astrodynamics.
+    """
+
+    J2000 = "J2000"  # Mean equator and equinox at J2000.0
+    GCRS = "GCRS"  # Geocentric Celestial Reference System
+    ICRS = "ICRS"  # International Celestial Reference System
+    ECEF = "ECEF"  # Earth-Centered Earth-Fixed
+    ECI = "ECI"  # Generic Earth-Centered Inertial (alias for J2000)
+
+    @classmethod
+    def _missing_(cls, value):
+        """Allow case-insensitive matching."""
+        if isinstance(value, str):
+            for element in cls:
+                if element.value.lower() == value.lower():
+                    return element
+        raise ValueError(f"{value!r} is not a valid {cls.__name__}")
+
+    def get_frame_instance(self) -> ReferenceFrame:
+        """Get the corresponding ReferenceFrame instance."""
+        if self in (ReferenceFrameType.J2000, ReferenceFrameType.ECI):
+            return J2000()
+        elif self == ReferenceFrameType.GCRS:
+            return GCRS()
+        elif self == ReferenceFrameType.ICRS:
+            return ICRS()
+        else:
+            raise ValueError(f"Cannot create frame instance for {self}")
 
 
 class OrbitalState(Orbital, State):
@@ -740,11 +891,157 @@ class OrbitalState(Orbital, State):
     is the corresponding velocity vector. All methods provided by :class:`~.Orbital` are available.
     Formulae for conversions are generally found in, or derived from [4]_.
 
+    The orbital state can be expressed in different reference frames. The default is J2000
+    (mean equator and equinox at J2000.0), but GCRS, ICRS, or ECEF can be specified via
+    the ``reference_frame`` property.
+
     References
     ----------
     .. [4] Curtis, H.D. 2010, Orbital Mechanics for Engineering Students (3rd Ed), Elsevier
            Aerospace Engineering Series
     """
+
+    reference_frame: ReferenceFrameType = Property(
+        default=ReferenceFrameType.J2000,
+        doc="Reference frame for the orbital state. Default is J2000. "
+        "Acceptable values are 'J2000', 'GCRS', 'ICRS', 'ECI', or 'ECEF'.",
+    )
+
+    def transform_to_frame(
+        self, target_frame: ReferenceFrameType, timestamp: datetime | None = None
+    ) -> "OrbitalState":
+        """Transform the orbital state to a different reference frame.
+
+        Parameters
+        ----------
+        target_frame : ReferenceFrameType or str
+            The target reference frame. Can be a ReferenceFrameType enum or
+            a string like 'J2000', 'GCRS', 'ICRS'.
+        timestamp : datetime, optional
+            Time at which to perform the transformation. If None, uses the
+            state's timestamp. Required for time-dependent transformations.
+
+        Returns
+        -------
+        OrbitalState
+            A new OrbitalState in the target reference frame.
+
+        Examples
+        --------
+        >>> state_j2000 = OrbitalState(...)
+        >>> state_gcrs = state_j2000.transform_to_frame('GCRS')
+
+        """
+        # Convert string to enum if needed
+        if isinstance(target_frame, str):
+            target_frame = ReferenceFrameType(target_frame)
+
+        # No transformation needed if already in target frame
+        if target_frame == self.reference_frame:
+            return self
+
+        # Use state's timestamp if not provided
+        if timestamp is None:
+            timestamp = self.timestamp
+
+        # Get frame instances
+        source_frame = self.reference_frame.get_frame_instance()
+        target_frame_inst = target_frame.get_frame_instance()
+
+        # Extract position and velocity
+        position = np.array(self.state_vector[:3]).flatten()
+        velocity = (
+            np.array(self.state_vector[3:6]).flatten() if len(self.state_vector) >= 6 else None
+        )
+
+        # Perform transformation using frame's transform_to method
+        pos_new, vel_new = source_frame.transform_to(
+            target_frame_inst, position, velocity, timestamp
+        )
+
+        # Create new state vector
+        if vel_new is not None:
+            new_state_vector = StateVector(np.concatenate([pos_new, vel_new]))
+        else:
+            new_state_vector = StateVector(pos_new)
+
+        # Create new OrbitalState with transformed coordinates
+        return OrbitalState(
+            state_vector=new_state_vector,
+            timestamp=self.timestamp,
+            reference_frame=target_frame,
+            grav_parameter=self.grav_parameter,
+            metadata=self.metadata,
+        )
+
+    def to_j2000(self, timestamp: datetime | None = None) -> "OrbitalState":
+        """Convert to J2000 reference frame.
+
+        Parameters
+        ----------
+        timestamp : datetime, optional
+            Time at which to perform the transformation.
+
+        Returns
+        -------
+        OrbitalState
+            Orbital state in J2000 frame.
+
+        """
+        return self.transform_to_frame(ReferenceFrameType.J2000, timestamp)
+
+    def to_gcrs(self, timestamp: datetime | None = None) -> "OrbitalState":
+        """Convert to GCRS (Geocentric Celestial Reference System).
+
+        Parameters
+        ----------
+        timestamp : datetime, optional
+            Time at which to perform the transformation.
+
+        Returns
+        -------
+        OrbitalState
+            Orbital state in GCRS frame.
+
+        """
+        return self.transform_to_frame(ReferenceFrameType.GCRS, timestamp)
+
+    def to_icrs(self, timestamp: datetime | None = None) -> "OrbitalState":
+        """Convert to ICRS (International Celestial Reference System).
+
+        Parameters
+        ----------
+        timestamp : datetime, optional
+            Time at which to perform the transformation.
+
+        Returns
+        -------
+        OrbitalState
+            Orbital state in ICRS frame.
+
+        """
+        return self.transform_to_frame(ReferenceFrameType.ICRS, timestamp)
+
+    @property
+    def position(self) -> np.ndarray:
+        """Get position vector (first 3 elements of state vector)."""
+        return np.array(self.state_vector[:3]).flatten()
+
+    @property
+    def velocity(self) -> np.ndarray:
+        """Get velocity vector (elements 3-6 of state vector)."""
+        return np.array(self.state_vector[3:6]).flatten()
+
+    def get_frame_instance(self) -> ReferenceFrame:
+        """Get the ReferenceFrame instance for this state's frame.
+
+        Returns
+        -------
+        ReferenceFrame
+            The reference frame instance.
+
+        """
+        return self.reference_frame.get_frame_instance()
 
 
 class GaussianOrbitalState(Orbital, GaussianState):

@@ -12,7 +12,6 @@ from datetime import datetime, timedelta, timezone
 from math import modf
 
 import numpy as np
-
 from dateutil.parser import parse
 
 from ..base import Property
@@ -35,20 +34,18 @@ class _DictReader(Reader):
     """
 
     state_vector_fields: Sequence[str] = Property(
-        doc='List of columns names to be used in state vector')
-    time_field: str = Property(
-        doc='Name of column to be used as time field')
-    time_field_format: str = Property(
-        default=None, doc='Optional datetime format')
-    timestamp: bool = Property(
-        default=False, doc='Treat time field as a timestamp from epoch')
+        doc="List of columns names to be used in state vector"
+    )
+    time_field: str = Property(doc="Name of column to be used as time field")
+    time_field_format: str = Property(default=None, doc="Optional datetime format")
+    timestamp: bool = Property(default=False, doc="Treat time field as a timestamp from epoch")
     metadata_fields: Collection[str] = Property(
-        default=None, doc='List of columns to be saved as metadata, default all')
+        default=None, doc="List of columns to be saved as metadata, default all"
+    )
 
     @property
     @abstractmethod
-    def dict_reader(self) -> Iterator[dict]:
-        ...
+    def dict_reader(self) -> Iterator[dict]: ...
 
     @property
     def _default_metadata_fields_to_ignore(self) -> set[str]:
@@ -63,9 +60,7 @@ class _DictReader(Reader):
             }
         else:
             local_metadata = {
-                key: value
-                for key, value in row.items()
-                if key in self.metadata_fields
+                key: value for key, value in row.items() if key in self.metadata_fields
             }
         return local_metadata
 
@@ -74,9 +69,10 @@ class _DictReader(Reader):
             time_field_value = datetime.strptime(row[self.time_field], self.time_field_format)
         elif self.timestamp is True:
             fractional, timestamp = modf(float(row[self.time_field]))
-            time_field_value = datetime.fromtimestamp(
-                int(timestamp), timezone.utc).replace(tzinfo=None)
-            time_field_value += timedelta(microseconds=fractional * 1E6)
+            time_field_value = datetime.fromtimestamp(int(timestamp), timezone.utc).replace(
+                tzinfo=None
+            )
+            time_field_value += timedelta(microseconds=fractional * 1e6)
         else:
             time_field_value = row[self.time_field]
 
@@ -88,7 +84,8 @@ class _DictReader(Reader):
 
 class _DictionaryReader(_DictReader):
     dictionaries: Iterator[dict] = Property(
-        doc='A source of :class:`dict` data that contains state information.')
+        doc="A source of :class:`dict` data that contains state information."
+    )
 
     @property
     def dict_reader(self) -> Iterator[dict]:
@@ -97,22 +94,22 @@ class _DictionaryReader(_DictReader):
 
 class _CSVReader(_DictReader, TextFileReader):
     csv_options: Mapping = Property(
-        default_factory=dict, doc='Keyword arguments for the underlying csv reader')
+        default_factory=dict, doc="Keyword arguments for the underlying csv reader"
+    )
 
     @property
     def dict_reader(self) -> Iterator[dict]:
-        with self.path.open(encoding=self.encoding, newline='') as csv_file:
+        with self.path.open(encoding=self.encoding, newline="") as csv_file:
             yield from csv.DictReader(csv_file, **self.csv_options)
 
 
 class _DictGroundTruthReader(GroundTruthReader, _DictReader):
     """An abstract reader for dictionaries containing truth data."""
 
-    path_id_field: str = Property(doc='Name of column to be used as path ID')
+    path_id_field: str = Property(doc="Name of column to be used as path ID")
 
     @BufferedGenerator.generator_method
     def groundtruth_paths_gen(self) -> Iterator[tuple[datetime, set[GroundTruthPath]]]:
-
         """
         Generator method that yields :class:`~.GroundTruthPath`.
 
@@ -138,10 +135,12 @@ class _DictGroundTruthReader(GroundTruthReader, _DictReader):
             previous_time = time
 
             state = GroundTruthState(
-                np.array([[row[col_name]] for col_name in self.state_vector_fields],
-                         dtype=np.float64),
+                np.array(
+                    [[row[col_name]] for col_name in self.state_vector_fields], dtype=np.float64
+                ),
                 timestamp=time,
-                metadata=self._get_metadata(row))
+                metadata=self._get_metadata(row),
+            )
 
             id_ = row[self.path_id_field]
             if id_ not in groundtruth_dict:
@@ -198,15 +197,20 @@ class _DictDetectionReader(DetectionReader, _DictReader):
 
             time = self._get_time(row)
             if previous_time is not None and previous_time != time:
-                yield previous_time, detections  # noqa: DOC402
+                yield previous_time, detections
                 detections = set()
             previous_time = time
 
-            detections.add(Detection(
-                np.array([[row[col_name]] for col_name in self.state_vector_fields],
-                         dtype=np.float64),
-                timestamp=time,
-                metadata=self._get_metadata(row)))
+            detections.add(
+                Detection(
+                    np.array(
+                        [[row[col_name]] for col_name in self.state_vector_fields],
+                        dtype=np.float64,
+                    ),
+                    timestamp=time,
+                    metadata=self._get_metadata(row),
+                )
+            )
 
         # Yield remaining
         yield previous_time, detections
@@ -242,15 +246,15 @@ class _DictTrackReader(TrackReader, _DictReader):
     dictionaries. The source of the dictionaries is not set in this class. See subclasses for a
     useable class."""
 
-    track_id_field: str = Property(doc='Name of column to be used as path ID')
+    track_id_field: str = Property(doc="Name of column to be used as path ID")
     default_covar: np.ndarray = Property(doc="Default covariance matrix for the state.")
     covar_fields_index: dict[str, tuple[int]] = Property(
-        doc="Dictionary mapping covariance field names to their indices in the covariance matrix.")
+        doc="Dictionary mapping covariance field names to their indices in the covariance matrix."
+    )
 
     @property
     def _default_metadata_fields_to_ignore(self) -> set[str]:
-        return {*self.covar_fields_index.keys(),
-                *super()._default_metadata_fields_to_ignore}
+        return {*self.covar_fields_index.keys(), *super()._default_metadata_fields_to_ignore}
 
     @BufferedGenerator.generator_method
     def tracks_gen(self) -> Iterator[tuple[datetime, set[Track]]]:
@@ -266,8 +270,9 @@ class _DictTrackReader(TrackReader, _DictReader):
                 updated_tracks = set()
             previous_time = time
 
-            state_vector = np.array([[row[col_name]] for col_name in self.state_vector_fields],
-                                    dtype=np.float64)
+            state_vector = np.array(
+                [[row[col_name]] for col_name in self.state_vector_fields], dtype=np.float64
+            )
 
             covar = self.default_covar.copy()
             for covar_field_name, index in self.covar_fields_index.items():
@@ -278,11 +283,7 @@ class _DictTrackReader(TrackReader, _DictReader):
                     warning_str = f"'{covar_field_name}' could not be found in the dictionary."
                     warnings.warn(warning_str, stacklevel=3)
 
-            state = GaussianState(
-                state_vector=state_vector,
-                covar=covar,
-                timestamp=time
-            )
+            state = GaussianState(state_vector=state_vector, covar=covar, timestamp=time)
 
             track_id = row[self.track_id_field]
             if track_id not in track_dict:

@@ -1,17 +1,17 @@
-from operator import attrgetter
 import datetime
+from operator import attrgetter
 
 import numpy as np
 import pytest
 
-from ..distance import DistanceHypothesiser
+from ... import measures
 from ...types.detection import Detection
 from ...types.state import GaussianState
 from ...types.track import Track
-from ... import measures
+from ..distance import DistanceHypothesiser
 
 
-@pytest.mark.parametrize('predict_with_measurements', [True, False])
+@pytest.mark.parametrize("predict_with_measurements", [True, False])
 def test_mahalanobis(predictor, updater, predict_with_measurements):
 
     timestamp = datetime.datetime.now()
@@ -23,8 +23,12 @@ def test_mahalanobis(predictor, updater, predict_with_measurements):
 
     measure = measures.Mahalanobis()
     hypothesiser = DistanceHypothesiser(
-        predictor, updater, measure=measure, missed_distance=3,
-        predict_with_measurements=predict_with_measurements)
+        predictor,
+        updater,
+        measure=measure,
+        missed_distance=3,
+        predict_with_measurements=predict_with_measurements,
+    )
 
     hypotheses = hypothesiser.hypothesise(track, detections, timestamp)
 
@@ -32,8 +36,7 @@ def test_mahalanobis(predictor, updater, predict_with_measurements):
     assert len(hypotheses) == 3
 
     # And not detection3
-    assert detection3 not in {hypothesis.measurement
-                              for hypothesis in hypotheses}
+    assert detection3 not in {hypothesis.measurement for hypothesis in hypotheses}
 
     # There is a missed detection hypothesis
     assert any(not hypothesis.measurement for hypothesis in hypotheses)
@@ -42,7 +45,7 @@ def test_mahalanobis(predictor, updater, predict_with_measurements):
     assert all(hypothesis.distance >= 0 for hypothesis in hypotheses)
 
     # The hypotheses are sorted correctly
-    assert min(hypotheses, key=attrgetter('distance')) is hypotheses[0]
+    assert min(hypotheses, key=attrgetter("distance")) is hypotheses[0]
 
 
 def test_distance_include_all(predictor, updater):
@@ -56,8 +59,8 @@ def test_distance_include_all(predictor, updater):
 
     measure = measures.Mahalanobis()
     hypothesiser = DistanceHypothesiser(
-        predictor, updater, measure=measure, missed_distance=1,
-        include_all=True)
+        predictor, updater, measure=measure, missed_distance=1, include_all=True
+    )
 
     hypotheses = hypothesiser.hypothesise(track, detections, timestamp)
 

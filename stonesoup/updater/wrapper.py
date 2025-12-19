@@ -1,6 +1,6 @@
-from . import Updater
 from ..base import Property
 from ..types.detection import GaussianDetection
+from . import Updater
 
 
 class DetectionAndTrackSwitchingUpdater(Updater):
@@ -12,10 +12,12 @@ class DetectionAndTrackSwitchingUpdater(Updater):
     def predict_measurement(self, state_prediction, measurement_model=None, **kwargs):
         if measurement_model.ndim == state_prediction.ndim:
             return self.track_updater.predict_measurement(
-                state_prediction, measurement_model, **kwargs)
+                state_prediction, measurement_model, **kwargs
+            )
         else:
             return self.detection_updater.predict_measurement(
-               state_prediction, measurement_model, **kwargs)
+                state_prediction, measurement_model, **kwargs
+            )
 
     def update(self, hypothesis, **kwargs):
         if isinstance(hypothesis.measurement, GaussianDetection):

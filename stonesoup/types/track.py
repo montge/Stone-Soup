@@ -1,11 +1,11 @@
 import copy
 import uuid
-from collections.abc import MutableSequence, MutableMapping
+from collections.abc import MutableMapping, MutableSequence
 
+from ..base import Property
 from .multihypothesis import MultipleHypothesis
 from .state import State, StateMutableSequence
 from .update import Update
-from ..base import Property
 
 
 class Track(StateMutableSequence):
@@ -23,17 +23,19 @@ class Track(StateMutableSequence):
 
     states: MutableSequence[State] = Property(
         default_factory=list,
-        doc="The initial states of the track. Default `None` which initialises with empty list.")
+        doc="The initial states of the track. Default `None` which initialises with empty list.",
+    )
     id: str = Property(default_factory=lambda: str(uuid.uuid4()), doc="The unique track ID")
     init_metadata: MutableMapping = Property(
         default_factory=dict,
         doc="Initial dictionary of metadata items for track. Default `None` which "
-            "initialises track metadata as an empty dictionary.")
+        "initialises track metadata as an empty dictionary.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.metadatas = list()
+        self.metadatas = []
 
         for state in self.states:
             self._update_metadata_from_state(state)
@@ -46,7 +48,7 @@ class Track(StateMutableSequence):
 
     def __copy__(self):
         inst = super().__copy__()
-        inst.__dict__['metadatas'] = list(copy.copy(md) for md in self.__dict__['metadatas'])
+        inst.__dict__["metadatas"] = [copy.copy(md) for md in self.__dict__["metadatas"]]
         return inst
 
     def insert(self, index, value):
@@ -127,8 +129,7 @@ class Track(StateMutableSequence):
                 # ones.
                 try:
                     for hypothesis in sorted(state.hypothesis):
-                        if hypothesis \
-                                and hypothesis.measurement.metadata is not None:
+                        if hypothesis and hypothesis.measurement.metadata is not None:
                             self.metadata.update(hypothesis.measurement.metadata)
                 except TypeError:
                     pass

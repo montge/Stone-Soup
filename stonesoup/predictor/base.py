@@ -1,9 +1,10 @@
 """Base classes for Stone Soup Predictor interface"""
+
 from abc import abstractmethod
 
 from ..base import Base, Property
-from ..models.transition import TransitionModel
 from ..models.control import ControlModel
+from ..models.transition import TransitionModel
 
 
 class Predictor(Base):

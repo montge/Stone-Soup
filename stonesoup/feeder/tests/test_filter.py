@@ -3,9 +3,7 @@ import datetime
 import numpy as np
 import pytest
 
-from ..filter import (MetadataReducer,
-                      MetadataValueFilter,
-                      BoundingBoxReducer)
+from ..filter import BoundingBoxReducer, MetadataReducer, MetadataValueFilter
 
 
 def test_metadata_reducer(detector):
@@ -13,11 +11,9 @@ def test_metadata_reducer(detector):
 
     multi_none = False
     for time, detections in feeder:
-        all_colours = [detection.metadata.get('colour')
-                       for detection in detections]
+        all_colours = [detection.metadata.get("colour") for detection in detections]
         if not multi_none:
-            multi_none = len(
-                [colour for colour in all_colours if colour is None]) > 1
+            multi_none = len([colour for colour in all_colours if colour is None]) > 1
         colours = [colour for colour in all_colours if colour is not None]
         assert len(colours) == len(set(colours))
 
@@ -34,21 +30,17 @@ def test_metadata_reducer(detector):
 
 
 def test_metadata_value_filter(detector):
-    feeder = MetadataValueFilter(detector,
-                                 metadata_field="score",
-                                 operator=lambda x: x >= 0.1)
+    feeder = MetadataValueFilter(detector, metadata_field="score", operator=lambda x: x >= 0.1)
     # Discard unmatched
     nones = False
     for time, detections in feeder:
-        all_scores = [detection.metadata.get('score')
-                      for detection in detections]
-        nones = nones | (len([score for score in all_scores
-                              if score is None]) > 0)
+        all_scores = [detection.metadata.get("score") for detection in detections]
+        nones = nones | (len([score for score in all_scores if score is None]) > 0)
         scores = [score for score in all_scores if score is not None]
         assert len(scores) == len(set(scores))
         assert 0 not in scores
         if time < datetime.datetime(2019, 4, 1, 14, 0, 2):
-            assert all([score <= 0.5 for score in scores])
+            assert all(score <= 0.5 for score in scores)
         assert all(time == detection.timestamp for detection in detections)
     assert not nones
 
@@ -56,25 +48,22 @@ def test_metadata_value_filter(detector):
     feeder.keep_unmatched = True
     nones = False
     for time, detections in feeder:
-        all_scores = [detection.metadata.get('score')
-                      for detection in detections]
-        nones = nones | (len([score for score in all_scores
-                              if score is None]) > 0)
+        all_scores = [detection.metadata.get("score") for detection in detections]
+        nones = nones | (len([score for score in all_scores if score is None]) > 0)
         scores = [score for score in all_scores if score is not None]
         assert len(scores) == len(set(scores))
         assert 0 not in scores
         if time < datetime.datetime(2019, 4, 1, 14, 0, 2):
-            assert all([score <= 0.5 for score in scores])
+            assert all(score <= 0.5 for score in scores)
         assert all(time == detection.timestamp for detection in detections)
     assert nones
 
 
-@pytest.mark.parametrize('apply_measurement_model_inverse', [False, True])
+@pytest.mark.parametrize("apply_measurement_model_inverse", [False, True])
 def test_boundingbox_reducer_detections(detector, apply_measurement_model_inverse):
 
     # Simple 2D rectangle/bounding box
-    limits = np.array([[-1, 1],
-                       [-2, 2]])
+    limits = np.array([[-1, 1], [-2, 2]])
     mapping = [1, 0]
 
     # Confirm errors raised on improper instantiation attempt
@@ -87,7 +76,8 @@ def test_boundingbox_reducer_detections(detector, apply_measurement_model_invers
         detector,
         limits,
         [2, 0] if apply_measurement_model_inverse else [1, 0],
-        apply_measurement_model_inverse)
+        apply_measurement_model_inverse,
+    )
 
     # Ensure only measurements within box are returned
     multi_check = True
@@ -120,8 +110,7 @@ def test_boundingbox_reducer_groundtruth(groundtruth):
         BoundingBoxReducer(groundtruth)
 
     # Simple 2D rectangle/bounding box
-    limits = np.array([[-100, 100],
-                       [-100, 100]])
+    limits = np.array([[-100, 100], [-100, 100]])
     mapping = [1, 0]
 
     feeder = BoundingBoxReducer(groundtruth, limits, mapping)
@@ -153,8 +142,7 @@ def test_boundingbox_reducer_groundtruth(groundtruth):
 
 def test_boundingbox_reducer_default_mapping(reader):
     # Simple 2D rectangle/bounding box
-    limits = np.array([[-1, 1],
-                       [-2, 2]])
+    limits = np.array([[-1, 1], [-2, 2]])
 
     feeder = BoundingBoxReducer(reader, limits)
 

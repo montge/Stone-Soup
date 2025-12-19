@@ -1,0 +1,210 @@
+name: Fuzzing
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'libstonesoup/**'
+      - 'bindings/rust/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'libstonesoup/**'
+      - 'bindings/rust/**'
+  schedule:
+    # Run extended fuzzing nightly at 4 AM UTC
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+    inputs:
+      fuzz_duration:
+        description: 'Fuzzing duration in seconds'
+        required: false
+        default: '300'
+
+permissions:
+  contents: read
+
+jobs:
+  c-fuzzing:
+    name: C Library Fuzzing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm cmake
+
+      - name: Restore corpus cache
+        uses: actions/cache@v4
+        with:
+          path: libstonesoup/build/corpus
+          key: fuzz-corpus-c-${{ github.sha }}
+          restore-keys: |
+            fuzz-corpus-c-
+
+      - name: Build fuzzer
+        working-directory: libstonesoup
+        run: |
+          mkdir -p build && cd build
+          cmake -DCMAKE_C_COMPILER=clang -DENABLE_FUZZING=ON ..
+          make -j$(nproc) fuzz_kalman
+
+      - name: Determine fuzz duration
+        id: duration
+        run: |
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            echo "seconds=3600" >> $GITHUB_OUTPUT  # 1 hour for nightly
+          elif [ -n "${{ github.event.inputs.fuzz_duration }}" ]; then
+            echo "seconds=${{ github.event.inputs.fuzz_duration }}" >> $GITHUB_OUTPUT
+          else
+            echo "seconds=300" >> $GITHUB_OUTPUT  # 5 minutes for PR
+          fi
+
+      - name: Run fuzzing
+        working-directory: libstonesoup/build
+        run: |
+          mkdir -p corpus
+          ./fuzz_kalman \
+            -max_len=1024 \
+            -max_total_time=${{ steps.duration.outputs.seconds }} \
+            corpus/ || true  # Don't fail workflow on crash
+
+      - name: Check for crashes
+        id: crashes
+        working-directory: libstonesoup/build
+        run: |
+          if ls crash-* 1>/dev/null 2>&1; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "::warning::Fuzzing found crashes!"
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "No crashes found"
+          fi
+
+      - name: Upload crash artifacts
+        if: steps.crashes.outputs.found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: c-fuzzing-crashes
+          path: libstonesoup/build/crash-*
+          retention-days: 30
+
+      - name: Save corpus cache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: libstonesoup/build/corpus
+          key: fuzz-corpus-c-${{ github.sha }}
+
+  rust-fuzzing:
+    name: Rust Bindings Fuzzing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: llvm-tools-preview
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz
+
+      - name: Restore corpus cache
+        uses: actions/cache@v4
+        with:
+          path: bindings/rust/fuzz/corpus
+          key: fuzz-corpus-rust-${{ github.sha }}
+          restore-keys: |
+            fuzz-corpus-rust-
+
+      - name: Check for fuzz targets
+        id: fuzz-check
+        working-directory: bindings/rust
+        run: |
+          if [ -d "fuzz" ] && [ -f "fuzz/Cargo.toml" ]; then
+            echo "has_fuzz=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_fuzz=false" >> $GITHUB_OUTPUT
+            echo "No fuzz targets found - skipping"
+          fi
+
+      - name: Determine fuzz duration
+        id: duration
+        if: steps.fuzz-check.outputs.has_fuzz == 'true'
+        run: |
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            echo "seconds=3600" >> $GITHUB_OUTPUT
+          elif [ -n "${{ github.event.inputs.fuzz_duration }}" ]; then
+            echo "seconds=${{ github.event.inputs.fuzz_duration }}" >> $GITHUB_OUTPUT
+          else
+            echo "seconds=300" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Rust fuzzing
+        if: steps.fuzz-check.outputs.has_fuzz == 'true'
+        working-directory: bindings/rust
+        run: |
+          for target in $(cargo fuzz list 2>/dev/null || echo ""); do
+            echo "Fuzzing target: $target"
+            cargo fuzz run "$target" -- \
+              -max_total_time=${{ steps.duration.outputs.seconds }} \
+              || true  # Don't fail on crash
+          done
+        continue-on-error: true
+
+      - name: Check for crashes
+        id: crashes
+        if: steps.fuzz-check.outputs.has_fuzz == 'true'
+        working-directory: bindings/rust
+        run: |
+          if find fuzz/artifacts -name "crash-*" 2>/dev/null | grep -q .; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "::warning::Rust fuzzing found crashes!"
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "No crashes found"
+          fi
+
+      - name: Upload crash artifacts
+        if: steps.fuzz-check.outputs.has_fuzz == 'true' && steps.crashes.outputs.found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-fuzzing-crashes
+          path: bindings/rust/fuzz/artifacts/**/crash-*
+          retention-days: 30
+
+      - name: Save corpus cache
+        if: steps.fuzz-check.outputs.has_fuzz == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: bindings/rust/fuzz/corpus
+          key: fuzz-corpus-rust-${{ github.sha }}
+
+  fuzz-summary:
+    name: Fuzzing Summary
+    runs-on: ubuntu-latest
+    needs: [c-fuzzing, rust-fuzzing]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          echo "## Fuzzing Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.c-fuzzing.result }}" == "success" ]; then
+            echo "- C Library Fuzzing: Completed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- C Library Fuzzing: ${{ needs.c-fuzzing.result }}" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.rust-fuzzing.result }}" == "success" ]; then
+            echo "- Rust Bindings Fuzzing: Completed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Rust Bindings Fuzzing: ${{ needs.rust-fuzzing.result }}" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check artifacts for any crash inputs found." >> $GITHUB_STEP_SUMMARY

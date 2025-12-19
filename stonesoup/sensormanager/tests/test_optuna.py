@@ -1,8 +1,9 @@
 import copy
 from collections import defaultdict
+
+import numpy as np
 import pytest
 from ordered_set import OrderedSet
-import numpy as np
 
 try:
     from ..optuna import OptunaSensorManager
@@ -11,35 +12,37 @@ except ImportError:
     pytest.skip(
         "Skipping due to missing optional dependencies. Usage of Optuna Sensor Manager requires "
         "that the optional package `optuna`is installed.",
-        allow_module_level=True
+        allow_module_level=True,
     )
 
-from ..reward import UncertaintyRewardFunction
+from ...dataassociator.neighbour import GNNWith2DAssignment
 from ...hypothesiser.distance import DistanceHypothesiser
 from ...measures import Mahalanobis
-from ...dataassociator.neighbour import GNNWith2DAssignment
-from ...sensor.radar.radar import RadarRotatingBearingRange
 from ...sensor.action.dwell_action import ChangeDwellAction
+from ...sensor.radar.radar import RadarRotatingBearingRange
+from ..reward import UncertaintyRewardFunction
 
 
 def test_optuna_manager(params):
-    predictor = params['predictor']
-    updater = params['updater']
-    sensor_set = params['sensor_set']
-    timesteps = params['timesteps']
-    tracks = params['tracks']
-    truths = params['truths']
+    predictor = params["predictor"]
+    updater = params["updater"]
+    sensor_set = params["sensor_set"]
+    timesteps = params["timesteps"]
+    tracks = params["tracks"]
+    truths = params["truths"]
 
     reward_function = UncertaintyRewardFunction(predictor, updater)
-    optunasensormanager = OptunaSensorManager(sensor_set, reward_function=reward_function,
-                                              timeout=0.1)
+    optunasensormanager = OptunaSensorManager(
+        sensor_set, reward_function=reward_function, timeout=0.1
+    )
 
-    hypothesiser = DistanceHypothesiser(predictor, updater, measure=Mahalanobis(),
-                                        missed_distance=5)
+    hypothesiser = DistanceHypothesiser(
+        predictor, updater, measure=Mahalanobis(), missed_distance=5
+    )
     data_associator = GNNWith2DAssignment(hypothesiser)
 
     sensor_history = defaultdict(dict)
-    dwell_centres = dict()
+    dwell_centres = {}
 
     for timestep in timesteps[1:]:
         chosen_actions = optunasensormanager.choose_actions(tracks, timestep)
@@ -51,11 +54,10 @@ def test_optuna_manager(params):
             sensor.act(timestep)
             sensor_history[timestep][sensor] = copy.copy(sensor)
             dwell_centres[timestep] = sensor.dwell_centre[0][0]
-            measurements |= sensor.measure(OrderedSet(truth[timestep] for truth in truths),
-                                           noise=False)
-        hypotheses = data_associator.associate(tracks,
-                                               measurements,
-                                               timestep)
+            measurements |= sensor.measure(
+                OrderedSet(truth[timestep] for truth in truths), noise=False
+            )
+        hypotheses = data_associator.associate(tracks, measurements, timestep)
         for track in tracks:
             hypothesis = hypotheses[track]
             if hypothesis.measurement:

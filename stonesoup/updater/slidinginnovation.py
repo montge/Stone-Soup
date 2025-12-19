@@ -2,7 +2,7 @@ import numpy as np
 
 from ..base import Property
 from ..types.array import CovarianceMatrix
-from .kalman import KalmanUpdater, ExtendedKalmanUpdater
+from .kalman import ExtendedKalmanUpdater, KalmanUpdater
 
 
 class SlidingInnovationUpdater(KalmanUpdater):
@@ -25,10 +25,12 @@ class SlidingInnovationUpdater(KalmanUpdater):
     1. S. A. Gadsden and M. Al-Shabi, "The Sliding Innovation Filter," in IEEE Access, vol. 8,
        pp. 96129-96138, 2020, doi: 10.1109/ACCESS.2020.2995345.
     """
+
     layer_width: np.ndarray = Property(
         doc="Sliding boundary layer width :math:`\\mathbf{\\delta}`. A tunable parameter in "
-            "measurement space. An example initial value provided in original paper is "
-            ":math:`10 \\times \\text{diag}(R)`")
+        "measurement space. An example initial value provided in original paper is "
+        ":math:`10 \\times \\text{diag}(R)`"
+    )
 
     def _posterior_covariance(self, hypothesis):
         measurement_model = self._check_measurement_model(hypothesis.measurement.measurement_model)
@@ -36,14 +38,17 @@ class SlidingInnovationUpdater(KalmanUpdater):
 
         layer_width = self.layer_width.reshape((-1, 1))  # Must be column vector
 
-        innovation_vector = hypothesis.measurement.state_vector \
-            - hypothesis.measurement_prediction.state_vector
-        gain = np.linalg.pinv(measurement_matrix) \
-            @ np.diag(np.clip(np.abs(innovation_vector)/layer_width, -1, 1).ravel())
+        innovation_vector = (
+            hypothesis.measurement.state_vector - hypothesis.measurement_prediction.state_vector
+        )
+        gain = np.linalg.pinv(measurement_matrix) @ np.diag(
+            np.clip(np.abs(innovation_vector) / layer_width, -1, 1).ravel()
+        )
 
-        I_KH = np.identity(hypothesis.prediction.ndim) - gain@measurement_matrix
-        posterior_covariance = \
-            I_KH@hypothesis.prediction.covar@I_KH.T + gain@measurement_model.covar()@gain.T
+        I_KH = np.identity(hypothesis.prediction.ndim) - gain @ measurement_matrix
+        posterior_covariance = (
+            I_KH @ hypothesis.prediction.covar @ I_KH.T + gain @ measurement_model.covar() @ gain.T
+        )
 
         return posterior_covariance.view(CovarianceMatrix), gain
 
@@ -59,4 +64,5 @@ class ExtendedSlidingInnovationUpdater(SlidingInnovationUpdater, ExtendedKalmanU
     1. S. A. Gadsden and M. Al-Shabi, "The Sliding Innovation Filter," in IEEE Access, vol. 8,
        pp. 96129-96138, 2020, doi: 10.1109/ACCESS.2020.2995345.
     """
+
     pass

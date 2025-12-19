@@ -1,20 +1,18 @@
-from typing import Union
-
 import numpy as np
 from scipy.stats import multivariate_normal as mvn
 
 from stonesoup.base import Property
 from stonesoup.models.control import ControlModel
 from stonesoup.models.transition import TransitionModel
+from stonesoup.predictor.base import Predictor
+from stonesoup.predictor.kalman import SqrtKalmanPredictor
 from stonesoup.proposal.base import Proposal
 from stonesoup.types.array import StateVector, StateVectors
 from stonesoup.types.detection import Detection
-from stonesoup.types.state import State, GaussianState, SqrtGaussianState
-from stonesoup.types.prediction import Prediction
-from stonesoup.updater.base import Updater
-from stonesoup.predictor.base import Predictor
-from stonesoup.predictor.kalman import SqrtKalmanPredictor
 from stonesoup.types.hypothesis import SingleHypothesis
+from stonesoup.types.prediction import Prediction
+from stonesoup.types.state import GaussianState, SqrtGaussianState, State
+from stonesoup.updater.base import Updater
 
 
 class DynamicsProposal(Proposal):
@@ -27,7 +25,7 @@ class DynamicsProposal(Proposal):
     control_model: ControlModel = Property(default=None, doc="control model")
 
     def rvs(self, prior: State, measurement=None, time_interval=None, control_input=None,
-            **kwargs) -> Union[StateVector, StateVectors]:
+            **kwargs) -> StateVector | StateVectors:
         """Generate samples from the proposal.
 
         Parameters
@@ -76,13 +74,11 @@ class KalmanProposal(Proposal):
     """This proposal uses the Kalman filter prediction and update steps to
     generate new set of particles and weights
     """
-    predictor: Predictor = Property(
-        doc="predictor to use the various values")
-    updater: Updater = Property(
-        doc="Updater used for update the values")
 
-    def rvs(self, prior: State, measurement: Detection = None, time_interval=None,
-            **kwargs):
+    predictor: Predictor = Property(doc="predictor to use the various values")
+    updater: Updater = Property(doc="Updater used for update the values")
+
+    def rvs(self, prior: State, measurement: Detection = None, time_interval=None, **kwargs):
         """Generate samples from the proposal.
 
         Use the Kalman filter predictor and updater to create a new distribution
@@ -110,12 +106,14 @@ class KalmanProposal(Proposal):
             timestamp = prior.timestamp + time_interval
 
         if time_interval.total_seconds() == 0:
-            return Prediction.from_state(prior,
-                                         parent=prior,
-                                         state_vector=prior.state_vector,
-                                         timestamp=prior.timestamp,
-                                         transition_model=self.predictor.transition_model,
-                                         prior=prior)
+            return Prediction.from_state(
+                prior,
+                parent=prior,
+                state_vector=prior.state_vector,
+                timestamp=prior.timestamp,
+                transition_model=self.predictor.transition_model,
+                prior=prior,
+            )
 
         prior_cls = GaussianState  # Default
         if isinstance(self.predictor, SqrtKalmanPredictor):
@@ -138,25 +136,31 @@ class KalmanProposal(Proposal):
             updates = predictions  # keep the prediction
 
         # Draw the samples
-        samples = np.array([state.state_vector.reshape(-1) +
-                            mvn.rvs(cov=state.covar).T
-                            for state in updates])
+        samples = np.array(
+            [state.state_vector.reshape(-1) + mvn.rvs(cov=state.covar).T for state in updates]
+        )
 
         # Compute the log of q(x_k|x_{k-1}, y_k)
-        post_log_weights = np.array([mvn.logpdf(sample - update.state_vector.reshape(-1),
-                                                cov=update.covar)
-                                     for sample, update in zip(samples, updates)])
+        post_log_weights = np.array(
+            [
+                mvn.logpdf(sample - update.state_vector.reshape(-1), cov=update.covar)
+                for sample, update in zip(samples, updates, strict=False)
+            ]
+        )
 
-        pred_state = Prediction.from_state(prior,
-                                           parent=prior,
-                                           state_vector=StateVectors(samples.T),
-                                           timestamp=timestamp,
-                                           transition_model=self.predictor.transition_model,
-                                           prior=prior)
+        pred_state = Prediction.from_state(
+            prior,
+            parent=prior,
+            state_vector=StateVectors(samples.T),
+            timestamp=timestamp,
+            transition_model=self.predictor.transition_model,
+            prior=prior,
+        )
 
-        prior_log_weights = self.predictor.transition_model.logpdf(pred_state, prior,
-                                                                   time_interval=time_interval)
+        prior_log_weights = self.predictor.transition_model.logpdf(
+            pred_state, prior, time_interval=time_interval
+        )
 
-        pred_state.log_weight = (pred_state.log_weight + prior_log_weights - post_log_weights)
+        pred_state.log_weight = pred_state.log_weight + prior_log_weights - post_log_weights
 
         return pred_state

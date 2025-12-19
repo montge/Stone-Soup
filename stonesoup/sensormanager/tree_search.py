@@ -1,22 +1,23 @@
 import copy
 import itertools as it
 import warnings
-from datetime import timedelta
 from collections.abc import Callable
+from datetime import timedelta
 from enum import Enum
 
 import numpy as np
 
-from .base import SensorManager
 from ..base import Property
+from .base import SensorManager
 
 
 class MCTSBestChildPolicyEnum(Enum):
     r"""Best child policy Enum class for specifying which policy to use when selecting
     the best child at the end of the MCTS process."""
-    MAXAREWARD = 'max_average_reward'
-    MAXCREWARD = 'max_cumulative_reward'
-    MAXVISITS = 'max_visits'
+
+    MAXAREWARD = "max_average_reward"
+    MAXCREWARD = "max_cumulative_reward"
+    MAXVISITS = "max_visits"
 
 
 class MonteCarloTreeSearchSensorManager(SensorManager):
@@ -81,39 +82,47 @@ class MonteCarloTreeSearchSensorManager(SensorManager):
     """
 
     reward_function: Callable = Property(
-        default=None, doc="A function or class designed to work out the reward associated with an "
-                          "action or set of actions. This will be implemented to evaluate each "
-                          "action within the rollout with the discounted sum being stored at "
-                          "the node representing the first action.")
+        default=None,
+        doc="A function or class designed to work out the reward associated with an "
+        "action or set of actions. This will be implemented to evaluate each "
+        "action within the rollout with the discounted sum being stored at "
+        "the node representing the first action.",
+    )
 
     niterations: int = Property(
-        default=100, doc="The number of iterations of the tree search process to be carried out.")
+        default=100, doc="The number of iterations of the tree search process to be carried out."
+    )
 
     time_step: timedelta = Property(
-        default=timedelta(seconds=1), doc="The sample time between steps in the horizon.")
+        default=timedelta(seconds=1), doc="The sample time between steps in the horizon."
+    )
 
     exploration_factor: float = Property(
-        default=1.0, doc="The exploration factor used in the upper confidence bound for trees.")
+        default=1.0, doc="The exploration factor used in the upper confidence bound for trees."
+    )
 
     best_child_policy: MCTSBestChildPolicyEnum = Property(
         default=MCTSBestChildPolicyEnum.MAXCREWARD,
         doc="The policy for selecting the best child. Options are ``'max_average_reward'`` for "
-            "the maximum reward per visit to a node, ``'max_cumulative_reward'`` for the maximum "
-            "total reward after all simulations and ``'max_visits'`` for the node with the "
-            "maximum number of visits. Default is ``'max_cumulative_reward'``.")
+        "the maximum reward per visit to a node, ``'max_cumulative_reward'`` for the maximum "
+        "total reward after all simulations and ``'max_visits'`` for the node with the "
+        "maximum number of visits. Default is ``'max_cumulative_reward'``.",
+    )
 
     discount_factor: float = Property(
         default=0.9,
         doc="The discount factor is applied to rewards beyond the immidiate future timestep "
-            "to reduce the reward of future nodes to reflect the increasing level of uncertainty "
-            "the further into the horizon the search progresses. It is applied multiplicatively "
-            "such that the factor will be raised by power of the number of timesteps "
-            "beyond the immidiate future timestep.")
+        "to reduce the reward of future nodes to reflect the increasing level of uncertainty "
+        "the further into the horizon the search progresses. It is applied multiplicatively "
+        "such that the factor will be raised by power of the number of timesteps "
+        "beyond the immidiate future timestep.",
+    )
 
     search_depth: int = Property(
         default=None,
         doc="The maximum depth to apply to the search tree, specifying the maximum number of "
-            "future timesteps to expand to.")
+        "future timesteps to expand to.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -142,17 +151,21 @@ class MonteCarloTreeSearchSensorManager(SensorManager):
             The pairs of :class:`~.Sensor`: [:class:`~.Action`] selected
         """
 
-        nodes = [{'Child_IDs': [],
-                  'sensors': self.actionables,
-                  'config': dict(),  # the config that has resulted in this node
-                  'configs': [],  # the configs that have not been simulated
-                  'action_count': 0,
-                  'visits': 0,
-                  'reward': 0,
-                  'action_value': 0,
-                  'tracks': copy.deepcopy(tracks),
-                  'timestamp': timestamp-self.time_step,
-                  'level': 0}]
+        nodes = [
+            {
+                "Child_IDs": [],
+                "sensors": self.actionables,
+                "config": {},  # the config that has resulted in this node
+                "configs": [],  # the configs that have not been simulated
+                "action_count": 0,
+                "visits": 0,
+                "reward": 0,
+                "action_value": 0,
+                "tracks": copy.deepcopy(tracks),
+                "timestamp": timestamp - self.time_step,
+                "level": 0,
+            }
+        ]
 
         loop_count = 0
         while loop_count <= self.niterations:
@@ -161,20 +174,22 @@ class MonteCarloTreeSearchSensorManager(SensorManager):
             node_indx = 0
             selected_branch = [0]
             level = 0
-            while (len(nodes[node_indx]['Child_IDs']) > 0 and
-                   len(nodes[node_indx]['Child_IDs']) == nodes[node_indx]['action_count']):
+            while (
+                len(nodes[node_indx]["Child_IDs"]) > 0
+                and len(nodes[node_indx]["Child_IDs"]) == nodes[node_indx]["action_count"]
+            ):
                 node_indx = self.tree_policy(nodes, node_indx)
                 selected_branch.insert(0, node_indx)
                 level += 1
 
             if level <= self.search_depth:
 
-                next_timestamp = nodes[node_indx]['timestamp'] + self.time_step
-                if not nodes[node_indx]['Child_IDs']:
+                next_timestamp = nodes[node_indx]["timestamp"] + self.time_step
+                if not nodes[node_indx]["Child_IDs"]:
                     action_count = 1
-                    all_action_choices = dict()
+                    all_action_choices = {}
 
-                    for sensor in nodes[node_indx]['sensors']:
+                    for sensor in nodes[node_indx]["sensors"]:
                         # get action 'generator(s)'
                         action_generators = sensor.actions(next_timestamp)
                         # list possible action combinations for the sensor
@@ -184,40 +199,45 @@ class MonteCarloTreeSearchSensorManager(SensorManager):
                         # dictionary of sensors: list(action combinations)
                         all_action_choices[sensor] = action_choices
 
-                    nodes[node_indx]['action_count'] = action_count
-                    configs = [{sensor: action
-                                for sensor, action in zip(all_action_choices.keys(), actionconfig)}
-                               for actionconfig in it.product(*all_action_choices.values())]
+                    nodes[node_indx]["action_count"] = action_count
+                    configs = [
+                        dict(zip(all_action_choices.keys(), actionconfig, strict=False))
+                        for actionconfig in it.product(*all_action_choices.values())
+                    ]
 
-                    nodes[node_indx]['configs'] = configs
+                    nodes[node_indx]["configs"] = configs
 
                 # select one of the unsimulated configs
-                config_indx = np.random.randint(0, len(nodes[node_indx]['configs']))
-                nodes[node_indx]['Child_IDs'].append(len(nodes))
+                config_indx = np.random.randint(0, len(nodes[node_indx]["configs"]))
+                nodes[node_indx]["Child_IDs"].append(len(nodes))
                 selected_branch.insert(0, len(nodes))
-                nodes.append({'Child_IDs': [],
-                              'sensors': set(),
-                              'config': nodes[node_indx]['configs'][config_indx],
-                              'configs': [],
-                              'action_count': 0,
-                              'visits': 0,
-                              'reward': 0,
-                              'action_value': 0,
-                              'timestamp': next_timestamp,
-                              'tracks': set(),
-                              'level': level})
+                nodes.append(
+                    {
+                        "Child_IDs": [],
+                        "sensors": set(),
+                        "config": nodes[node_indx]["configs"][config_indx],
+                        "configs": [],
+                        "action_count": 0,
+                        "visits": 0,
+                        "reward": 0,
+                        "action_value": 0,
+                        "timestamp": next_timestamp,
+                        "tracks": set(),
+                        "level": level,
+                    }
+                )
 
-                selected_config = copy.deepcopy(nodes[node_indx]['configs'].pop(config_indx))
+                selected_config = copy.deepcopy(nodes[node_indx]["configs"].pop(config_indx))
 
                 reward, future_reward, updates = self.simulate_action(nodes[-1], nodes[node_indx])
 
-                nodes[-1]['tracks'] = updates
-                nodes[-1]['reward'] = reward  # store immidiate reward as 'reward'
+                nodes[-1]["tracks"] = updates
+                nodes[-1]["reward"] = reward  # store immidiate reward as 'reward'
 
                 for sensor, actions in selected_config.items():
                     sensor.add_actions(actions)
-                    sensor.act(nodes[-1]['timestamp'])
-                    nodes[-1]['sensors'].add(sensor)
+                    sensor.act(nodes[-1]["timestamp"])
+                    nodes[-1]["sensors"].add(sensor)
 
             else:
                 # search depth reached
@@ -226,15 +246,15 @@ class MonteCarloTreeSearchSensorManager(SensorManager):
             # if future_reward is None, assign it as 0
             sim_action_value = future_reward if future_reward else 0
             for node_id in selected_branch:
-                nodes[node_id]['visits'] += 1
-                sim_action_value += nodes[node_id]['reward']
-                nodes[node_id]['action_value'] += sim_action_value
+                nodes[node_id]["visits"] += 1
+                sim_action_value += nodes[node_id]["reward"]
+                nodes[node_id]["action_value"] += sim_action_value
                 sim_action_value *= self.discount_factor
 
         best_children = self.select_best_child(nodes)
         selected_configs = []
         for best_child in best_children:
-            selected_configs.append(nodes[best_child]['config'])
+            selected_configs.append(nodes[best_child]["config"])
 
         return selected_configs
 
@@ -243,13 +263,15 @@ class MonteCarloTreeSearchSensorManager(SensorManager):
         of highly rewarding actioned and exploring actions that have been visited a fewer times"""
 
         uct = []
-        for Child_ID in nodes[node_indx]['Child_IDs']:
-            uct.append(nodes[Child_ID]['action_value']/nodes[Child_ID]['visits'] +
-                       self.exploration_factor*np.sqrt(np.log(nodes[node_indx]['visits'])
-                                                       / nodes[Child_ID]['visits']))
+        for Child_ID in nodes[node_indx]["Child_IDs"]:
+            uct.append(
+                nodes[Child_ID]["action_value"] / nodes[Child_ID]["visits"]
+                + self.exploration_factor
+                * np.sqrt(np.log(nodes[node_indx]["visits"]) / nodes[Child_ID]["visits"])
+            )
 
         max_uct_indx = np.argmax(uct)
-        return nodes[node_indx]['Child_IDs'][max_uct_indx]
+        return nodes[node_indx]["Child_IDs"][max_uct_indx]
 
     def select_best_child(self, nodes):
         """Selects the best child node to the root node in the tree according to
@@ -257,9 +279,9 @@ class MonteCarloTreeSearchSensorManager(SensorManager):
 
         visit_list = []
         reward_list = []
-        for Child_ID in nodes[0]['Child_IDs']:
-            visit_list.append(nodes[Child_ID]['visits'])
-            reward_list.append(nodes[Child_ID]['action_value'])
+        for Child_ID in nodes[0]["Child_IDs"]:
+            visit_list.append(nodes[Child_ID]["visits"])
+            reward_list.append(nodes[Child_ID]["action_value"])
 
         if self.best_child_policy == MCTSBestChildPolicyEnum.MAXCREWARD:
             max_indx = np.argmax(reward_list)
@@ -268,15 +290,15 @@ class MonteCarloTreeSearchSensorManager(SensorManager):
         elif self.best_child_policy == MCTSBestChildPolicyEnum.MAXVISITS:
             max_indx = np.argmax(visit_list)
 
-        return [nodes[0]['Child_IDs'][max_indx]]
+        return [nodes[0]["Child_IDs"][max_indx]]
 
     def simulate_action(self, node, parent_node):
         """Simulates the expected reward that would be received by executing
         the candidate action."""
 
-        reward, updates = self.reward_function(node['config'],
-                                               parent_node['tracks'],
-                                               node['timestamp'])
+        reward, updates = self.reward_function(
+            node["config"], parent_node["tracks"], node["timestamp"]
+        )
         future_reward = None
 
         return reward, future_reward, updates
@@ -290,15 +312,19 @@ class MCTSRolloutSensorManager(MonteCarloTreeSearchSensorManager):
     rollout_depth: int = Property(
         default=None,
         doc="The depth of rollout to conduct for each node. This is only used when "
-            ":attr:`search_depth` is not set or set to `None`.")
+        ":attr:`search_depth` is not set or set to `None`.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # warn about rollout_depth not being considered when search depth in specified
         if self.search_depth < np.inf and self.rollout_depth:
-            warnings.warn('`search_depth` and `rollout_depth` have been defined. '
-                          '`search_depth` overrides rollout depth and forces rollout '
-                          'to end at `search_depth`!')
+            warnings.warn(
+                "`search_depth` and `rollout_depth` have been defined. "
+                "`search_depth` overrides rollout depth and forces rollout "
+                "to end at `search_depth`!",
+                stacklevel=2,
+            )
 
     def simulate_action(self, node, parent_node):
         """Simulates the expected reward that would be received by executing
@@ -306,24 +332,27 @@ class MCTSRolloutSensorManager(MonteCarloTreeSearchSensorManager):
 
         reward_list = []
         # calculate reward of new node
-        reward, updates = self.reward_function(node['config'],
-                                               parent_node['tracks'],
-                                               node['timestamp'])
+        reward, updates = self.reward_function(
+            node["config"], parent_node["tracks"], node["timestamp"]
+        )
         reward_list.append(reward)
         updates_ = updates
 
         tmp_sensors = set()
-        for sensor, actions in copy.deepcopy(node['config']).items():
+        for sensor, actions in copy.deepcopy(node["config"]).items():
             sensor.add_actions(actions)
-            sensor.act(node['timestamp'])
+            sensor.act(node["timestamp"])
             tmp_sensors.add(sensor)
 
         # execute Monte Carlo Rollout from the new node
-        n_steps = self.rollout_depth if np.isinf(self.search_depth) \
-            else self.search_depth - node['level']
+        n_steps = (
+            self.rollout_depth
+            if np.isinf(self.search_depth)
+            else self.search_depth - node["level"]
+        )
         for d in range(n_steps):
-            all_action_choices = dict()
-            timestamp = node['timestamp'] + ((d + 1) * self.time_step)
+            all_action_choices = {}
+            timestamp = node["timestamp"] + ((d + 1) * self.time_step)
 
             action_count = 0
             for sensor in tmp_sensors:
@@ -336,16 +365,17 @@ class MCTSRolloutSensorManager(MonteCarloTreeSearchSensorManager):
                 # dictionary of sensors: list(action combinations)
                 all_action_choices[sensor] = action_choices
 
-            configs = [{sensor: action
-                        for sensor, action in zip(all_action_choices.keys(), actionconfig)}
-                       for actionconfig in it.product(*all_action_choices.values())]
+            configs = [
+                dict(zip(all_action_choices.keys(), actionconfig, strict=False))
+                for actionconfig in it.product(*all_action_choices.values())
+            ]
 
             random_config_indx = np.random.randint(0, action_count)
             random_config = configs[random_config_indx]
 
             reward, updates_ = self.reward_function(random_config, updates_, timestamp)
 
-            reward *= self.discount_factor**(d+1)
+            reward *= self.discount_factor ** (d + 1)
             reward_list.append(reward)
 
             for sensor, actions in random_config.items():

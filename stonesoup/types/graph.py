@@ -11,7 +11,8 @@ except ImportError as error:
     raise ImportError(
         "Usage of the road networks classes requires that the optional package dependencies "
         "'geopandas' and 'networkx' are installed. This can be achieved by running "
-        "'python -m pip install stonesoup[roadnet]'") from error
+        "'python -m pip install stonesoup[roadnet]'"
+    ) from error
 
 
 class RoadNetwork(nx.DiGraph):
@@ -82,8 +83,10 @@ class RoadNetwork(nx.DiGraph):
             elif isinstance(n, tuple):
                 self.add_node(n[0], **{**attr, **n[1]})
             else:
-                raise ValueError("Invalid node format. Elements of nodes must be integers, or "
-                                 "tuples of (int, dict)")
+                raise ValueError(
+                    "Invalid node format. Elements of nodes must be integers, or "
+                    "tuples of (int, dict)"
+                )
 
     def remove_node(self, n):
         """Remove node n.
@@ -143,7 +146,7 @@ class RoadNetwork(nx.DiGraph):
             self.add_edge(u, v, **attr)
 
     def remove_edge(self, u, v):
-        """ Remove an edge between nodes u and v.
+        """Remove an edge between nodes u and v.
 
         Parameters
         ----------
@@ -170,7 +173,7 @@ class RoadNetwork(nx.DiGraph):
             self.remove_edge(u, v)
 
     def update(self, edges=None, nodes=None):
-        """ Not implemented
+        """Not implemented
 
         Raises
         ------
@@ -205,14 +208,12 @@ class RoadNetwork(nx.DiGraph):
             - 'to_node': int
                 The node identifier of the end node.
         """
-        d = {'geometry': [], 'weight': [], 'from_node': [], 'to_node': []}
+        d = {"geometry": [], "weight": [], "from_node": [], "to_node": []}
         for e in self.edges:
-            d['geometry'].append(
-                LineString([self.nodes[e[0]]['pos'], self.nodes[e[1]]['pos']])
-            )
-            d['weight'].append(self.edges[e]['weight'])
-            d['from_node'].append(e[0])
-            d['to_node'].append(e[1])
+            d["geometry"].append(LineString([self.nodes[e[0]]["pos"], self.nodes[e[1]]["pos"]]))
+            d["weight"].append(self.edges[e]["weight"])
+            d["from_node"].append(e[0])
+            d["to_node"].append(e[1])
         gdf = geopandas.GeoDataFrame(d, **kwargs)
         return gdf
 
@@ -244,17 +245,18 @@ class RoadNetwork(nx.DiGraph):
         net = RoadNetwork()
 
         # Add nodes to graph
-        for node, attr in dct['nodes'].items():
+        for node, attr in dct["nodes"].items():
             net.add_node(node, **attr)
 
         # Add edges to graph
-        for edge, attr in dct['edges'].items():
+        for edge, attr in dct["edges"].items():
             net.add_edge(*edge, **attr)
 
         return net
 
-    def shortest_path(self, source=None, target=None, weight='weight', method='dijkstra',
-                      path_type='node'):
+    def shortest_path(
+        self, source=None, target=None, weight="weight", method="dijkstra", path_type="node"
+    ):
         """Compute the shortest path(s) between source and target.
 
         This method is a wrapper around the NetworkX :func:`networkx.shortest_path` function, that
@@ -326,12 +328,10 @@ class RoadNetwork(nx.DiGraph):
         # Return the requested path(s)
         return self._format_shortest_paths_output(short_paths, path_type)
 
-    def _get_shortest_path_from_cache(self, source=None, target=None, weight='weight',
-                                      method='dijkstra', path_type='both'):
-        short_paths = {
-            'node': dict(),
-            'edge': dict()
-        }
+    def _get_shortest_path_from_cache(
+        self, source=None, target=None, weight="weight", method="dijkstra", path_type="both"
+    ):
+        short_paths = {"node": {}, "edge": {}}
 
         if source is None:
             source = self.nodes
@@ -343,20 +343,22 @@ class RoadNetwork(nx.DiGraph):
             for s, t in itertools.product(source, target):
                 if s == t:
                     continue
-                if path_type == 'both' or path_type == 'node':
-                    short_paths['node'][(s, t)] = \
-                        self._short_paths_cache[method][weight]['node'][(s, t)]
-                if path_type == 'both' or path_type == 'edge':
-                    short_paths['edge'][(s, t)] = \
-                        self._short_paths_cache[method][weight]['edge'][(s, t)]
+                if path_type == "both" or path_type == "node":
+                    short_paths["node"][(s, t)] = self._short_paths_cache[method][weight]["node"][
+                        (s, t)
+                    ]
+                if path_type == "both" or path_type == "edge":
+                    short_paths["edge"][(s, t)] = self._short_paths_cache[method][weight]["edge"][
+                        (s, t)
+                    ]
         except KeyError as e:
-            raise KeyError('Shortest path not found for the given source and target') from e
+            raise KeyError("Shortest path not found for the given source and target") from e
 
         # Return the requested path(s)
         return self._format_shortest_paths_output(short_paths, path_type)
 
     def _compute_short_paths(self, source, target, weight, method):
-        paths = dict()
+        paths = {}
         if source is None and target is None:
             # Compute all shortest paths, from all nodes, to all nodes
             paths = nx.shortest_path(self, weight=weight, method=method)
@@ -368,7 +370,7 @@ class RoadNetwork(nx.DiGraph):
             # If source or target is None, compute the shortest paths from/to the given nodes
             iter_ = source if source is not None else target
             for x in iter_:
-                extra_kwargs = {'source': x} if source is not None else {'target': x}
+                extra_kwargs = {"source": x} if source is not None else {"target": x}
                 x_paths = nx.shortest_path(self, weight=weight, method=method, **extra_kwargs)
                 for y, node_path in x_paths.items():
                     if x == y:
@@ -393,33 +395,30 @@ class RoadNetwork(nx.DiGraph):
                     paths[s] = {t: path}
 
         # Convert computed paths to node and edge paths
-        short_paths = {
-            'node': dict(),
-            'edge': dict()
-        }
+        short_paths = {"node": {}, "edge": {}}
         edges_index = {edge: i for i, edge in enumerate(self.edges)}
         for s, dct in paths.items():
             for t, node_path in dct.items():
                 if s == t:
                     continue
-                path_edges = zip(node_path, node_path[1:])
+                path_edges = itertools.pairwise(node_path)
                 edge_path = [edges_index[edge] for edge in path_edges]
-                short_paths['node'][(s, t)], short_paths['edge'][(s, t)] = (node_path, edge_path)
+                short_paths["node"][(s, t)], short_paths["edge"][(s, t)] = (node_path, edge_path)
         return short_paths
 
-    def _update_short_paths_cache(self, paths, weight='weight', method='dijkstra'):
+    def _update_short_paths_cache(self, paths, weight="weight", method="dijkstra"):
         if method not in self._short_paths_cache:
-            self._short_paths_cache[method] = dict()
+            self._short_paths_cache[method] = {}
         if weight not in self._short_paths_cache[method]:
-            self._short_paths_cache[method][weight] = {'node': dict(), 'edge': dict()}
-        self._short_paths_cache[method][weight]['node'].update(paths['node'])
-        self._short_paths_cache[method][weight]['edge'].update(paths['edge'])
+            self._short_paths_cache[method][weight] = {"node": {}, "edge": {}}
+        self._short_paths_cache[method][weight]["node"].update(paths["node"])
+        self._short_paths_cache[method][weight]["edge"].update(paths["edge"])
 
     @staticmethod
     def _format_shortest_paths_output(paths, path_type):
         # Return output
-        if path_type == 'node':
-            return paths['node']
-        elif path_type == 'edge':
-            return paths['edge']
+        if path_type == "node":
+            return paths["node"]
+        elif path_type == "edge":
+            return paths["edge"]
         return paths

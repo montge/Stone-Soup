@@ -3,10 +3,12 @@ from operator import attrgetter
 
 import numpy as np
 import pytest
-pytest.importorskip('h5py')
 
-import h5py  # noqa: E402
-from ..hdf5 import HDF5DetectionReader, HDF5GroundTruthReader  # noqa: E402
+pytest.importorskip("h5py")
+
+import h5py
+
+from ..hdf5 import HDF5DetectionReader, HDF5GroundTruthReader
 
 
 @pytest.fixture()
@@ -53,13 +55,9 @@ def test_hdf5_gt_2d(hdf5_gt_filename):
         final_gt_paths.update(gt_paths_at_timestep)
     assert len(final_gt_paths) == 2
 
-    ground_truth_states = [
-        gt_state for gt_path in final_gt_paths for gt_state in gt_path
-    ]
+    ground_truth_states = [gt_state for gt_path in final_gt_paths for gt_state in gt_path]
 
-    for n, gt_state in enumerate(
-        sorted(ground_truth_states, key=attrgetter("timestamp"))
-    ):
+    for n, gt_state in enumerate(sorted(ground_truth_states, key=attrgetter("timestamp"))):
         assert np.array_equal(gt_state.state_vector, np.array([[10 + n], [20 + n]]))
         assert gt_state.timestamp.hour == 14
         assert gt_state.timestamp.minute == n
@@ -91,16 +89,10 @@ def test_hdf5_gt_3d_time(hdf5_gt_filename):
         final_gt_paths.update(gt_paths_at_timestep)
     assert len(final_gt_paths) == 2
 
-    ground_truth_states = [
-        gt_state for gt_path in final_gt_paths for gt_state in gt_path
-    ]
+    ground_truth_states = [gt_state for gt_path in final_gt_paths for gt_state in gt_path]
 
-    for n, gt_state in enumerate(
-        sorted(ground_truth_states, key=attrgetter("timestamp"))
-    ):
-        assert np.array_equal(
-            gt_state.state_vector, np.array([[10 + n], [20 + n], [30 + n]])
-        )
+    for n, gt_state in enumerate(sorted(ground_truth_states, key=attrgetter("timestamp"))):
+        assert np.array_equal(gt_state.state_vector, np.array([[10 + n], [20 + n], [30 + n]]))
         assert gt_state.timestamp.hour == 14
         assert gt_state.timestamp.minute == n
         assert gt_state.timestamp.date() == datetime.date(2018, 1, 1)
@@ -181,12 +173,8 @@ def test_hdf5_default(hdf5_det_filename):
     # run test with:
     #   - 'metadata_fields' for 'HDF5DetectionReader' == default
     #   - copy all metadata items
-    hdf5_reader = HDF5DetectionReader(
-        hdf5_det_filename.strpath, ["state/x", "state/y"], "t"
-    )
-    detections = [
-        detection for _, detections in hdf5_reader for detection in detections
-    ]
+    hdf5_reader = HDF5DetectionReader(hdf5_det_filename.strpath, ["state/x", "state/y"], "t")
+    detections = [detection for _, detections in hdf5_reader for detection in detections]
 
     for n, detection in enumerate(detections):
         assert np.array_equal(detection.state_vector, np.array([[10 + n], [20 + n]]))
@@ -215,9 +203,7 @@ def test_hdf5_metadata_time(hdf5_det_filename):
         time_field_format="%Y-%m-%dT%H:%M:%SZ",
         metadata_fields=["state/z"],
     )
-    detections = [
-        detection for _, detections in hdf5_reader for detection in detections
-    ]
+    detections = [detection for _, detections in hdf5_reader for detection in detections]
 
     for n, detection in enumerate(detections):
         assert np.array_equal(detection.state_vector, np.array([[10 + n], [20 + n]]))
@@ -226,7 +212,7 @@ def test_hdf5_metadata_time(hdf5_det_filename):
         assert detection.timestamp.date() == datetime.date(2018, 1, 1)
         assert isinstance(detection.metadata, dict)
         assert len(detection.metadata) == 1
-        assert "state/z" in detection.metadata.keys()
+        assert "state/z" in detection.metadata
         assert int(detection.metadata["state/z"]) == 30 + n
 
 
@@ -255,9 +241,7 @@ def test_hdf5_missing_metadata_timestamp(tmpdir):
         metadata_fields=["heading"],
         timestamp=True,
     )
-    detections = [
-        detection for _, detections in hdf5_reader for detection in detections
-    ]
+    detections = [detection for _, detections in hdf5_reader for detection in detections]
 
     for n, detection in enumerate(detections):
         assert np.array_equal(detection.state_vector, np.array([[10 + n], [20 + n]]))
@@ -291,9 +275,7 @@ def test_hdf5_multi_per_timestep(tmpdir):
             ],
         )
 
-    hdf5_reader = HDF5DetectionReader(
-        hdf5_filename.strpath, ["state/x", "state/y"], "t"
-    )
+    hdf5_reader = HDF5DetectionReader(hdf5_filename.strpath, ["state/x", "state/y"], "t")
 
     for time, detections in hdf5_reader:
         if time == datetime.datetime(2018, 1, 1, 14, 2):
@@ -326,13 +308,12 @@ def test_hdf5_time_resolution(tmpdir):
     for time, detections in hdf5_reader:
         if time == datetime.datetime(2018, 1, 1, 14, 0, 0):
             assert len(detections) == 2
-        elif time == datetime.datetime(2018, 1, 1, 14, 0, 0, 10000):
-            assert len(detections) == 1
-        elif time == datetime.datetime(2018, 1, 1, 14, 1, 17):
-            assert len(detections) == 1
-        elif time == datetime.datetime(2018, 1, 1, 14, 1, 22):
-            assert len(detections) == 1
-        elif time == datetime.datetime(2018, 1, 1, 14, 1, 27):
+        elif (
+            time == datetime.datetime(2018, 1, 1, 14, 0, 0, 10000)
+            or time == datetime.datetime(2018, 1, 1, 14, 1, 17)
+            or time == datetime.datetime(2018, 1, 1, 14, 1, 22)
+            or time == datetime.datetime(2018, 1, 1, 14, 1, 27)
+        ):
             assert len(detections) == 1
 
     hdf5_reader = HDF5DetectionReader(

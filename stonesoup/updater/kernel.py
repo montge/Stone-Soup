@@ -3,40 +3,40 @@ from functools import lru_cache
 import numpy as np
 from scipy.stats import multivariate_normal
 
-from . import Updater
-from ..kernel import QuadraticKernel, Kernel
+from ..base import Property
+from ..kernel import Kernel, QuadraticKernel
 from ..types.array import StateVectors
 from ..types.prediction import MeasurementPrediction
 from ..types.update import Update
-from ..base import Property
+from . import Updater
 
 
 class AdaptiveKernelKalmanUpdater(Updater):
     """The adaptive kernel Kalman updater uses the predictions from the predictor to generate the
-     measurement particles and update the posterior kernel weight vector and covariance matrix.
-     Additionally, the updater generates new proposal particles at every step to refine the state
-     estimate.
+    measurement particles and update the posterior kernel weight vector and covariance matrix.
+    Additionally, the updater generates new proposal particles at every step to refine the state
+    estimate.
     """
+
     kernel: Kernel = Property(
         default_factory=QuadraticKernel,
-        doc="Default is None. If None, the default :class:`QuadraticKernel` is used.")
+        doc="Default is None. If None, the default :class:`QuadraticKernel` is used.",
+    )
     lambda_updater: float = Property(
         default=1e-3,
         doc="Used to incorporate prior knowledge of the distribution. If the "
-            "true distribution is Gaussian, the value of 2 is optimal. "
-            "Default is 1e-3")
+        "true distribution is Gaussian, the value of 2 is optimal. "
+        "Default is 1e-3",
+    )
 
-    @lru_cache()
-    def predict_measurement(self, state_prediction, measurement_model=None,
-                            **kwargs):
+    @lru_cache
+    def predict_measurement(self, state_prediction, measurement_model=None, **kwargs):
 
         if measurement_model is None:
             measurement_model = self.measurement_model
 
         new_state_vector = measurement_model.function(state_prediction, **kwargs)
-        return MeasurementPrediction.from_state(
-            state_prediction,
-            state_vector=new_state_vector)
+        return MeasurementPrediction.from_state(state_prediction, state_vector=new_state_vector)
 
     def update(self, hypothesis, **kwargs):
         r"""The adaptive kernel Kalman update method. Given a hypothesised association between
@@ -69,29 +69,35 @@ class AdaptiveKernelKalmanUpdater(Updater):
             # If not, use the one native to the updater (which might still be
             # none)
             measurement_model = hypothesis.measurement.measurement_model
-            measurement_model = self._check_measurement_model(
-                measurement_model)
+            measurement_model = self._check_measurement_model(measurement_model)
 
             # Attach the measurement prediction to the hypothesis
             hypothesis.measurement_prediction = self.predict_measurement(
-                predicted_state, measurement_model=measurement_model,
-                measurement_noise=False, **kwargs)
+                predicted_state,
+                measurement_model=measurement_model,
+                measurement_noise=False,
+                **kwargs,
+            )
         G_yy = self.kernel(hypothesis.measurement_prediction)
         g_y = self.kernel(hypothesis.measurement_prediction, hypothesis.measurement)
 
-        Q_AKKF = \
-            predicted_state.kernel_covar \
-            @ np.linalg.pinv(G_yy @ predicted_state.kernel_covar
-                             + self.lambda_updater * np.identity(len(predicted_state)))
+        Q_AKKF = predicted_state.kernel_covar @ np.linalg.pinv(
+            G_yy @ predicted_state.kernel_covar
+            + self.lambda_updater * np.identity(len(predicted_state))
+        )
         weights = predicted_state.weight[:, np.newaxis]
-        updated_weights = (weights + Q_AKKF@(g_y - G_yy@weights)).ravel()
-        updated_covariance = \
+        updated_weights = (weights + Q_AKKF @ (g_y - G_yy @ weights)).ravel()
+        updated_covariance = (
             predicted_state.kernel_covar - Q_AKKF @ G_yy @ predicted_state.kernel_covar
+        )
 
         # Proposal Calculation
         pred_mean = predicted_state.state_vector @ updated_weights
-        pred_covar = np.diag(np.diag(
-            predicted_state.state_vector @ updated_covariance @ predicted_state.state_vector.T))
+        pred_covar = np.diag(
+            np.diag(
+                predicted_state.state_vector @ updated_covariance @ predicted_state.state_vector.T
+            )
+        )
 
         new_state_vector = multivariate_normal.rvs(
             pred_mean, pred_covar, size=len(predicted_state)
@@ -103,4 +109,6 @@ class AdaptiveKernelKalmanUpdater(Updater):
             proposal=StateVectors(new_state_vector.T),
             weight=updated_weights,  # W^+
             kernel_covar=updated_covariance,  # S^+
-            timestamp=hypothesis.measurement.timestamp, hypothesis=hypothesis)
+            timestamp=hypothesis.measurement.timestamp,
+            hypothesis=hypothesis,
+        )

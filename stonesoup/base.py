@@ -53,14 +53,15 @@ This is equivalent to the following:
 
 
 """
+
 import inspect
 import sys
 import textwrap
-from reprlib import Repr
 from abc import ABCMeta
 from collections import OrderedDict
 from copy import copy
 from functools import cached_property
+from reprlib import Repr
 from types import MappingProxyType
 from typing import Any, get_args, get_origin
 
@@ -129,22 +130,32 @@ class Property:
     empty : :class:`inspect.Parameter.empty`
         Alias to :class:`inspect.Parameter.empty`
     """
+
     empty = inspect.Parameter.empty
 
-    def __init__(self, cls=None, *,
-                 default=inspect.Parameter.empty, default_factory=inspect.Parameter.empty,
-                 doc=None, readonly=False, allow_none_with_factory=False):
+    def __init__(
+        self,
+        cls=None,
+        *,
+        default=inspect.Parameter.empty,
+        default_factory=inspect.Parameter.empty,
+        doc=None,
+        readonly=False,
+        allow_none_with_factory=False,
+    ):
         self.cls = cls
         self.default = default
         self.default_factory = default_factory
-        if default is not inspect.Parameter.empty \
-                and default_factory is not inspect.Parameter.empty:
+        if (
+            default is not inspect.Parameter.empty
+            and default_factory is not inspect.Parameter.empty
+        ):
             raise ValueError("Cannot have both default and default_factory")
         elif default_factory is not inspect.Parameter.empty and not allow_none_with_factory:
             self.default = None
         self.doc = self.__doc__ = doc
         # Fix for when ":" in doc string being interpreted as type in NumpyDoc
-        if doc is not None and ':' in doc:
+        if doc is not None and ":" in doc:
             self.__doc__ = ": " + doc
         self._property_name = None
         self._setter = None
@@ -164,7 +175,7 @@ class Property:
     def __set__(self, instance, value):
         if self.readonly and hasattr(instance, self._property_name):
             # if the value has been set, raise an AttributeError
-            raise AttributeError('{} is readonly'.format(self._property_name))
+            raise AttributeError(f"{self._property_name} is readonly")
 
         for cached_value in self._clear_cached:
             if cached_value in instance.__dict__:
@@ -184,22 +195,22 @@ class Property:
     def __set_name__(self, owner, name):
         if not isinstance(owner, BaseMeta):
             raise AttributeError("Cannot use Property on this class type")
-        self._property_name = "_property_{}".format(name)
+        self._property_name = f"_property_{name}"
 
     def deleter(self, method):  # real signature unknown
-        """ Descriptor to change the deleter on a property. """
+        """Descriptor to change the deleter on a property."""
         new_property = copy(self)
         new_property._deleter = method
         return new_property
 
     def getter(self, method):  # real signature unknown
-        """ Descriptor to change the getter on a property. """
+        """Descriptor to change the getter on a property."""
         new_property = copy(self)
         new_property._getter = method
         return new_property
 
     def setter(self, method):  # real signature unknown
-        """ Descriptor to change the setter on a property. """
+        """Descriptor to change the setter on a property."""
         new_property = copy(self)
         new_property._setter = method
         return new_property
@@ -208,14 +219,16 @@ class Property:
 def _format_note(property_names):
     multiple = len(property_names) > 1
     prop_str = [f":attr:`{prop_name}`" for prop_name in property_names]
-    return textwrap.dedent(f"""\
+    return textwrap.dedent(
+        f"""\
 
 
         Note
         ----
         This will be cached until {", ".join(prop_str[:-1])}
         {"or " if multiple else ""}{prop_str[-1]} {"are" if multiple else "is"} replaced.
-        """)
+        """
+    )
 
 
 def clearable_cached_property(*property_names: str):
@@ -236,6 +249,7 @@ def clearable_cached_property(*property_names: str):
         cached_method = cached_property(func)
         cached_method._property_names = property_names
         return cached_method
+
     return decorator
 
 
@@ -252,25 +266,25 @@ class BaseRepr(Repr):
         self.maxstring = 500
         self.maxlong = 40
         self.maxother = 50000
-        self.fillvalue = '...'
+        self.fillvalue = "..."
         self.indent = None
 
     def repr_list(self, obj, level):
         if len(obj) > self.maxlist:
-            max_len = round(self.maxlist/2)
-            first = ',\n '.join(self.repr1(x, level - 1) for x in obj[:max_len])
-            last = ',\n '.join(self.repr1(x, level - 1) for x in obj[-max_len:])
-            return f'[{first},\n {self.fillvalue}\n {self.fillvalue}\n {self.fillvalue}\n {last}]'
+            max_len = round(self.maxlist / 2)
+            first = ",\n ".join(self.repr1(x, level - 1) for x in obj[:max_len])
+            last = ",\n ".join(self.repr1(x, level - 1) for x in obj[-max_len:])
+            return f"[{first},\n {self.fillvalue}\n {self.fillvalue}\n {self.fillvalue}\n {last}]"
         else:
-            return '[{}]'.format(',\n '.join(self.repr1(x, level - 1) for x in obj))
+            return "[{}]".format(",\n ".join(self.repr1(x, level - 1) for x in obj))
 
     def whitespace_remove(self, maxlen_whitespace, val):
         """Remove excess whitespace, replacing with ellipses"""
-        large_whitespace = ' ' * (maxlen_whitespace+1)
-        fixed_whitespace = ' ' * maxlen_whitespace
-        while (excess := val.find(large_whitespace)) != -1:   # Find the excess whitespace, if any
-            line_end = ''.join(val[excess:].partition('\n')[1:])
-            val = ''.join([val[0:excess], fixed_whitespace, self.fillvalue, line_end])
+        large_whitespace = " " * (maxlen_whitespace + 1)
+        fixed_whitespace = " " * maxlen_whitespace
+        while (excess := val.find(large_whitespace)) != -1:  # Find the excess whitespace, if any
+            line_end = "".join(val[excess:].partition("\n")[1:])
+            val = "".join([val[0:excess], fixed_whitespace, self.fillvalue, line_end])
         return val
 
 
@@ -295,9 +309,8 @@ class BaseMeta(ABCMeta):
         # Update properties from direct bases (in reverse order as
         # first defined class must take precedence, and dictionary update overwrites)
         for base_class in reversed(bases):
-            if type(base_class) is mcls:
-                if base_class in bases:
-                    properties.update(base_class._properties)
+            if type(base_class) is mcls and base_class in bases:
+                properties.update(base_class._properties)
 
         if sys.version_info >= (3, 14):
             if annotation_func := get_annotate_from_class_namespace(namespace):
@@ -305,32 +318,39 @@ class BaseMeta(ABCMeta):
             else:
                 annotations = {}
         else:
-            annotations = namespace.get('__annotations__', {})
+            annotations = namespace.get("__annotations__", {})
 
         for key, value in namespace.items():
             if isinstance(value, Property):
                 annotation_cls = annotations.get(key, None)
                 if value.cls is not None and annotation_cls is not None:
-                    raise ValueError(f'Type was specified both by type hint '
-                                     f'({str(annotation_cls)}) and argument ({str(value.cls)}) '
-                                     f'for property {key} of class {name}')
+                    raise ValueError(
+                        f"Type was specified both by type hint "
+                        f"({annotation_cls!s}) and argument ({value.cls!s}) "
+                        f"for property {key} of class {name}"
+                    )
                 elif value.cls is None and annotation_cls is not None:
                     value.cls = annotation_cls
                 elif value.cls is not None and annotation_cls is None:
                     # Just use value.cls in this case
                     pass
                 elif value.cls is None and annotation_cls is None:
-                    raise ValueError(f'Type was not specified '
-                                     f'for property {key} of class {name}')
+                    raise ValueError(
+                        f"Type was not specified " f"for property {key} of class {name}"
+                    )
 
-                if not (isinstance(value.cls, type)
-                        or value.cls is Any
-                        or get_origin(value.cls) is not None
-                        or get_args(value.cls)
-                        or value.cls == name
-                        or isinstance(value.cls, str)):  # Forward declaration for type hinting
-                    raise ValueError(f'Invalid type specification ({str(value.cls)}) '
-                                     f'for property {key} of class {name}')
+                if not (
+                    isinstance(value.cls, type)
+                    or value.cls is Any
+                    or get_origin(value.cls) is not None
+                    or get_args(value.cls)
+                    or value.cls == name
+                    or isinstance(value.cls, str)
+                ):  # Forward declaration for type hinting
+                    raise ValueError(
+                        f"Invalid type specification ({value.cls!s}) "
+                        f"for property {key} of class {name}"
+                    )
 
                 # Finally set property.
                 properties[key] = value
@@ -341,27 +361,30 @@ class BaseMeta(ABCMeta):
 
         for key, value in list(namespace.items()):
             if isinstance(value, cached_property):
-                for prop_name in getattr(value, '_property_names', []):
+                for prop_name in getattr(value, "_property_names", []):
                     new_prop = copy(properties[prop_name])
                     new_prop._clear_cached = new_prop._clear_cached | {key}
                     properties[prop_name] = namespace[prop_name] = new_prop
 
         for prop_name in list(properties):
             # Optional arguments must follow mandatory
-            if properties[prop_name].default is not Property.empty \
-                    or properties[prop_name].default_factory is not Property.empty:
+            if (
+                properties[prop_name].default is not Property.empty
+                or properties[prop_name].default_factory is not Property.empty
+            ):
                 properties.move_to_end(prop_name)
 
-        if '__init__' not in namespace:
+        if "__init__" not in namespace:
             # Must replace init so we don't overwrite parent class's
             # and blank line below so this doesn't become its docstring!
 
             def __init__(self, *args, **kwargs):
                 super(cls, self).__init__(*args, **kwargs)
-            namespace['__init__'] = __init__
 
-        namespace['_properties'] = properties
-        namespace['_subclasses'] = set()
+            namespace["__init__"] = __init__
+
+        namespace["_properties"] = properties
+        namespace["_subclasses"] = set()
 
         cls = super().__new__(mcls, name, bases, namespace)
 
@@ -386,30 +409,36 @@ class BaseMeta(ABCMeta):
         positional_names = [
             parameter.name
             for parameter in init_signature.parameters.values()
-            if parameter.kind in (
-                parameter.POSITIONAL_ONLY,
-                parameter.POSITIONAL_OR_KEYWORD)][1:]  # Ignore 'self' (item 0)
-        if positional_names != declared_names[:len(positional_names)]:
-            raise TypeError("init arguments don't match declared properties: "
-                            "arguments do not match or wrong order")
+            if parameter.kind in (parameter.POSITIONAL_ONLY, parameter.POSITIONAL_OR_KEYWORD)
+        ][
+            1:
+        ]  # Ignore 'self' (item 0)
+        if positional_names != declared_names[: len(positional_names)]:
+            raise TypeError(
+                "init arguments don't match declared properties: "
+                "arguments do not match or wrong order"
+            )
 
         has_var_positional = any(
             parameter.kind == parameter.VAR_POSITIONAL
-            for parameter in init_signature.parameters.values())
+            for parameter in init_signature.parameters.values()
+        )
         has_var_keyword = any(
             parameter.kind == parameter.VAR_KEYWORD
-            for parameter in init_signature.parameters.values())
-        if positional_names != declared_names and not (
-                    has_var_positional and has_var_keyword):
-            raise TypeError("init arguments don't match declared properties: "
-                            "missing argument (or *args and **kwargs missing)")
+            for parameter in init_signature.parameters.values()
+        )
+        if positional_names != declared_names and not (has_var_positional and has_var_keyword):
+            raise TypeError(
+                "init arguments don't match declared properties: "
+                "missing argument (or *args and **kwargs missing)"
+            )
 
         keyword_parameters = [
             parameter
             for parameter in init_signature.parameters.values()
-            if parameter.kind == parameter.KEYWORD_ONLY]
-        if any(parameter.default is parameter.empty
-               for parameter in keyword_parameters):
+            if parameter.kind == parameter.KEYWORD_ONLY
+        ]
+        if any(parameter.default is parameter.empty for parameter in keyword_parameters):
             raise TypeError("new keyword arguments must have default value")
 
     def _generate_signature(cls):
@@ -418,18 +447,23 @@ class BaseMeta(ABCMeta):
         parameters = [next(iter(init_signature.parameters.values()))]  # 'self'
         parameters.extend(
             inspect.Parameter(
-                name, inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                default=(property_.default
-                         if property_.default is not Property.empty
-                         else property_.default_factory),
-                annotation=property_.cls)
-            for name, property_ in cls._properties.items())
+                name,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                default=(
+                    property_.default
+                    if property_.default is not Property.empty
+                    else property_.default_factory
+                ),
+                annotation=property_.cls,
+            )
+            for name, property_ in cls._properties.items()
+        )
         parameters.extend(
             parameter
             for parameter in init_signature.parameters.values()
-            if parameter.kind == parameter.KEYWORD_ONLY)
-        cls.__init__.__signature__ = init_signature.replace(
-            parameters=parameters)
+            if parameter.kind == parameter.KEYWORD_ONLY
+        )
+        cls.__init__.__signature__ = init_signature.replace(parameters=parameters)
 
     def register(cls, subclass):
         cls._subclasses.add(subclass)
@@ -465,9 +499,9 @@ class Base(metaclass=BaseMeta):
             try:
                 name, prop = next(prop_iter)
             except StopIteration:
-                raise TypeError(f'{cls.__name__} had too many positional arguments') from None
+                raise TypeError(f"{cls.__name__} had too many positional arguments") from None
             if name in kwargs:
-                raise TypeError(f'{cls.__name__} received multiple values for argument {name!r}')
+                raise TypeError(f"{cls.__name__} received multiple values for argument {name!r}")
             if prop.default_factory is not Property.empty and arg is prop.default:
                 arg = prop.default_factory()
             setattr(self, name, arg)
@@ -477,33 +511,35 @@ class Base(metaclass=BaseMeta):
             if prop.default_factory is not Property.empty and value is prop.default:
                 value = prop.default_factory()
             elif value is Property.empty:
-                raise TypeError(f'{cls.__name__} is missing a required argument: {name!r}')
+                raise TypeError(f"{cls.__name__} is missing a required argument: {name!r}")
             setattr(self, name, value)
 
         if kwargs:
-            raise TypeError(f'{cls.__name__} got an unexpected keyword argument '
-                            f'{next(iter(kwargs))!r}')
+            raise TypeError(
+                f"{cls.__name__} got an unexpected keyword argument " f"{next(iter(kwargs))!r}"
+            )
 
     def __repr__(self):
         # Indents every line
-        whitespace = ' ' * 4 if Base._repr.indent is None else Base._repr.indent
+        whitespace = " " * 4 if Base._repr.indent is None else Base._repr.indent
         max_len_whitespace = 80  # Ensures whitespace doesn't get rid of space on RHS too much
         max_out = 50000  # Keeps total length from being too excessive
         params = []
         for name in type(self).properties:
             value = getattr(self, name)
-            extra_whitespace = ' ' * (len(name) + 1) + whitespace  # Lines up rows of arrays
+            extra_whitespace = " " * (len(name) + 1) + whitespace  # Lines up rows of arrays
             repr_value = Base._repr.repr(value)
-            if '\n' in repr_value:
-                value = repr_value.replace('\n', '\n' + extra_whitespace)
-            params.append(f'{whitespace}{name}={value}')
+            if "\n" in repr_value:
+                value = repr_value.replace("\n", "\n" + extra_whitespace)
+            params.append(f"{whitespace}{name}={value}")
         value = "{}(\n{})".format(type(self).__name__, ",\n".join(params))
         rep = Base._repr.whitespace_remove(max_len_whitespace, value)
         fillvalue = Base._repr.fillvalue
-        truncate = f'\n{fillvalue}\n{fillvalue}  (truncated due to length)\n{fillvalue}'
-        return ''.join([rep[:max_out], truncate]) if len(rep) > max_out else rep
+        truncate = f"\n{fillvalue}\n{fillvalue}  (truncated due to length)\n{fillvalue}"
+        return "".join([rep[:max_out], truncate]) if len(rep) > max_out else rep
 
     if sys.version_info < (3, 11):
+
         def __getstate__(self):
             return self.__dict__
 
@@ -511,6 +547,7 @@ class Base(metaclass=BaseMeta):
 class ImmutableMeta(BaseMeta):
     """Metaclass for immutable Stone Soup objects. New classes using this metaclass have all
     the same Properties as any parent class, but all these properties are set to read-only."""
+
     def __new__(mcs, name, bases, namespace):
         cls = BaseMeta.__new__(mcs, name, bases, namespace)
         # cls._properties cannot be used as it only contains directly defined properties, not
@@ -518,7 +555,7 @@ class ImmutableMeta(BaseMeta):
         new_properties = OrderedDict()
         properties = {}
         for superclass in cls.mro():
-            if hasattr(superclass, '_properties'):
+            if hasattr(superclass, "_properties"):
                 # noinspection PyProtectedMember
                 properties.update(superclass._properties)
         for name, prop in properties.items():
@@ -550,20 +587,18 @@ class ImmutableMixIn(metaclass=ImmutableMeta):
     Immutability is inherited: that is, all subclasses of a class which inherits from this class
     will have *all* their properties readonly, even ones defined by the subclass.
     """
+
     def __eq__(self, other):
         if self is other:
             return True
         if self._is_hashable:
-            return (type(self) is type(other)
-                    and all(getattr(self, name) == getattr(other, name)
-                            for name in type(self).properties))
+            return type(self) is type(other) and all(
+                getattr(self, name) == getattr(other, name) for name in type(self).properties
+            )
         return False
 
     def __hash__(self):
-        if self._is_hashable:
-            hash_val = self._tuple_hash()
-        else:
-            hash_val = object.__hash__(self)
+        hash_val = self._tuple_hash() if self._is_hashable else object.__hash__(self)
         return hash_val
 
     def _tuple_hash(self):
@@ -615,7 +650,7 @@ class ImmutableMixIn(metaclass=ImmutableMeta):
     def property_dict(self) -> dict:
         """Returns a dict of the names and and values of all the :class:`~.Property` attributes
         of the class."""
-        return {name: getattr(self, name) for name in self._properties.keys()}
+        return {name: getattr(self, name) for name in self._properties}
 
 
 def freeze(self, **kwargs):
@@ -660,7 +695,7 @@ def Freezable(cls: type):
     being that it is immutable.
     """
     old_name = cls.__name__
-    new_name = 'Frozen' + old_name
+    new_name = "Frozen" + old_name
 
     new_cls = type(new_name, (cls, ImmutableMixIn), {})
     cls._immutable_version = new_cls

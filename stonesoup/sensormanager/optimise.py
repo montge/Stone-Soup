@@ -2,10 +2,10 @@ from abc import abstractmethod
 from collections import defaultdict
 
 import numpy as np
-from scipy.optimize import brute, basinhopping, fmin
+from scipy.optimize import basinhopping, brute, fmin
 
-from . import BruteForceSensorManager
 from ..base import Property
+from . import BruteForceSensorManager
 
 
 class _OptimizeSensorManager(BruteForceSensorManager):
@@ -17,7 +17,7 @@ class _OptimizeSensorManager(BruteForceSensorManager):
     def choose_actions(self, tracks, timestamp, nchoose=1, return_reward=False, **kwargs):
         if nchoose > 1:
             raise ValueError("Can only return best result (nchoose=1)")
-        all_action_generators = dict()
+        all_action_generators = {}
 
         for sensor in self.sensors:
             action_generators = sensor.actions(timestamp)
@@ -68,39 +68,47 @@ class OptimizeBruteSensorManager(_OptimizeSensorManager):
     n_grid_points: int = Property(
         default=10,
         doc="Number of grid points to search along axis. See Ns in "
-            ":func:`~.scipy.optimize.brute`. "
-            "Default is 10.")
-    generate_full_output: bool = Property(default=False,
-                                          doc="If True, returns the evaluation grid "
-                                              "and the objective "
-                                              "function's values on it.")
-    finish: bool = Property(default=False,
-                            doc="A polishing function can be applied to the result of brute "
-                                "force minimisation. If True this is set as "
-                                ":func:`~.scipy.optimize.fmin` which "
-                                "minimizes a function using the downhill simplex algorithm."
-                                "As a default no polishing function is applied.")
-    disp: bool = Property(default=False,
-                          doc="Set to True to print convergence messages from the finish "
-                              "callable.")
+        ":func:`~.scipy.optimize.brute`. "
+        "Default is 10.",
+    )
+    generate_full_output: bool = Property(
+        default=False,
+        doc="If True, returns the evaluation grid "
+        "and the objective "
+        "function's values on it.",
+    )
+    finish: bool = Property(
+        default=False,
+        doc="A polishing function can be applied to the result of brute "
+        "force minimisation. If True this is set as "
+        ":func:`~.scipy.optimize.fmin` which "
+        "minimizes a function using the downhill simplex algorithm."
+        "As a default no polishing function is applied.",
+    )
+    disp: bool = Property(
+        default=False, doc="Set to True to print convergence messages from the finish " "callable."
+    )
 
     def _optimiser(self, optimise_func, all_action_generators):
         ranges = [
             (float(gen.min), float(gen.max))
             for gens in all_action_generators.values()
-            for gen in gens]
+            for gen in gens
+        ]
 
         if self.finish:
             self.finish_func = fmin
         else:
             self.finish_func = None
 
-        result = brute(optimise_func,
-                       ranges=ranges,
-                       Ns=self.n_grid_points,
-                       full_output=self.generate_full_output,
-                       finish=self.finish_func,
-                       disp=self.disp)
+        result = brute(
+            optimise_func,
+            ranges=ranges,
+            Ns=self.n_grid_points,
+            full_output=self.generate_full_output,
+            finish=self.finish_func,
+            disp=self.disp,
+        )
 
         if self.generate_full_output:
             self.full_output = result
@@ -145,34 +153,37 @@ class OptimizeBasinHoppingSensorManager(_OptimizeSensorManager):
     Please see the Scipy documentation site for full details on what each parameter does.
     """
 
-    n_iter: int = Property(default=100,
-                           doc='The number of basin hopping iterations.')
-    T: float = Property(default=1.0,
-                        doc='The "temperature" parameter for the accept or reject criterion. '
-                            'Higher temperatures mean larger jumps in function value will be '
-                            'accepted.')
-    stepsize: float = Property(default=0.5,
-                               doc='Maximum step size for use in the random displacement.')
-    interval: int = Property(default=50,
-                             doc='Interval for how often to update the stepsize.')
-    disp: bool = Property(default=False,
-                          doc='Set to True to print status messages.')
-    niter_success: int = Property(default=None,
-                                  doc='Stop the run if the global minimum candidate '
-                                      'remains the same '
-                                      'for this number of iterations.')
+    n_iter: int = Property(default=100, doc="The number of basin hopping iterations.")
+    T: float = Property(
+        default=1.0,
+        doc='The "temperature" parameter for the accept or reject criterion. '
+        "Higher temperatures mean larger jumps in function value will be "
+        "accepted.",
+    )
+    stepsize: float = Property(
+        default=0.5, doc="Maximum step size for use in the random displacement."
+    )
+    interval: int = Property(default=50, doc="Interval for how often to update the stepsize.")
+    disp: bool = Property(default=False, doc="Set to True to print status messages.")
+    niter_success: int = Property(
+        default=None,
+        doc="Stop the run if the global minimum candidate "
+        "remains the same "
+        "for this number of iterations.",
+    )
 
     def _optimiser(self, optimise_func, all_action_generators):
         initial_values = [
-            float(gen.initial_value)
-            for gens in all_action_generators.values()
-            for gen in gens]
-        result = basinhopping(func=optimise_func,
-                              x0=initial_values,
-                              niter=self.n_iter,  # was 50
-                              T=self.T,
-                              stepsize=self.stepsize,  # was 1
-                              interval=self.interval,
-                              disp=self.disp,
-                              niter_success=self.niter_success)
+            float(gen.initial_value) for gens in all_action_generators.values() for gen in gens
+        ]
+        result = basinhopping(
+            func=optimise_func,
+            x0=initial_values,
+            niter=self.n_iter,  # was 50
+            T=self.T,
+            stepsize=self.stepsize,  # was 1
+            interval=self.interval,
+            disp=self.disp,
+            niter_success=self.niter_success,
+        )
         return np.atleast_1d(result.x)

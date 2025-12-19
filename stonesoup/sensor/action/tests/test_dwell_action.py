@@ -3,29 +3,27 @@ from datetime import datetime, timedelta
 import numpy as np
 import pytest
 
-from ..dwell_action import DwellActionsGenerator, ChangeDwellAction
 from ....sensormanager.action import Actionable, ActionableProperty
-from ...base import Property
-from ....types.angle import Bearing, Angle
+from ....types.angle import Angle, Bearing
 from ....types.array import StateVector
+from ...base import Property
+from ..dwell_action import ChangeDwellAction, DwellActionsGenerator
 
 
 class DummyActionable(Actionable):
     dwell_centre: StateVector = ActionableProperty(
         doc="Actionable dwell centre.",
         generator_cls=DwellActionsGenerator,
-        generator_kwargs_mapping={'rpm': 'rpm'})
+        generator_kwargs_mapping={"rpm": "rpm"},
+    )
     timestamp: datetime = Property(doc="Current time that actionable exists at.")
     rpm: float = Property(doc="Dwell centre revolutions per minute")
 
     def validate_timestamp(self):
-        if self.timestamp:
-            return True
-        else:
-            return False
+        return bool(self.timestamp)
 
 
-@pytest.mark.parametrize('initial_bearing', (0, 45, 90, 135, 180, -45, -90, -135))
+@pytest.mark.parametrize("initial_bearing", (0, 45, 90, 135, 180, -45, -90, -135))
 def test_dwell_action(initial_bearing):
 
     initial_bearing = Bearing(np.radians(initial_bearing))
@@ -33,15 +31,13 @@ def test_dwell_action(initial_bearing):
     start = datetime.now()
     end = start + timedelta(seconds=15)
 
-    actionable = DummyActionable(StateVector([initial_bearing, 0, 0]),
-                                 start,
-                                 1)  # 1 revolution per minute
+    actionable = DummyActionable(
+        StateVector([initial_bearing, 0, 0]), start, 1
+    )  # 1 revolution per minute
 
-    generator = DwellActionsGenerator(actionable,
-                                      attribute="dwell_centre",
-                                      start_time=start,
-                                      end_time=end,
-                                      rpm=actionable.rpm)  # 15s maximum action duration
+    generator = DwellActionsGenerator(
+        actionable, attribute="dwell_centre", start_time=start, end_time=end, rpm=actionable.rpm
+    )  # 15s maximum action duration
 
     # Test call and resolution
     generator()
@@ -81,20 +77,24 @@ def test_dwell_action(initial_bearing):
         assert angle2 in generator
         assert float(angle2) in generator
 
-        rotation_time = np.radians(angle)/np.radians(90) * (end - start)
+        rotation_time = np.radians(angle) / np.radians(90) * (end - start)
         rot_end = start + rotation_time
 
-        action1 = ChangeDwellAction(generator=generator,
-                                    end_time=end,
-                                    target_value=angle1,
-                                    rotation_end_time=rot_end,
-                                    increasing_angle=True)
+        action1 = ChangeDwellAction(
+            generator=generator,
+            end_time=end,
+            target_value=angle1,
+            rotation_end_time=rot_end,
+            increasing_angle=True,
+        )
         assert action1 in generator
-        action2 = ChangeDwellAction(generator=generator,
-                                    end_time=end,
-                                    target_value=angle2,
-                                    rotation_end_time=rot_end,
-                                    increasing_angle=False)
+        action2 = ChangeDwellAction(
+            generator=generator,
+            end_time=end,
+            target_value=angle2,
+            rotation_end_time=rot_end,
+            increasing_angle=False,
+        )
         assert action2 in generator
 
         rot_end1, increasing1 = generator._end_time_direction(angle1)
@@ -111,12 +111,12 @@ def test_dwell_action(initial_bearing):
         assert rot_end2 == pytest.approx(rot_end)
 
     # Test iterable
-    actions = [action for action in generator]
+    actions = list(generator)
     assert len(actions) == 7
     target_bearings = np.array([-90, -60, -30, 0, 30, 60, 90])
     target_bearings = np.radians(target_bearings) + actionable.dwell_centre[0, 0]
     target_bearings = target_bearings.tolist()
-    for action, target_bearing in zip(actions, target_bearings):
+    for action, target_bearing in zip(actions, target_bearings, strict=False):
         # actions in value order and all values accounted for
         assert action.target_value == pytest.approx(target_bearing)
 
@@ -150,4 +150,4 @@ def test_dwell_action(initial_bearing):
 
     # Test action from invalid
     with pytest.raises(ValueError, match="Can only generate action from an Angle/float/int type"):
-        generator.action_from_value('hello')
+        generator.action_from_value("hello")

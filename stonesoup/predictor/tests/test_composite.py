@@ -5,19 +5,15 @@ import pytest
 from scipy.stats import multivariate_normal
 
 from ...models.transition.categorical import MarkovianTransitionModel
-from ...models.transition.linear import RandomWalk, \
-    CombinedLinearGaussianTransitionModel
+from ...models.transition.linear import CombinedLinearGaussianTransitionModel, RandomWalk
 from ...predictor.categorical import HMMPredictor
 from ...predictor.composite import CompositePredictor
-from ...predictor.kalman import KalmanPredictor, ExtendedKalmanPredictor, \
-    UnscentedKalmanPredictor
-from ...predictor.particle import ParticlePredictor, ParticleFlowKalmanPredictor
-from ...types.array import StateVector
-from ...types.array import StateVectors
+from ...predictor.kalman import ExtendedKalmanPredictor, KalmanPredictor, UnscentedKalmanPredictor
+from ...predictor.particle import ParticleFlowKalmanPredictor, ParticlePredictor
+from ...types.array import StateVector, StateVectors
 from ...types.numeric import Probability
 from ...types.prediction import CompositePrediction
-from ...types.state import ParticleState, CategoricalState
-from ...types.state import State, GaussianState, CompositeState
+from ...types.state import CategoricalState, CompositeState, GaussianState, ParticleState, State
 
 
 def create_state(gaussian: bool, particles: bool, ndim_state: int, timestamp: datetime):
@@ -31,10 +27,11 @@ def create_state(gaussian: bool, particles: bool, ndim_state: int, timestamp: da
             # create particle state
             number_particles = 1000
             samples = multivariate_normal.rvs(sv.flatten(), cov, size=number_particles)
-            return ParticleState(state_vector=StateVectors(samples.T),
-                                 weight=np.array(
-                                     [Probability(1 / number_particles)] * number_particles),
-                                 timestamp=timestamp)
+            return ParticleState(
+                state_vector=StateVectors(samples.T),
+                weight=np.array([Probability(1 / number_particles)] * number_particles),
+                timestamp=timestamp,
+            )
         return GaussianState(sv, cov, timestamp=timestamp)
     else:
         # create categorical state
@@ -62,7 +59,7 @@ def random_predictor_and_prior(num_predictors, timestamp):
         UnscentedKalmanPredictor(create_transition_model(True, ndim_states[2])),
         ParticlePredictor(create_transition_model(True, ndim_states[3])),
         ParticleFlowKalmanPredictor(create_transition_model(True, ndim_states[4])),
-        HMMPredictor(create_transition_model(False, ndim_states[5]))
+        HMMPredictor(create_transition_model(False, ndim_states[5])),
     ]
 
     sub_priors = [
@@ -71,7 +68,7 @@ def random_predictor_and_prior(num_predictors, timestamp):
         create_state(True, False, ndim_states[2], timestamp),
         create_state(True, True, ndim_states[3], timestamp),
         create_state(True, True, ndim_states[4], timestamp),
-        create_state(False, False, ndim_states[5], timestamp)
+        create_state(False, False, ndim_states[5], timestamp),
     ]
 
     predictor = CompositePredictor(sub_predictors[:num_predictors])
@@ -80,19 +77,19 @@ def random_predictor_and_prior(num_predictors, timestamp):
     return predictor, prior
 
 
-@pytest.mark.parametrize('num_predictors', [1, 2, 3, 4, 5, 6])
+@pytest.mark.parametrize("num_predictors", [1, 2, 3, 4, 5, 6])
 def test_composite_predictor(num_predictors):
     now = datetime.now()
     future = now + timedelta(seconds=5)
 
     # Test instantiation errors
     with pytest.raises(
-            ValueError,
-            match="Sub-predictors must be defined as an ordered list, not <class 'set'>"):
+        ValueError, match="Sub-predictors must be defined as an ordered list, not <class 'set'>"
+    ):
         CompositePredictor({KalmanPredictor(create_transition_model(True, 1))})
 
     with pytest.raises(ValueError, match="Cannot create an empty composite predictor"):
-        CompositePredictor(list())
+        CompositePredictor([])
 
     with pytest.raises(ValueError, match="All sub-predictors must be a Predictor type"):
         CompositePredictor([1, 2, 3])
@@ -101,19 +98,22 @@ def test_composite_predictor(num_predictors):
     predictor, prior = random_predictor_and_prior(num_predictors, now)
 
     # Test transition model error
-    with pytest.raises(NotImplementedError,
-                       match="A composition of predictors has no defined transition model"):
+    with pytest.raises(
+        NotImplementedError, match="A composition of predictors has no defined transition model"
+    ):
         predictor.transition_model
 
     # Test predict errors
-    with pytest.raises(ValueError,
-                       match="CompositePredictor can only predict forward CompositeState types"):
+    with pytest.raises(
+        ValueError, match="CompositePredictor can only predict forward CompositeState types"
+    ):
         predictor.predict(State([0]), future)
 
     with pytest.raises(
-            ValueError,
-            match=f"Mismatch in number of prior sub-states {num_predictors + 1} and number of "
-            f"sub-predictors {num_predictors}"):
+        ValueError,
+        match=f"Mismatch in number of prior sub-states {num_predictors + 1} and number of "
+        f"sub-predictors {num_predictors}",
+    ):
         predictor.predict(CompositeState((num_predictors + 1) * [State([0])]))
 
     # Test predict
@@ -128,7 +128,7 @@ def test_composite_predictor(num_predictors):
     for sub_predictor in sub_predictors:
         assert sub_predictor in predictor
     assert KalmanPredictor(create_transition_model(True, 5)) not in predictor
-    assert 'a' not in predictor
+    assert "a" not in predictor
 
     # Test get
     for i, expected_predictor in enumerate(sub_predictors):

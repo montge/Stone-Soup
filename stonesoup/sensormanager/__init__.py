@@ -1,8 +1,16 @@
-from .base import SensorManager, RandomSensorManager, BruteForceSensorManager, \
-    GreedySensorManager
-from .optimise import _OptimizeSensorManager, OptimizeBruteSensorManager, \
-    OptimizeBasinHoppingSensorManager
+from .base import BruteForceSensorManager, GreedySensorManager, RandomSensorManager, SensorManager
+from .optimise import (
+    OptimizeBasinHoppingSensorManager,
+    OptimizeBruteSensorManager,
+    _OptimizeSensorManager,
+)
 
-__all__ = ['SensorManager', 'RandomSensorManager', 'BruteForceSensorManager',
-           'GreedySensorManager', '_OptimizeSensorManager', 'OptimizeBruteSensorManager',
-           'OptimizeBasinHoppingSensorManager']
+__all__ = [
+    "BruteForceSensorManager",
+    "GreedySensorManager",
+    "OptimizeBasinHoppingSensorManager",
+    "OptimizeBruteSensorManager",
+    "RandomSensorManager",
+    "SensorManager",
+    "_OptimizeSensorManager",
+]

@@ -1,8 +1,8 @@
 import copy
 import datetime
 
-import pytest
 import numpy as np
+import pytest
 from scipy.stats import multivariate_normal
 
 try:
@@ -11,10 +11,6 @@ except (ImportError, AttributeError, OSError):
     # AttributeError or OSError raised when libspatialindex missing or unable to load.
     rtree = None
 
-from ..neighbour import (
-    NearestNeighbour, GlobalNearestNeighbour, GNNWith2DAssignment)
-from ..probability import PDA, JPDA
-from ..tree import DetectionKDTreeMixIn, TPRTreeMixIn
 from ...models.measurement.nonlinear import CartesianToBearingRange
 from ...predictor.particle import ParticlePredictor
 from ...types.array import CovarianceMatrix, StateVectors
@@ -22,35 +18,44 @@ from ...types.detection import Detection, MissedDetection
 from ...types.state import GaussianState, ParticleState
 from ...types.track import Track
 from ...updater.particle import ParticleUpdater
+from ..neighbour import GlobalNearestNeighbour, GNNWith2DAssignment, NearestNeighbour
+from ..probability import JPDA, PDA
+from ..tree import DetectionKDTreeMixIn, TPRTreeMixIn
 
 
 class DetectionKDTreeNN(DetectionKDTreeMixIn, NearestNeighbour):
     """DetectionKDTreeNN from NearestNeighbour and DetectionKDTreeMixIn"""
+
     pass
 
 
 class DetectionKDTreeGNN(DetectionKDTreeMixIn, GlobalNearestNeighbour):
     """DetectionKDTreeGNN from GlobalNearestNeighbour and DetectionKDTreeMixIn"""
+
     pass
 
 
 class DetectionKDTreeGNN2D(DetectionKDTreeMixIn, GNNWith2DAssignment):
     """DetectionKDTreeGNN2D from GNNWith2DAssignment and DetectionKDTreeMixIn"""
+
     pass
 
 
 class TPRTreeNN(TPRTreeMixIn, NearestNeighbour):
     """TPRTreeNN from NearestNeighbour and TPRTreeMixIn"""
+
     pass
 
 
 class TPRTreeGNN(TPRTreeMixIn, GlobalNearestNeighbour):
     """TPRTreeGNN from GlobalNearestNeighbour and TPRTreeMixIn"""
+
     pass
 
 
 class TPRTreeGNN2D(TPRTreeMixIn, GNNWith2DAssignment):
     """TPRTreeGNN2D from GNNWith2DAssignment and TPRTreeMixIn"""
+
     pass
 
 
@@ -80,44 +85,76 @@ def vel_mapping(request):
     return request.param
 
 
-@pytest.fixture(params=[
-    DetectionKDTreeNN, DetectionKDTreeGNN, DetectionKDTreeGNN2D,
-    TPRTreeNN, TPRTreeGNN, TPRTreeGNN2D])
-def nn_associator(request, distance_hypothesiser, predictor,
-                  updater, measurement_model, number_of_neighbours, vel_mapping):
-    '''Distance associator for each KD Tree'''
-    if 'KDTree' in request.param.__name__:
-        return request.param(distance_hypothesiser, predictor,
-                             updater, number_of_neighbours=number_of_neighbours)
+@pytest.fixture(
+    params=[
+        DetectionKDTreeNN,
+        DetectionKDTreeGNN,
+        DetectionKDTreeGNN2D,
+        TPRTreeNN,
+        TPRTreeGNN,
+        TPRTreeGNN2D,
+    ]
+)
+def nn_associator(
+    request,
+    distance_hypothesiser,
+    predictor,
+    updater,
+    measurement_model,
+    number_of_neighbours,
+    vel_mapping,
+):
+    """Distance associator for each KD Tree"""
+    if "KDTree" in request.param.__name__:
+        return request.param(
+            distance_hypothesiser, predictor, updater, number_of_neighbours=number_of_neighbours
+        )
     else:
         if rtree is None:
             return pytest.skip("'rtree' module not available")
-        return request.param(distance_hypothesiser, measurement_model,
-                             datetime.timedelta(hours=1), vel_mapping=vel_mapping)
+        return request.param(
+            distance_hypothesiser,
+            measurement_model,
+            datetime.timedelta(hours=1),
+            vel_mapping=vel_mapping,
+        )
 
 
 @pytest.fixture(params=[KDTreePDA, KDTreeJPDA, TPRTreePDA, TPRTreeJPDA])
-def pda_associator(request, probability_hypothesiser, predictor,
-                   updater, measurement_model, number_of_neighbours, vel_mapping):
-    if 'KDTree' in request.param.__name__:
-        return request.param(probability_hypothesiser, predictor,
-                             updater, number_of_neighbours=number_of_neighbours)
+def pda_associator(
+    request,
+    probability_hypothesiser,
+    predictor,
+    updater,
+    measurement_model,
+    number_of_neighbours,
+    vel_mapping,
+):
+    if "KDTree" in request.param.__name__:
+        return request.param(
+            probability_hypothesiser, predictor, updater, number_of_neighbours=number_of_neighbours
+        )
     else:
         if rtree is None:
             return pytest.skip("'rtree' module not available")
-        return request.param(probability_hypothesiser, measurement_model,
-                             datetime.timedelta(hours=1), vel_mapping=vel_mapping)
+        return request.param(
+            probability_hypothesiser,
+            measurement_model,
+            datetime.timedelta(hours=1),
+            vel_mapping=vel_mapping,
+        )
 
 
 @pytest.fixture(params=[DetectionKDTreeGNN2D])
-def probability_associator(request, probability_hypothesiser, predictor,
-                           updater, measurement_model):
-    '''Probability associator for each KD Tree'''
+def probability_associator(
+    request, probability_hypothesiser, predictor, updater, measurement_model
+):
+    """Probability associator for each KD Tree"""
     return request.param(probability_hypothesiser, predictor, updater)
 
 
 def test_nearest_neighbour(nn_associator):
-    '''Test method for nearest neighbour and KD tree'''
+    """Test method for nearest neighbour and KD tree"""
     timestamp = datetime.datetime.now()
     t1 = Track([GaussianState(np.array([[0, 0, 0, 0]]), np.diag([1, 0.1, 1, 0.1]), timestamp)])
     t2 = Track([GaussianState(np.array([[3, 0, 3, 0]]), np.diag([1, 0.1, 1, 0.1]), timestamp)])
@@ -133,11 +170,11 @@ def test_nearest_neighbour(nn_associator):
     assert len(associations) == 2
 
     # Each track should associate with a unique detection
-    associated_measurements = [hypothesis.measurement
-                               for hypothesis in associations.values()
-                               if hypothesis.measurement]
+    associated_measurements = [
+        hypothesis.measurement for hypothesis in associations.values() if hypothesis.measurement
+    ]
     assert len(associated_measurements) == len(set(associated_measurements))
-    if getattr(nn_associator, 'number_of_neighbours', None) is not None:
+    if getattr(nn_associator, "number_of_neighbours", None) is not None:
         assert len(associated_measurements) <= nn_associator.number_of_neighbours
 
     tracks = {}
@@ -153,9 +190,13 @@ def test_nearest_neighbour(nn_associator):
 
 @pytest.mark.skipif(rtree is None, reason="'rtree' module not available")
 def test_tpr_tree_management(distance_hypothesiser, measurement_model, vel_mapping, updater):
-    '''Test method for TPR insert, delete and update'''
-    nn_associator = TPRTreeNN(distance_hypothesiser, measurement_model,
-                              datetime.timedelta(hours=1), vel_mapping=vel_mapping)
+    """Test method for TPR insert, delete and update"""
+    nn_associator = TPRTreeNN(
+        distance_hypothesiser,
+        measurement_model,
+        datetime.timedelta(hours=1),
+        vel_mapping=vel_mapping,
+    )
     timestamp = datetime.datetime.now()
 
     t1 = Track([GaussianState(np.array([[0, 0, 0, 0]]), np.diag([1, 0.1, 1, 0.1]), timestamp)])
@@ -174,11 +215,11 @@ def test_tpr_tree_management(distance_hypothesiser, measurement_model, vel_mappi
     assert len(associations) == 2
 
     # Each track should associate with a unique detection
-    associated_measurements = [hypothesis.measurement
-                               for hypothesis in associations.values()
-                               if hypothesis.measurement]
+    associated_measurements = [
+        hypothesis.measurement for hypothesis in associations.values() if hypothesis.measurement
+    ]
     assert len(associated_measurements) == len(set(associated_measurements))
-    if getattr(nn_associator, 'number_of_neighbours', None) is not None:
+    if getattr(nn_associator, "number_of_neighbours", None) is not None:
         assert len(associated_measurements) <= nn_associator.number_of_neighbours
 
     for track, hypothesis in associations.items():
@@ -207,14 +248,19 @@ def test_tpr_tree_management(distance_hypothesiser, measurement_model, vel_mappi
 
 @pytest.mark.skipif(rtree is None, reason="'rtree' module not available")
 def test_tpr_tree_measurement_models(
-        distance_hypothesiser, measurement_model, vel_mapping, updater):
-    '''Test method for TPR insert, delete and update using non linear measurement model'''
+    distance_hypothesiser, measurement_model, vel_mapping, updater
+):
+    """Test method for TPR insert, delete and update using non linear measurement model"""
     timestamp = datetime.datetime.now()
     measurement_model_nl = CartesianToBearingRange(
-        ndim_state=4, mapping=[0, 2],
-        noise_covar=CovarianceMatrix(np.diag([np.pi/180.0, 1])))
-    nn_associator = TPRTreeNN(distance_hypothesiser, measurement_model,
-                              datetime.timedelta(hours=1), vel_mapping=vel_mapping)
+        ndim_state=4, mapping=[0, 2], noise_covar=CovarianceMatrix(np.diag([np.pi / 180.0, 1]))
+    )
+    nn_associator = TPRTreeNN(
+        distance_hypothesiser,
+        measurement_model,
+        datetime.timedelta(hours=1),
+        vel_mapping=vel_mapping,
+    )
 
     t1 = Track([GaussianState(np.array([[0, 0, 0, 0]]), np.diag([1, 0.1, 1, 0.1]), timestamp)])
     t2 = Track([GaussianState(np.array([[3, 0, 3, 0]]), np.diag([1, 0.1, 1, 0.1]), timestamp)])
@@ -232,16 +278,16 @@ def test_tpr_tree_measurement_models(
     assert len(associations) == 2
 
     # Each track should associate with a unique detection
-    associated_measurements = [hypothesis.measurement
-                               for hypothesis in associations.values()
-                               if hypothesis.measurement]
+    associated_measurements = [
+        hypothesis.measurement for hypothesis in associations.values() if hypothesis.measurement
+    ]
     assert len(associated_measurements) == len(set(associated_measurements))
-    if getattr(nn_associator, 'number_of_neighbours', None) is not None:
+    if getattr(nn_associator, "number_of_neighbours", None) is not None:
         assert len(associated_measurements) <= nn_associator.number_of_neighbours
 
 
 def test_missed_detection_nearest_neighbour(nn_associator):
-    '''Test method for nearest neighbour and KD tree'''
+    """Test method for nearest neighbour and KD tree"""
     timestamp = datetime.datetime.now()
     t1 = Track([GaussianState(np.array([[0, 0, 0, 0]]), np.diag([1, 0.1, 1, 0.1]), timestamp)])
     t2 = Track([GaussianState(np.array([[3, 0, 3, 0]]), np.diag([1, 0.1, 1, 0.1]), timestamp)])
@@ -254,12 +300,11 @@ def test_missed_detection_nearest_neighbour(nn_associator):
     associations = nn_associator.associate(tracks, detections, timestamp)
 
     # Best hypothesis should be missed detection hypothesis
-    assert all(not hypothesis.measurement
-               for hypothesis in associations.values())
+    assert all(not hypothesis.measurement for hypothesis in associations.values())
 
 
 def test_probability_gnn(probability_associator):
-    '''Test method for global nearest neighbour and KD tree'''
+    """Test method for global nearest neighbour and KD tree"""
     timestamp = datetime.datetime.now()
     t1 = Track([GaussianState(np.array([[0, 0, 0, 0]]), np.diag([1, 0.1, 1, 0.1]), timestamp)])
     t2 = Track([GaussianState(np.array([[3, 0, 3, 0]]), np.diag([1, 0.1, 1, 0.1]), timestamp)])
@@ -269,18 +314,17 @@ def test_probability_gnn(probability_associator):
     tracks = {t1, t2}
     detections = {d1, d2}
 
-    associations = probability_associator.associate(
-        tracks, detections, timestamp)
+    associations = probability_associator.associate(tracks, detections, timestamp)
 
     # There should be 2 associations
     assert len(associations) == 2
 
     # Each track should associate with a unique detection
-    associated_measurements = [hypothesis.measurement
-                               for hypothesis in associations.values()
-                               if hypothesis.measurement]
+    associated_measurements = [
+        hypothesis.measurement for hypothesis in associations.values() if hypothesis.measurement
+    ]
     assert len(associated_measurements) == len(set(associated_measurements))
-    if getattr(probability_associator, 'number_of_neighbours', None) is not None:
+    if getattr(probability_associator, "number_of_neighbours", None) is not None:
         assert len(associated_measurements) <= nn_associator.number_of_neighbours
 
 
@@ -301,15 +345,11 @@ def test_probability(pda_associator):
     assert len(associations) == 2
 
     # verify association probabilities are correct
-    prob_t1_d1_association = [hyp.probability for hyp in associations[t1]
-                              if hyp.measurement is d1]
-    prob_t1_d2_association = [hyp.probability for hyp in associations[t1]
-                              if hyp.measurement is d2]
-    prob_t2_d1_association = [hyp.probability for hyp in associations[t2]
-                              if hyp.measurement is d1]
-    prob_t2_d2_association = [hyp.probability for hyp in associations[t2]
-                              if hyp.measurement is d2]
-    number_of_neighbours = getattr(pda_associator, 'number_of_neighbours', None)
+    prob_t1_d1_association = [hyp.probability for hyp in associations[t1] if hyp.measurement is d1]
+    prob_t1_d2_association = [hyp.probability for hyp in associations[t1] if hyp.measurement is d2]
+    prob_t2_d1_association = [hyp.probability for hyp in associations[t2] if hyp.measurement is d1]
+    prob_t2_d2_association = [hyp.probability for hyp in associations[t2] if hyp.measurement is d2]
+    number_of_neighbours = getattr(pda_associator, "number_of_neighbours", None)
     if number_of_neighbours is None or number_of_neighbours > 1:
         assert prob_t1_d1_association[0] > prob_t1_d2_association[0]
         assert prob_t2_d1_association[0] < prob_t2_d2_association[0]
@@ -337,11 +377,19 @@ def test_missed_detection_probability(pda_associator):
     max_track2_prob = max([hyp.probability for hyp in associations[t1]])
 
     track1_missed_detect_prob = max(
-        [hyp.probability for hyp in associations[t1]
-         if isinstance(hyp.measurement, MissedDetection)])
+        [
+            hyp.probability
+            for hyp in associations[t1]
+            if isinstance(hyp.measurement, MissedDetection)
+        ]
+    )
     track2_missed_detect_prob = max(
-        [hyp.probability for hyp in associations[t1]
-         if isinstance(hyp.measurement, MissedDetection)])
+        [
+            hyp.probability
+            for hyp in associations[t1]
+            if isinstance(hyp.measurement, MissedDetection)
+        ]
+    )
 
     assert max_track1_prob == track1_missed_detect_prob
     assert max_track2_prob == track2_missed_detect_prob
@@ -359,9 +407,11 @@ def test_no_detections_probability(pda_associator):
     associations = pda_associator.associate(tracks, detections, timestamp)
 
     # All hypotheses should be missed detection hypothesis
-    assert all(isinstance(hypothesis.measurement, MissedDetection)
-               for multihyp in associations.values()
-               for hypothesis in multihyp)
+    assert all(
+        isinstance(hypothesis.measurement, MissedDetection)
+        for multihyp in associations.values()
+        for hypothesis in multihyp
+    )
 
 
 def test_no_tracks_probability(pda_associator):
@@ -381,12 +431,8 @@ def test_no_tracks_probability(pda_associator):
 
 def test_particle_tree(nn_associator):
     timestamp = datetime.datetime.now()
-    p1 = multivariate_normal.rvs(np.array([0, 0, 0, 0]),
-                                 np.diag([1, 0.1, 1, 0.1]),
-                                 size=200)
-    p2 = multivariate_normal.rvs(np.array([3, 0, 3, 0]),
-                                 np.diag([1, 0.1, 1, 0.1]),
-                                 size=200)
+    p1 = multivariate_normal.rvs(np.array([0, 0, 0, 0]), np.diag([1, 0.1, 1, 0.1]), size=200)
+    p2 = multivariate_normal.rvs(np.array([3, 0, 3, 0]), np.diag([1, 0.1, 1, 0.1]), size=200)
     t1 = Track([ParticleState(StateVectors(p1.T), timestamp, np.full(200, 1 / 200))])
     t2 = Track([ParticleState(StateVectors(p2.T), timestamp, np.full(200, 1 / 200))])
     d1 = Detection(np.array([[2, 2]]), timestamp)
@@ -397,9 +443,11 @@ def test_particle_tree(nn_associator):
 
     # Switch predictor/updater to Particle ones.
     nn_associator.hypothesiser.predictor = ParticlePredictor(
-        nn_associator.hypothesiser.predictor.transition_model)
+        nn_associator.hypothesiser.predictor.transition_model
+    )
     nn_associator.hypothesiser.updater = ParticleUpdater(
-        nn_associator.hypothesiser.updater.measurement_model)
+        nn_associator.hypothesiser.updater.measurement_model
+    )
     if isinstance(nn_associator, DetectionKDTreeMixIn):
         nn_associator.predictor = nn_associator.hypothesiser.predictor
         nn_associator.updater = nn_associator.hypothesiser.updater
@@ -409,11 +457,11 @@ def test_particle_tree(nn_associator):
     assert len(associations) == 2
 
     # Each track should associate with a unique detection
-    associated_measurements = [hypothesis.measurement
-                               for hypothesis in associations.values()
-                               if hypothesis.measurement]
+    associated_measurements = [
+        hypothesis.measurement for hypothesis in associations.values() if hypothesis.measurement
+    ]
     assert len(associated_measurements) == len(set(associated_measurements))
-    if getattr(nn_associator, 'number_of_neighbours', None) is not None:
+    if getattr(nn_associator, "number_of_neighbours", None) is not None:
         assert len(associated_measurements) <= nn_associator.number_of_neighbours
 
     tracks = {}
@@ -452,5 +500,6 @@ def test_kd_tree_measurement_models(distance_hypothesiser, predictor, updater, m
     d2.measurement_model = measurement_model  # Model mismatch from d1
 
     with pytest.raises(
-            RuntimeError, match="KDTree requires all detections have same measurement model"):
+        RuntimeError, match="KDTree requires all detections have same measurement model"
+    ):
         nn_associator.associate(tracks, detections, timestamp)
