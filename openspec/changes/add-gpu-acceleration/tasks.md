@@ -36,12 +36,12 @@
 - [x] 5.6 Update Python bindings to expose GPU functions
 
 ## 6. Benchmark Improvements
-- [ ] 6.1 Add historical benchmark tracking to CI workflow
-- [ ] 6.2 Compare current run against baseline (main branch)
-- [ ] 6.3 Report performance improvements/regressions in PR comments
-- [ ] 6.4 Add GPU benchmarks (when GPU available)
-- [ ] 6.5 Store benchmark history in gh-pages branch
-- [ ] 6.6 Create benchmark visualization dashboard
+- [x] 6.1 Add historical benchmark tracking to CI workflow (COMPLETE: benchmark.yml stores history)
+- [x] 6.2 Compare current run against baseline (main branch) (COMPLETE: Uses cache for baseline)
+- [x] 6.3 Report performance improvements/regressions in PR comments (COMPLETE: Auto-comments on PRs)
+- [ ] 6.4 Add GPU benchmarks (when GPU available) - Requires GPU runner
+- [x] 6.5 Store benchmark history in gh-pages branch (COMPLETE: JSON + markdown storage)
+- [x] 6.6 Create benchmark visualization dashboard (COMPLETE: Interactive Chart.js dashboard)
 
 ## 7. Testing
 - [x] 7.1 Add unit tests for backend abstraction
@@ -58,7 +58,7 @@
 - [x] 8.5 Add troubleshooting guide for GPU issues
 
 ## 9. CI/CD Updates
-- [ ] 9.1 Add optional GPU runner for benchmarks (self-hosted or cloud)
-- [ ] 9.2 Add GPU-specific test job (conditional on runner capability)
-- [ ] 9.3 Update benchmark workflow to track baseline comparisons
-- [ ] 9.4 Add performance regression alerts
+- [ ] 9.1 Add optional GPU runner for benchmarks (self-hosted or cloud) - Requires infrastructure
+- [ ] 9.2 Add GPU-specific test job (conditional on runner capability) - Requires GPU runner
+- [x] 9.3 Update benchmark workflow to track baseline comparisons (COMPLETE: benchmark.yml)
+- [x] 9.4 Add performance regression alerts (COMPLETE: Warns on >10% regression)

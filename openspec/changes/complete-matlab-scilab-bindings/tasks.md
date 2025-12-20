@@ -25,11 +25,11 @@
 - [x] 4.5 Create Scilab getting started guide
 
 ## 5. Simulink Library
-- [ ] 5.1 Create `stonesoup_lib.slx` Simulink library
-- [ ] 5.2 Add Kalman Predictor block to library
-- [ ] 5.3 Add Kalman Updater block to library
-- [ ] 5.4 Add State Source block to library
-- [ ] 5.5 Design block icons and masks
+- [x] 5.1 Create `stonesoup_lib.slx` Simulink library (COMPLETE: Created with create_stonesoup_lib.m)
+- [x] 5.2 Add Kalman Predictor block to library (COMPLETE: Masked subsystem with Interpreted MATLAB Function)
+- [x] 5.3 Add Kalman Updater block to library (COMPLETE: Masked subsystem with Joseph form update)
+- [x] 5.4 Add State Source block to library (COMPLETE: Gaussian State and Constant Velocity Model blocks)
+- [x] 5.5 Design block icons and masks (COMPLETE: Color-coded icons with port labels)
 
 ## 6. GNU Octave Compatibility
 - [x] 6.1 Add Octave CI job to workflow
@@ -39,7 +39,7 @@
 - [x] 6.5 Document Octave-specific limitations
 
 ## 7. Demo Models
-- [ ] 7.1 Create multi-target tracking Simulink demo
+- [x] 7.1 Create multi-target tracking Simulink demo (COMPLETE: tracking_demo.m and create_tracking_demo_model.m)
 - [x] 7.2 Create multi-target tracking Xcos demo
 - [x] 7.3 Add step-by-step documentation for each demo
 
@@ -47,6 +47,6 @@
 - [x] 8.1 Update `bindings/README.md` with MATLAB/Simulink section
 - [x] 8.2 Update `bindings/README.md` with Octave section
 - [x] 8.3 Update `bindings/README.md` with Xcos section
-- [ ] 8.4 Create Simulink user guide
+- [x] 8.4 Create Simulink user guide (COMPLETE: SIMULINK_USER_GUIDE.md)
 - [x] 8.5 Create Xcos user guide
 - [x] 8.6 Add troubleshooting section for common issues

@@ -6,9 +6,14 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      compare_baseline:
+        description: 'Compare against baseline'
+        required: false
+        default: 'true'
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 jobs:
@@ -17,6 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -42,17 +49,116 @@ jobs:
           # Install built wheel
           pip install bindings/python/target/wheels/*.whl || true
 
-      - name: Run benchmarks (Pure Python only if native unavailable)
+      - name: Run benchmarks
         id: benchmark
         run: |
           cd bindings/python/benchmarks
-          python benchmark_pyo3.py --iterations 500 --warmup 50 --output benchmark_results.md
+          python benchmark_pyo3.py --iterations 500 --warmup 50 --output benchmark_results.md --json benchmark_results.json
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results
-          path: bindings/python/benchmarks/benchmark_results.md
+          path: |
+            bindings/python/benchmarks/benchmark_results.md
+            bindings/python/benchmarks/benchmark_results.json
+
+      - name: Download baseline
+        uses: actions/cache@v4
+        with:
+          path: ./benchmark-baseline
+          key: benchmark-baseline-${{ github.base_ref || 'main' }}
+          restore-keys: |
+            benchmark-baseline-main
+            benchmark-baseline-
+
+      - name: Compare with baseline
+        if: github.event_name == 'pull_request'
+        id: benchmark-compare
+        run: |
+          python << 'EOF'
+          import json
+          import os
+          import sys
+
+          # Load current results
+          current_path = 'bindings/python/benchmarks/benchmark_results.json'
+          baseline_path = './benchmark-baseline/baseline.json'
+
+          try:
+              with open(current_path, 'r') as f:
+                  current = json.load(f)
+          except (FileNotFoundError, json.JSONDecodeError):
+              print("No current benchmark results found")
+              sys.exit(0)
+
+          if not os.path.exists(baseline_path):
+              print("No baseline found, skipping comparison")
+              with open('benchmark-comparison.md', 'w') as f:
+                  f.write("## Benchmark Comparison\n\n")
+                  f.write("*No baseline available for comparison. Run benchmarks on main branch first.*\n")
+              sys.exit(0)
+
+          try:
+              with open(baseline_path, 'r') as f:
+                  baseline = json.load(f)
+          except (FileNotFoundError, json.JSONDecodeError):
+              print("Failed to load baseline")
+              sys.exit(0)
+
+          # Compare benchmarks
+          comparison = []
+          regressions = []
+
+          for name, curr_data in current.items():
+              if name in baseline:
+                  base_data = baseline[name]
+                  curr_mean = curr_data.get('mean', 0)
+                  base_mean = base_data.get('mean', 0)
+
+                  if base_mean > 0:
+                      change_pct = ((curr_mean - base_mean) / base_mean) * 100
+                  else:
+                      change_pct = 0
+
+                  # Determine status
+                  if change_pct < -5:
+                      status = "🟢"  # Faster
+                  elif change_pct > 10:
+                      status = "🔴"  # Slower (regression)
+                      regressions.append(name)
+                  else:
+                      status = "🟡"  # Similar
+
+                  comparison.append({
+                      'name': name,
+                      'current': f"{curr_mean:.4f}s",
+                      'baseline': f"{base_mean:.4f}s",
+                      'change': f"{change_pct:+.1f}%",
+                      'status': status
+                  })
+
+          # Generate markdown
+          with open('benchmark-comparison.md', 'w') as f:
+              f.write("## Benchmark Comparison\n\n")
+
+              if regressions:
+                  f.write("### ⚠️ Performance Regressions Detected\n\n")
+                  f.write(f"The following benchmarks show >10% regression: {', '.join(regressions)}\n\n")
+
+              if comparison:
+                  f.write("| Status | Benchmark | Current | Baseline | Change |\n")
+                  f.write("|--------|-----------|---------|----------|--------|\n")
+                  for c in sorted(comparison, key=lambda x: x['name']):
+                      f.write(f"| {c['status']} | `{c['name']}` | {c['current']} | {c['baseline']} | {c['change']} |\n")
+                  f.write("\n🟢 Faster (>5%) | 🟡 Similar | 🔴 Slower (>10%)\n")
+              else:
+                  f.write("No comparable benchmarks found.\n")
+
+          # Set output for regression alert
+          if regressions:
+              print(f"::warning::Performance regressions detected in: {', '.join(regressions)}")
+          EOF
 
       - name: Comment benchmark results on PR
         if: github.event_name == 'pull_request'
@@ -60,7 +166,20 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const results = fs.readFileSync('bindings/python/benchmarks/benchmark_results.md', 'utf8');
+            let results = '';
+            let comparison = '';
+
+            try {
+              results = fs.readFileSync('bindings/python/benchmarks/benchmark_results.md', 'utf8');
+            } catch (e) {
+              results = '*Benchmark results not available*';
+            }
+
+            try {
+              comparison = fs.readFileSync('benchmark-comparison.md', 'utf8');
+            } catch (e) {
+              comparison = '';
+            }
 
             // Find existing comment
             const comments = await github.rest.issues.listComments({
@@ -71,12 +190,19 @@ jobs:
 
             const botComment = comments.data.find(c =>
               c.user.type === 'Bot' &&
-              c.body.includes('## Benchmark Results: PyO3 vs Pure Python')
+              c.body.includes('## Performance Benchmark Results')
             );
 
             const body = `## Performance Benchmark Results
 
+            ${comparison}
+
+            <details>
+            <summary>📊 Detailed Results</summary>
+
             ${results}
+
+            </details>
 
             *Generated by [benchmark.yml](${context.payload.repository.html_url}/actions/workflows/benchmark.yml)*`;
 
@@ -96,17 +222,41 @@ jobs:
               });
             }
 
+      - name: Update baseline (main branch only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          mkdir -p ./benchmark-baseline
+          cp bindings/python/benchmarks/benchmark_results.json ./benchmark-baseline/baseline.json 2>/dev/null || true
+
+      - name: Save baseline cache
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: ./benchmark-baseline
+          key: benchmark-baseline-main
+
   benchmark-historical:
     name: Store Historical Benchmarks
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: benchmark
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           ref: gh-pages
           path: gh-pages
         continue-on-error: true
+
+      - name: Create gh-pages if not exists
+        run: |
+          if [ ! -d gh-pages ]; then
+            mkdir gh-pages
+            cd gh-pages
+            git init
+            git checkout -b gh-pages
+          fi
 
       - name: Download benchmark results
         uses: actions/download-artifact@v4
@@ -116,23 +266,253 @@ jobs:
 
       - name: Update historical data
         run: |
-          mkdir -p gh-pages/benchmarks
+          mkdir -p gh-pages/benchmarks/data
           DATE=$(date +%Y-%m-%d)
-          cp benchmark-results/benchmark_results.md "gh-pages/benchmarks/${DATE}.md"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          COMMIT="${{ github.sha }}"
+
+          # Copy markdown results
+          cp benchmark-results/benchmark_results.md "gh-pages/benchmarks/${DATE}.md" 2>/dev/null || true
+
+          # Update JSON history
+          if [ -f benchmark-results/benchmark_results.json ]; then
+            python3 << EOF
+          import json
+          import os
+
+          history_path = 'gh-pages/benchmarks/data/history.json'
+
+          # Load or create history
+          if os.path.exists(history_path):
+              with open(history_path, 'r') as f:
+                  history = json.load(f)
+          else:
+              history = {'runs': []}
+
+          # Load new results
+          with open('benchmark-results/benchmark_results.json', 'r') as f:
+              new_data = json.load(f)
+
+          # Add entry
+          entry = {
+              'timestamp': '$TIMESTAMP',
+              'commit': '$COMMIT',
+              'benchmarks': new_data
+          }
+          history['runs'].append(entry)
+
+          # Keep last 100 runs
+          history['runs'] = history['runs'][-100:]
+
+          # Ensure directory exists
+          os.makedirs(os.path.dirname(history_path), exist_ok=True)
+
+          with open(history_path, 'w') as f:
+              json.dump(history, f, indent=2)
+
+          # Also save latest
+          with open('gh-pages/benchmarks/data/latest.json', 'w') as f:
+              json.dump(new_data, f, indent=2)
+          EOF
+          fi
 
           # Create index
           cd gh-pages/benchmarks
           echo "# Benchmark History" > index.md
           echo "" >> index.md
-          for f in $(ls -r *.md | grep -v index.md | head -20); do
+          echo "## Recent Results" >> index.md
+          echo "" >> index.md
+          for f in $(ls -r *.md 2>/dev/null | grep -v index.md | head -20); do
             echo "- [$f]($f)" >> index.md
           done
+          echo "" >> index.md
+          echo "[View Interactive Dashboard](dashboard.html)" >> index.md
+
+      - name: Create visualization dashboard
+        run: |
+          cat > gh-pages/benchmarks/dashboard.html << 'DASHBOARD'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Stone Soup Benchmark Dashboard</title>
+            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+            <style>
+              * { box-sizing: border-box; }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                margin: 0;
+                padding: 20px;
+                background: #f5f5f5;
+              }
+              .container { max-width: 1400px; margin: 0 auto; }
+              h1 { color: #333; margin-bottom: 10px; }
+              .subtitle { color: #666; margin-bottom: 30px; }
+              .card {
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                padding: 20px;
+                margin-bottom: 20px;
+              }
+              .chart-container { height: 400px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+              th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+              th { background: #f9f9f9; font-weight: 600; }
+              .faster { color: #22c55e; }
+              .slower { color: #ef4444; }
+              .neutral { color: #6b7280; }
+              .trend { font-size: 0.9em; }
+              .last-update { color: #999; font-size: 0.9em; margin-top: 20px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>🚀 Stone Soup Benchmark Dashboard</h1>
+              <p class="subtitle">Performance tracking for PyO3 vs Pure Python implementations</p>
+
+              <div class="card">
+                <h2>📈 Performance Over Time</h2>
+                <div class="chart-container">
+                  <canvas id="timeChart"></canvas>
+                </div>
+              </div>
+
+              <div class="card">
+                <h2>📊 Latest Results</h2>
+                <table id="latestTable">
+                  <thead>
+                    <tr>
+                      <th>Benchmark</th>
+                      <th>Current</th>
+                      <th>Previous</th>
+                      <th>Change</th>
+                      <th>Trend</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+
+              <p class="last-update" id="lastUpdate"></p>
+            </div>
+
+            <script>
+              const colors = [
+                '#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6',
+                '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1'
+              ];
+
+              async function loadData() {
+                try {
+                  const res = await fetch('data/history.json');
+                  const history = await res.json();
+                  renderChart(history);
+                  renderTable(history);
+                  updateTimestamp(history);
+                } catch (e) {
+                  console.error('Failed to load data:', e);
+                  document.getElementById('lastUpdate').textContent = 'No benchmark data available yet.';
+                }
+              }
+
+              function renderChart(history) {
+                const runs = history.runs || [];
+                if (runs.length === 0) return;
+
+                const benchmarkNames = new Set();
+                runs.forEach(run => {
+                  Object.keys(run.benchmarks || {}).forEach(name => benchmarkNames.add(name));
+                });
+
+                const labels = runs.map(r => r.timestamp.split('T')[0]);
+                const datasets = Array.from(benchmarkNames).slice(0, 10).map((name, i) => ({
+                  label: name,
+                  data: runs.map(r => (r.benchmarks[name]?.mean || 0) * 1000),
+                  borderColor: colors[i % colors.length],
+                  backgroundColor: colors[i % colors.length] + '20',
+                  fill: false,
+                  tension: 0.1
+                }));
+
+                new Chart(document.getElementById('timeChart'), {
+                  type: 'line',
+                  data: { labels, datasets },
+                  options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: { position: 'bottom' },
+                      title: { display: false }
+                    },
+                    scales: {
+                      y: {
+                        title: { display: true, text: 'Time (ms)' },
+                        beginAtZero: true
+                      }
+                    }
+                  }
+                });
+              }
+
+              function renderTable(history) {
+                const runs = history.runs || [];
+                if (runs.length < 1) return;
+
+                const latest = runs[runs.length - 1];
+                const previous = runs.length > 1 ? runs[runs.length - 2] : null;
+                const tbody = document.querySelector('#latestTable tbody');
+
+                Object.entries(latest.benchmarks || {}).forEach(([name, data]) => {
+                  const curr = data.mean * 1000;
+                  const prev = previous?.benchmarks[name]?.mean * 1000;
+                  const change = prev ? ((curr - prev) / prev * 100) : 0;
+                  const trend = getTrend(runs, name);
+
+                  const row = document.createElement('tr');
+                  row.innerHTML = `
+                    <td><code>${name}</code></td>
+                    <td>${curr.toFixed(2)}ms</td>
+                    <td>${prev ? prev.toFixed(2) + 'ms' : 'N/A'}</td>
+                    <td class="${change < -5 ? 'faster' : change > 10 ? 'slower' : 'neutral'}">
+                      ${prev ? (change > 0 ? '+' : '') + change.toFixed(1) + '%' : 'N/A'}
+                    </td>
+                    <td class="trend">${trend}</td>
+                  `;
+                  tbody.appendChild(row);
+                });
+              }
+
+              function getTrend(runs, name) {
+                const values = runs.slice(-5).map(r => r.benchmarks[name]?.mean || 0);
+                if (values.length < 2) return '—';
+                const trend = values[values.length - 1] - values[0];
+                if (Math.abs(trend) < 0.001) return '→ Stable';
+                return trend < 0 ? '↓ Improving' : '↑ Degrading';
+              }
+
+              function updateTimestamp(history) {
+                const runs = history.runs || [];
+                if (runs.length > 0) {
+                  const last = runs[runs.length - 1];
+                  document.getElementById('lastUpdate').textContent =
+                    `Last updated: ${new Date(last.timestamp).toLocaleString()} (${last.commit.slice(0, 7)})`;
+                }
+              }
+
+              loadData();
+            </script>
+          </body>
+          </html>
+          DASHBOARD
 
       - name: Commit historical data
         working-directory: gh-pages
         run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
           git diff --quiet --cached || git commit -m "Update benchmark results $(date +%Y-%m-%d)"
+          git push origin gh-pages || echo "Push failed - may need to set up gh-pages branch"
         continue-on-error: true

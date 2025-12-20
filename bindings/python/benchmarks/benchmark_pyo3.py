@@ -451,6 +451,20 @@ def format_results_markdown(results: list[BenchmarkResult]) -> str:
     return "\n".join(lines)
 
 
+def format_results_json(results: list[BenchmarkResult]) -> dict:
+    """Format results as a JSON-serializable dictionary"""
+
+    output = {}
+    for r in results:
+        output[r.name] = {
+            "mean": r.pure_python_ms / 1000,  # Convert to seconds
+            "native_mean": r.native_ms / 1000 if r.native_ms else None,
+            "speedup": r.speedup,
+            "iterations": r.iterations,
+        }
+    return output
+
+
 def main():
     parser = argparse.ArgumentParser(description="Benchmark PyO3 vs Pure Python")
     parser.add_argument(
@@ -464,7 +478,10 @@ def main():
         "--warmup", "-w", type=int, default=100, help="Number of warmup iterations (default: 100)"
     )
     parser.add_argument(
-        "--output", "-o", type=str, default=None, help="Output file for results (default: stdout)"
+        "--output", "-o", type=str, default=None, help="Output file for markdown results"
+    )
+    parser.add_argument(
+        "--json", "-j", type=str, default=None, help="Output file for JSON results"
     )
 
     args = parser.parse_args()
@@ -492,7 +509,15 @@ def main():
         from pathlib import Path
 
         Path(args.output).write_text(output)
-        print(f"\nResults saved to: {args.output}")
+        print(f"\nMarkdown results saved to: {args.output}")
+
+    if args.json:
+        import json
+        from pathlib import Path
+
+        json_output = format_results_json(results)
+        Path(args.json).write_text(json.dumps(json_output, indent=2))
+        print(f"JSON results saved to: {args.json}")
 
 
 if __name__ == "__main__":
