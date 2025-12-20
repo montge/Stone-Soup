@@ -37,7 +37,7 @@ jobs:
           sudo apt-get install -y clang llvm cmake
 
       - name: Restore corpus cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: libstonesoup/build/corpus
           key: fuzz-corpus-c-${{ github.sha }}
@@ -92,7 +92,7 @@ jobs:
           retention-days: 30
 
       - name: Save corpus cache
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         if: always()
         with:
           path: libstonesoup/build/corpus
@@ -113,7 +113,7 @@ jobs:
         run: cargo install cargo-fuzz
 
       - name: Restore corpus cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: bindings/rust/fuzz/corpus
           key: fuzz-corpus-rust-${{ github.sha }}
@@ -178,7 +178,7 @@ jobs:
 
       - name: Save corpus cache
         if: steps.fuzz-check.outputs.has_fuzz == 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: bindings/rust/fuzz/corpus
           key: fuzz-corpus-rust-${{ github.sha }}
