@@ -371,7 +371,7 @@ jobs:
           echo "| Maven Central | ${{ needs.publish-maven.result }} |" >> status.md
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/*
