@@ -26,6 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      semver_version: ${{ steps.version.outputs.semver_version }}
       date: ${{ steps.version.outputs.date }}
     steps:
       - uses: actions/checkout@v4
@@ -36,12 +37,22 @@ jobs:
         id: version
         run: |
           DATE=$(date +%Y%m%d)
-          # Get base version from pyproject.toml or default
-          BASE_VERSION=$(grep -oP 'version\s*=\s*"\K[^"]+' pyproject.toml 2>/dev/null || echo "0.1.0")
+          # Get base version - prefer explicit version, otherwise use setuptools_scm pattern
+          # Note: pyproject.toml may use dynamic versioning, so we fall back to a base version
+          if grep -q '^version = "[0-9]' pyproject.toml 2>/dev/null; then
+            BASE_VERSION=$(grep -oP '^version\s*=\s*"\K[0-9][^"]+' pyproject.toml | head -1)
+          else
+            # Use default semver base version for nightly builds
+            BASE_VERSION="0.1.0"
+          fi
           VERSION="${BASE_VERSION}.dev${DATE}"
+          # For Rust/npm, we need a semver-compatible version
+          SEMVER_VERSION="${BASE_VERSION}-dev.${DATE}"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "semver_version=${SEMVER_VERSION}" >> $GITHUB_OUTPUT
           echo "date=${DATE}" >> $GITHUB_OUTPUT
           echo "Nightly version: ${VERSION}"
+          echo "Semver version: ${SEMVER_VERSION}"
 
   # Run full test suite
   test:
@@ -137,7 +148,8 @@ jobs:
       - name: Update Cargo.toml version
         run: |
           cd bindings/rust
-          sed -i 's/^version = "[^"]*"/version = "${{ needs.version.outputs.version }}"/' Cargo.toml
+          # Use semver-compatible version for Rust
+          sed -i 's/^version = "[^"]*"/version = "${{ needs.version.outputs.semver_version }}"/' Cargo.toml
 
       - name: Build Rust crate
         run: |
@@ -295,7 +307,8 @@ jobs:
       - name: Update Cargo.toml version
         run: |
           cd bindings/rust
-          sed -i 's/^version = "[^"]*"/version = "${{ needs.version.outputs.version }}"/' Cargo.toml
+          # Use semver-compatible version for Rust
+          sed -i 's/^version = "[^"]*"/version = "${{ needs.version.outputs.semver_version }}"/' Cargo.toml
 
       - name: Publish to crates.io
         run: |
