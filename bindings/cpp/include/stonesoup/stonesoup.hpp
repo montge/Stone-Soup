@@ -349,6 +349,11 @@ public:
     [[nodiscard]] std::size_t cols() const noexcept { return ptr_ ? ptr_->cols : 0; }
 
     /**
+     * @brief Get dimension (for square matrices, returns rows)
+     */
+    [[nodiscard]] std::size_t dim() const noexcept { return rows(); }
+
+    /**
      * @brief Element access (row, col)
      */
     [[nodiscard]] double& operator()(std::size_t row, std::size_t col) {

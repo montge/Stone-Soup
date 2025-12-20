@@ -172,6 +172,7 @@ def test_dimension_inlist():  # ensure dimension type is in predefined enum list
         Plotter(dimension=Dimension.TESTERROR)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Tkinter not reliably available on Windows CI")
 def test_particle_3d():  # warning should arise if particle is attempted in 3d mode
     plotter3 = Plotter(dimension=Dimension.THREE)
 
@@ -531,6 +532,7 @@ def test_plotters_plot_measurements_count_no_clutter(
         assert actual_plot_truths_length == expected_plot_truths_length
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Tkinter not reliably available on Windows CI")
 @pytest.mark.parametrize(
     "_measurements, _show_clutter, expected_plot_truths_length, expected_plot_clutter_length",
     [
