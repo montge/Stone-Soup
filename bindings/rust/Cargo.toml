@@ -17,7 +17,7 @@ crate-type = ["lib", "staticlib", "cdylib"]
 [dependencies]
 libc = "0.2"
 nalgebra = "0.34"
-thiserror = "1.0"
+thiserror = "2.0"
 
 [dev-dependencies]
 approx = "0.5"
