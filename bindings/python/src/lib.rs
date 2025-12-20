@@ -27,7 +27,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(kalman_update, m)?)?;
 
     // Add GPU submodule
-    let gpu = PyModule::new_bound(m.py(), "gpu")?;
+    let gpu = PyModule::new(m.py(), "gpu")?;
     gpu.add_function(wrap_pyfunction!(gpu_is_available, &gpu)?)?;
     gpu.add_function(wrap_pyfunction!(gpu_device_count, &gpu)?)?;
     gpu.add_function(wrap_pyfunction!(gpu_device_name, &gpu)?)?;
@@ -103,7 +103,7 @@ impl StateVector {
 
     /// Convert to numpy array
     fn to_numpy<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
-        self.data.clone().into_pyarray_bound(py)
+        self.data.clone().into_pyarray(py)
     }
 
     /// Get the dimension of the state vector
@@ -240,7 +240,7 @@ impl CovarianceMatrix {
 
     /// Convert to numpy array
     fn to_numpy<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray2<f64>> {
-        self.data.clone().into_pyarray_bound(py)
+        self.data.clone().into_pyarray(py)
     }
 
     /// Convert to 2D list
@@ -761,7 +761,7 @@ fn gpu_memory_info(py: Python<'_>, device: i32) -> PyResult<PyObject> {
         )));
     }
 
-    let dict = PyDict::new_bound(py);
+    let dict = PyDict::new(py);
     dict.set_item("total", 0_u64)?;
     dict.set_item("free", 0_u64)?;
     Ok(dict.into())
@@ -812,7 +812,7 @@ fn gpu_matrix_multiply<'py>(
         }
     }
 
-    Ok(c.into_pyarray_bound(py))
+    Ok(c.into_pyarray(py))
 }
 
 /// GPU-accelerated batch Kalman predict
@@ -861,7 +861,7 @@ fn gpu_batch_kalman_predict<'py>(
     }
 
     // Return predicted states (covariance update would be similar)
-    Ok((x_pred.into_pyarray_bound(py), py.None()))
+    Ok((x_pred.into_pyarray(py), py.None()))
 }
 
 #[cfg(test)]
