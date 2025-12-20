@@ -84,7 +84,7 @@ jobs:
 
       - name: Create PR for successful merge
         if: steps.check.outputs.has_changes == 'true' && steps.merge.outputs.merge_status == 'success'
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ steps.branch.outputs.branch_name }}
