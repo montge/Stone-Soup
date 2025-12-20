@@ -18,6 +18,14 @@ The system SHALL maintain 90% or higher overall test coverage across the codebas
 - **WHEN** PR is submitted
 - **THEN** coverage change is displayed in PR comment
 
+#### Scenario: Module-specific coverage tracking
+- **WHEN** coverage report is generated
+- **THEN** coverage for large modules (>500 lines) is individually tracked
+
+#### Scenario: Test-to-source ratio monitoring
+- **WHEN** coverage report is generated for high-priority modules
+- **THEN** test-to-source ratio is displayed to ensure adequate test depth
+
 ### Requirement: Branch Coverage Target
 The system SHALL maintain 80% or higher branch coverage for all modules.
 

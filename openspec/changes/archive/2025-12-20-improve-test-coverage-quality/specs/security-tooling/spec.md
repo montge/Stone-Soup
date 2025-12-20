@@ -1,4 +1,4 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: PRNG Security Classification
 The system SHALL distinguish between cryptographic and non-cryptographic uses of pseudo-random number generators (PRNGs).
