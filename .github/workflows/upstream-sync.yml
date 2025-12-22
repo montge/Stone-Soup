@@ -113,7 +113,7 @@ jobs:
 
       - name: Create issue for merge conflicts
         if: steps.check.outputs.has_changes == 'true' && steps.merge.outputs.merge_status == 'conflict'
-        uses: peter-evans/create-issue-from-file@v4
+        uses: peter-evans/create-issue-from-file@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           title: "⚠️ Upstream sync requires manual resolution"
